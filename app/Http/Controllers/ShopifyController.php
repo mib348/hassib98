@@ -24,7 +24,7 @@ class ShopifyController extends Controller
         Log::info("Shop {$domain}'s object:" . json_encode($shop));
         Log::info("Shop {$domain}'s API object:" . json_encode($shopApi));
 
-        return view('welcome');
+        return view('products');
     }
 
     public function getProducts(){
@@ -54,12 +54,15 @@ class ShopifyController extends Controller
                 $metafields = $metafields['container'];
             }
             $product['metafields'] = $metafields;
+            $product['b_date_product'] = false;
+            $product['b_day_product'] = false;
 
             foreach ($metafields as $metafield) {
                 if ($metafield['key'] === 'available_on') {
                     $daysAvailable = json_decode($metafield['value'], true);
                     if (in_array($filterDay, $daysAvailable)) {
                         $includeProduct = true;
+                        $product['b_day_product'] = true;
                     }
                 }
 
@@ -69,6 +72,7 @@ class ShopifyController extends Controller
                         [$date, $quantity] = explode(':', $dateQuantity);
                         if ($date === $filterDate) {
                             $includeProduct = true;
+                            $product['b_date_product'] = true;
                         }
                     }
                 }
@@ -84,6 +88,21 @@ class ShopifyController extends Controller
 
         // Assuming you want to return this as a response in a web context
         return response($json)->header('Content-Type', 'application/json');
+    }
+
+    public function getProductsQty(Request $request){
+        $shop = User::find(3);
+
+
+        $response = json_decode($request->input('response'), TRUE);
+        dd($response);
+
+        // $productsResponse = $shop->api()->rest('GET', '/admin/products/' . $product_id . '.json');
+        // $products = (array) $productsResponse['body']['products'] ?? [];
+        // $products = $products['container'];
+
+        // $json = json_encode($filteredProducts, JSON_PRETTY_PRINT);
+        // return response($json)->header('Content-Type', 'application/json');
     }
 
     public function getProductsList(){
@@ -219,5 +238,17 @@ class ShopifyController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+
+    public function getOrderCreationWebhook(Request $request){
+        Log::info('Order Creation Webhook: '. json_encode($request));
+    }
+    public function getOrderUpdateWebhook(Request $request){
+        Log::info('Order Update Webhook: '. json_encode($request));
+        dd($request);
+    }
+    public function getOrderPaymentWebhook(Request $request){
+        Log::info('Order Payment Webhook: '. json_encode($request));
+        dd($request);
     }
 }

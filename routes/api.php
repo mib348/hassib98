@@ -26,6 +26,10 @@ use Illuminate\Support\Facades\URL;
 
 // Route::get('/getProducts', [ShopifyController::class, 'getProducts'])->name('api_getProducts');
 Route::get('/getProductsJson', [ShopifyController::class, 'getProductsJson'])->name('getProductsJson');
+Route::get('/getProductsQty', [ShopifyController::class, 'getProductsQty'])->name('getProductsQty');
+Route::any('/getOrderCreationWebhook', [ShopifyController::class, 'getOrderCreationWebhook'])->name('getOrderCreationWebhook');
+Route::any('/getOrderUpdateWebhook', [ShopifyController::class, 'getOrderUpdateWebhook'])->name('getOrderUpdateWebhook');
+Route::any('/getOrderPaymentWebhook', [ShopifyController::class, 'getOrderPaymentWebhook'])->name('getOrderPaymentWebhook');
 // Route::get('/getProductsList', function(){
 //     return redirect('https://council-moms-commissioners-tip.trycloudflare.com/authenticate');
 // })->name('api_getProductsList');
