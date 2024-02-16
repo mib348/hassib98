@@ -1,0 +1,184 @@
+<?php namespace App\Jobs;
+
+use App\Models\User;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Osiset\ShopifyApp\Objects\Values\ShopDomain;
+use stdClass;
+
+class OrdersCreateJob implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    /**
+     * Shop's myshopify domain
+     *
+     * @var ShopDomain|string
+     */
+    public $shopDomain;
+
+    /**
+     * The webhook data
+     *
+     * @var object
+     */
+    public $data;
+
+    /**
+     * Create a new job instance.
+     *
+     * @param string   $shopDomain The shop's myshopify domain.
+     * @param stdClass $data       The webhook data (JSON decoded).
+     *
+     * @return void
+     */
+    public function __construct($shopDomain, $data)
+    {
+        ini_set('max_execution_time', 0);
+        $this->shopDomain = $shopDomain;
+        $this->data = $data;
+        Log::info('Constructor New Order Creation Webhook: '. json_encode($this->data));
+    }
+
+    public function fail($error){
+        Log::error('Handler New Order Creation Webhook Job Fail: '. json_encode($error));
+    }
+
+    /**
+     * Execute the job.
+     *
+     * @return void
+     */
+    public function handle()
+    {
+        try {
+            Log::info('Handler New Order Creation Webhook: '. json_encode($this->data));
+            // Convert domain
+            $this->shopDomain = ShopDomain::fromNative($this->shopDomain);
+            // Do what you wish with the data
+            // Access domain name as $this->shopDomain->toNative()
+
+            $shop = Auth::user();
+            if(!isset($shop) || !$shop)
+                $shop = User::find(env('db_shop_id', 1));
+
+            // Assuming $this->data contains order details including line items
+            $orderData = json_decode(json_encode($this->data), true);
+            $lineItems = $orderData['line_items'] ?? [];
+
+            // Process each line item in the order
+            foreach ($lineItems as $item) {
+                $productId = $item['product_id'] ?? null;
+                if ($productId) {
+                    $this->updateProductMetafieldForOrder($shop, $productId, $item);
+                }
+            }
+
+
+            mail('dL4mS@example.com', 'New Order Creation Webhook', json_encode($this->data));
+        } catch (\Throwable $th) {
+            Log::error('Handler New Order Creation Webhook Error: '. json_encode($th));
+            // throw $th;
+            abort(403, $th);
+        }
+    }
+
+    protected function updateProductMetafieldForOrder($shop, $productId, $lineItem)
+    {
+        // Define the metafield details
+        $namespace = 'custom';
+        $key = 'date_and_quantity';
+        $metafieldEndpoint = "/admin/api/2024-01/products/{$productId}/metafields.json";
+
+        // Fetch the current metafield for the product
+        $metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
+        $metafields = $metafieldsResponse['body']['metafields'] ?? [];
+
+        // Find the specific metafield we want to update
+        // $metafield = collect($metafields)->firstWhere('namespace', $namespace)->where('key', $key);
+        $metafield = null;
+        foreach ($metafieldsResponse['body']['metafields'] as $item) {
+            if ($item['namespace'] === $namespace && $item['key'] === $key) {
+                $metafield = $item;
+                break; // Stop the loop once the matching metafield is found
+            }
+        }
+
+
+        if ($metafield) {
+            // Assume the value is a list of "date:quantity" strings, e.g., "2024-02-12:5"
+            //$values = explode(',', $metafield['value']);
+            $updatedValues = $this->updateValuesBasedOnOrder($metafield['value'], $lineItem);
+			//dd($updatedValues);
+
+            // Update the metafield with the new values
+            $updateResponse = "/admin/api/2024-01/products/{$productId}/metafields/{$metafield['id']}.json";
+            $updateResponse = $shop->api()->rest('PUT', $updateResponse, [
+                'metafield' => [
+                    'id' => $metafield['id'],
+                    'value' => $updatedValues,
+                    'type' => 'list.single_line_text_field'
+                ],
+            ]);
+
+            if ($updateResponse['errors']) {
+                Log::error("Failed to update metafield: " . json_encode($updateResponse['body']));
+            } else {
+                Log::info("Metafield updated successfully for product ID {$productId}");
+            }
+        }
+    }
+
+    protected function updateValuesBasedOnOrder($values, $lineItem)
+    {
+        // Placeholder for the updated values
+        $updatedValues = [];
+
+        // Current date in the German timezone for filtering out past dates
+        $today = Carbon::now('Europe/Berlin')->startOfDay();
+		//$values = '["2024-02-15:5","2024-02-16:3","2024-02-17:5"]';
+		$values = json_decode($values, TRUE);
+		//$values = explode(',', $values);
+
+
+        foreach ($values as $value) {
+
+            // Split the value into date and quantity parts
+            list($date, $quantity) = explode(':', $value);
+
+            $dateCarbon = Carbon::createFromFormat('Y-m-d', $date, 'Europe/Berlin');
+
+            // Skip past dates
+            if ($dateCarbon < $today) {
+                continue;
+            }
+
+            // Check if the date matches the order date
+            if (isset($lineItem['properties']) && $lineItem['properties'][1]['name'] == 'date' && $date == $lineItem['properties'][1]['value']) {
+                $orderedQuantity = $lineItem['quantity'] ?? 0;
+                $newQuantity = max(0, $quantity - $orderedQuantity); // Ensure quantity doesn't go negative
+                $value = $date . ':' . $newQuantity;
+            }
+
+            // Add to updated values if quantity is more than 0
+            if ($newQuantity > 0) {
+                $updatedValues[] = $value;
+            }
+        }
+
+		//$updatedValues = implode(',', $updatedValues);
+		//dd($updatedValues);
+
+        // Return the updated list as a JSON string
+        return json_encode($updatedValues);
+    }
+
+
+
+}

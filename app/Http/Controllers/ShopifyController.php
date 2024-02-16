@@ -32,12 +32,15 @@ class ShopifyController extends Controller
     }
 
     public function getProductsJson(Request $request){
-        $shop = User::find(3);
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
 
         $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
         $products = (array) $productsResponse['body']['products'] ?? [];
         $products = $products['container'];
 
+// dd($products);
         $filteredProducts = [];
 
         $filterDay = $request->input('day');
@@ -91,7 +94,9 @@ class ShopifyController extends Controller
     }
 
     public function getProductsQty(Request $request){
-        $shop = User::find(3);
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
 
 
         $response = json_decode($request->input('response'), TRUE);
@@ -106,18 +111,25 @@ class ShopifyController extends Controller
     }
 
     public function getProductsList(){
-        $shop = User::find(3);
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
 
         // Get all products
         $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
-        $products = $productsResponse['body']['products'] ?? [];
+        $products = (array) $productsResponse['body']['products'] ?? [];
+        $products = $products['container'];
 
         $html = "";
         foreach ($products as $arr) {
             $date_qty = $days = null;
             // // Get metafields for each product
             $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$arr['id']}/metafields.json");
-            $metafields = $metafieldsResponse['body']['metafields'] ?? [];
+            $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
+
+            if(isset($metafields['container'])){
+                $metafields = $metafields['container'];
+            }
 
             foreach ($metafields as $field) {
                 if (isset($field['key']) && $field['key'] == 'date_and_quantity') {
@@ -143,15 +155,19 @@ class ShopifyController extends Controller
                 }
             }
 
-            $html .= '<tr data-id="' . $arr->id .  '">
-                            <td style="width:5%;" class="text-right">' . $arr->id . '</td>
-                            <td><img style="width:50px;height:50px;aspect-ratio:3/4;object-fit:cover;" src="' . $arr->image->src . '" />&nbsp;' . $arr->title . '</td>
+
+            $image_src = '';
+            if(isset($arr['image']['src']))
+            $image_src = $arr['image']['src'];
+
+        $html .= '<tr data-id="' . $arr['id'] .  '">
+                            <td style="width:5%;" class="text-right">' . $arr['id'] . '</td>
+                            <td><img style="width:50px;height:50px;aspect-ratio:3/4;object-fit:cover;" src="' . $image_src . '" />&nbsp;' . $arr['title'] . '</td>
                             <td style="width:15%;" class="text-center">' . $date_qty . '</td>
                             <td style="width:5%;" class="text-center">' . $days . '</td>
-                            <td style="width:5%;" class="text-center"><a href="https://admin.shopify.com/store/dc9ef9/products/' . $arr->id . '" target="_blank" class="btn btn-sm btn-info text-white">view</a></td>
-                        </tr>';
+                            <td style="width:5%;" class="text-center"><a href="https://admin.shopify.com/store/dc9ef9/products/' . $arr['id'] . '" target="_blank" class="btn btn-sm btn-info text-white">view</a></td>
+                            </tr>';
         }
-
 
         return $html;
 
@@ -159,7 +175,8 @@ class ShopifyController extends Controller
 
     public function getMetafields(){
         $shop = Auth::user();
-
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
         // Get all products
         $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
         $products = $productsResponse['body']['products'] ?? [];
@@ -250,5 +267,38 @@ class ShopifyController extends Controller
     public function getOrderPaymentWebhook(Request $request){
         Log::info('Order Payment Webhook: '. json_encode($request));
         dd($request);
+    }
+
+    public function getWebhooks(Request $request){
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+
+        // Get all products
+        $productsResponse = $shop->api()->rest('GET', '/admin/webhooks.json');
+        dd($productsResponse);
+    }
+
+    public function setWebhooks(Request $request){
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+
+        $productsResponse = $shop->api()->rest('POST', '/admin/webhooks.json', ['webhook' => ['topic' => 'orders/create', 'address' => 'https://4d9d-2a09-bac1-5b40-28-00-31-cd.ngrok-free.app/webhook/orders-create', 'format' => 'json']]);
+        // Assuming $shop is your authenticated shop instance
+        // $webhookId = '1144663244870'; // The ID of the webhook you want to delete
+        // $endpoint = "/admin/api/2024-01/webhooks/{$webhookId}.json"; // Adjust API version as necessary
+
+        // $response = $shop->api()->rest('DELETE', $endpoint);
+
+        // // Check response
+        // if ($response['errors']) {
+        //     // Handle errors
+        //     echo "Error deleting webhook: " . $response['body']['errors'];
+        // } else {
+        //     echo "Webhook deleted successfully";
+        // }
+
+        return json_encode($productsResponse);
     }
 }
