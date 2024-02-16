@@ -179,7 +179,7 @@ return [
     |
     */
 
-    'api_key' => env('SHOPIFY_API_KEY', '0a68988e122bb83cff6e33a584d15f11'),
+    'api_key' => env('SHOPIFY_API_KEY', 'f676a853ce9b47e6ee2302dc36cf6c7e'),
 
     /*
     |--------------------------------------------------------------------------
@@ -190,7 +190,7 @@ return [
     |
     */
 
-    'api_secret' => env('SHOPIFY_API_SECRET', '977b90b93cc144eb43fb7c17a2fda6ca'),
+    'api_secret' => env('SHOPIFY_API_SECRET', 'e9a6ec958663dbeb338d8299435d181a'),
 
     /*
     |--------------------------------------------------------------------------
@@ -397,6 +397,14 @@ return [
                 'class' => \App\Shopify\Actions\ExampleAppJob::class
             ],
         */
+        [
+            'topic' => env('SHOPIFY_WEBHOOK_1_TOPIC', 'ORDERS_CREATE'),
+            'address' => env('SHOPIFY_WEBHOOK_1_ADDRESS', 'https://some-app.com/webhook/orders-create')
+        ],
+        [
+            'topic' => env('SHOPIFY_WEBHOOK_2_TOPIC', 'APP_UNINSTALLED'),
+            'address' => env('SHOPIFY_WEBHOOK_2_ADDRESS', 'https://(your-domain).com/webhook/app-uninstalled')
+        ]
     ],
 
     /*
@@ -442,6 +450,10 @@ return [
                 'inline' => env('AFTER_AUTHENTICATE_JOB_INLINE', false) // False = dispatch job for later, true = dispatch immediately
             ],
         */
+        'after_authenticate_job' => [
+            'job' => \App\Jobs\AfterAuthenticateJob::class,
+            'inline' => true,
+        ],
     ],
 
     /*
