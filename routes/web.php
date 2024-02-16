@@ -27,4 +27,6 @@ Route::get('/', [ShopifyController::class, 'index'])->middleware(['verify.shopif
 Route::get('/metafields', [ShopifyController::class, 'getMetafields'])->name('metafields');
 Route::get('/products', [ShopifyController::class, 'getProducts'])->name('products');
 Route::get('/getProductsList', [ShopifyController::class, 'getProductsList'])->name('getProductsList');
+Route::get('/getWebhooks', [ShopifyController::class, 'getWebhooks'])->name('getWebhooks');
+Route::get('/setWebhooks', [ShopifyController::class, 'setWebhooks'])->name('setWebhooks');
 Route::resource('shopify', ShopifyController::class);
