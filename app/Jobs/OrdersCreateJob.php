@@ -1,6 +1,7 @@
 <?php namespace App\Jobs;
 
 use App\Models\User;
+use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -77,6 +78,7 @@ class OrdersCreateJob implements ShouldQueue
                 $productId = $item['product_id'] ?? null;
                 if ($productId) {
                     $this->updateProductMetafieldForOrder($shop, $productId, $item);
+                    $this->updateOrder($shop, $productId, $item, $orderData);
                 }
             }
 
@@ -129,8 +131,9 @@ class OrdersCreateJob implements ShouldQueue
 
             if ($updateResponse['errors']) {
                 Log::error("Failed to update metafield: " . json_encode($updateResponse['body']));
+                throw new Exception("Failed to update metafield: "  . json_encode($updateResponse['body']), 1);
             } else {
-                Log::info("Metafield updated successfully for product ID {$productId}");
+                Log::info("Metafield updated successfully for product ID {$productId}: " . json_encode($updateResponse['body']));
             }
         }
     }
@@ -177,6 +180,67 @@ class OrdersCreateJob implements ShouldQueue
 
         // Return the updated list as a JSON string
         return json_encode($updatedValues);
+    }
+
+    protected function updateOrder($shop, $productId, $lineItem, $orderData)
+    {
+        $location = null;
+        $pickUpDate = null;
+
+        foreach ($lineItem['properties'] as $property) {
+            if ($property['name'] === 'location') {
+                $location = $property['value'];
+            } elseif ($property['name'] === 'date') {
+                $pickUpDate = $property['value'];
+            }
+        }
+
+        $updatePayloadLocation = [
+			'metafield' => [
+				'namespace' => 'custom',
+				'key' => 'location',
+				'value' => $location,
+				'type' => 'single_line_text_field'
+			]
+		];
+
+		$updatePayloadPickUpDate = [
+			'metafield' => [
+				'namespace' => 'custom',
+				'key' => 'pick_up_date',
+				'value' => $pickUpDate,
+				'type' => 'date'
+			]
+		];
+
+
+
+        $orderId = $orderData['id'];
+        $responseLocation = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderId}/metafields.json", $updatePayloadLocation);
+
+		// Update pick-up date metafield
+		$responsePickUpDate = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderId}/metafields.json", $updatePayloadPickUpDate);
+
+
+
+        if (!$responseLocation['errors']) {
+            Log::info($orderData['order_number'] . ' Order metafields updated successfully: ' . json_encode($updatePayloadLocation));
+        } else {
+            // Handle errors
+            Log::error($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responseLocation['body']));
+
+			throw new Exception($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responseLocation['body']), 1);
+        }
+
+		if (!$responsePickUpDate['errors']) {
+            Log::info($orderData['order_number'] . ' Order metafields updated successfully: ' . json_encode($updatePayloadPickUpDate));
+        } else {
+            // Handle errors
+            Log::error($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responsePickUpDate['body']));
+
+			throw new Exception($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responsePickUpDate['body']), 1);
+        }
+
     }
 
 
