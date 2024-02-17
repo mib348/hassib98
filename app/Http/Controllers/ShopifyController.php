@@ -2,11 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\QRCodeMail;
 use App\Models\User;
+use Choowx\RasterizeSvg\Svg;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Symfony\Component\Mime\Part\TextPart;
+use \MailchimpMarketing\ApiClient;
+use \MailchimpTransactional\ApiClient as Transactional;
 
 class ShopifyController extends Controller
 {
@@ -300,5 +307,186 @@ class ShopifyController extends Controller
         // }
 
         return json_encode($productsResponse);
+    }
+
+    public function testmail(){
+
+        // Mail::html((string) QrCode::format('svg')->size(200)->generate('1008'), function ($message) {
+        //     $message->to('example@example.com', 'Recipient Name')
+        //             ->subject('Your Subject Here');
+        //             // ->setBody(new TextPart('<img src="data:image/png;base64,'.QrCode::format('png')->size(200)->generate($number, $filePath).'" />', 'text/html'));
+        //             // ->setBody(new TextPart('<img src="' . QrCode::format('svg')->size(100)->generate('1008').'" />', 'text/html'));
+        //     // Or use the simpler `html` method as an alternative if available
+        // });
+
+        // Mail::to('ibrahimbutt348@gmail.com')->send(new QRCodeMail(array('id' => 5, 'order_number' => '1008')));
+
+        //$message = new \MailchimpTransactional\ApiClient();
+        //$message->setApiKey('md--nf9z9vtRG8YeC2TUHgu8A');
+
+
+
+		// Set your API key and template name
+		$api_key = config('services.mailchimp.MAILCHIMP_TRANSACTIONAL_API_KEY');
+		// $template_name = 'test';
+
+		// Create a new MailchimpMarketing client
+		$mailchimp = new ApiClient();
+		$mailchimp->setConfig([
+			'apiKey' => config('services.mailchimp.MAILCHIMP_API_KEY'),
+			'server' => config('services.mailchimp.MAILCHIMP_SERVER_PREFIX')
+		]);
+
+		/*$template = $mailchimp->templates->list();
+		$arrTemplate = json_decode(json_encode($template), TRUE);
+
+		$template_name = "test";
+		$template_id = null;
+		foreach($arrTemplate['templates'] as $key => $value){
+			if($value['name'] == $template_name)
+				$template_id = $value['id'];
+		}*/
+
+        // $template = $mailchimp->campaigns->list();
+        // dd($template);
+        $template = $mailchimp->campaigns->getContent(config('services.mailchimp.MAILCHIMP_CAMPAIGN_ID'));
+
+		//$html = $template['html'];
+
+		// Create a new MailchimpTransactional client
+		$transactional = new Transactional();
+		$transactional->setApiKey($api_key);
+
+		/*if(!empty($template->html)){
+			$arr['key'] = 'test';
+			$arr['name'] = 'test';
+			$arr['from_email'] = 'ibrahim@digitalmib.com';
+			$arr['from_name'] = 'sushicatering';
+			$arr['subject'] = 'sushicatering';
+			$arr['code'] = $template->html;
+			$arr['text'] = strip_tags($template->html);
+			$arr['publish'] = true;
+			$arr['labels'] = ["example-label"];
+			$template = $transactional->templates->add($arr);
+
+		}
+		else
+			abort(404, 'Template Id not found');
+
+
+		dd($template);
+		die();*/
+
+        // file_put_contents('qrcode.svg', QrCode::format('svg')->size(200)->generate('1008'));
+        // $qr_path = $this->svgToBase64('qrcode.svg');
+        // unlink('qrcode.svg');
+        // (string) QrCode::format('svg')->size(200)->generate('1008');
+
+        // echo $qr_path;die();
+
+        // Assuming $jpegBinaryString contains the JPEG binary data
+        // $jpegBinaryString = Svg::make(QrCode::format('svg')->size(200)->generate('1008'))->toJpg();
+
+        // // Encode the binary data to Base64
+        // $base64EncodedString = base64_encode($jpegBinaryString);
+
+        // // Prepare the Base64 string for use as an image source
+        // $base64Image = 'data:image/jpeg;base64,' . $base64EncodedString;
+        // @unlink('qrcode.jpg');
+        Svg::make(QrCode::format('svg')->size(200)->generate('1008'))->saveAsJpg('qrcode.jpg');
+        // Svg::make(QrCode::format('svg')->size(200)->generate(rand(0,9999)))->saveAsJpg('qrcodes/qrcode' . $uuid . '.jpg');
+
+
+        // echo $html;
+        $html = $template->html;
+
+        // $html = $template->html;
+		// $html = str_replace('*|QR_CODE|**', '<img src="' . $qr_path . '" />', $html);
+		// echo $html;die();
+
+		// Create a message object with the template HTML and the merge fields
+		$message = [
+			'html' => $html,
+			'subject' => 'Hello from Mailchimp',
+			'from_email' => 'ibrahim@digitalmib.com',
+			'from_name' => 'Your Name',
+			'to' => [
+				[
+					'email' => 'ibrahim@digitalmib.com',
+					'name' => 'Recipient Name',
+					'type' => 'to'
+				]
+			],
+			'merge_vars' => [
+				[
+					'rcpt' => 'ibrahim@digitalmib.com',
+					'vars' => [
+						[
+							'name' => 'QR_CODE',
+							'content' => '<img src="https://sushicatering.digitalmib.com/qrcodes/qrcode.jpg" alt="Converted Image" />'
+						],
+						[
+							'name' => 'QR_CODE_SRC',
+							'content' => '<img src="https://sushicatering.digitalmib.com/qrcodes/qrcode.jpg" alt="Converted Image" />'
+						],
+					]
+				]
+			]
+		];
+
+		// $response = $transactional->messages->sendTemplate([
+		// 	"template_name" => "test",
+		// 	"template_content" => [[]],
+		// 	"message" => [
+		// 		'subject' => 'Hello from Mailchimp',
+		// 		'from_email' => 'ibrahim@digitalmib.com',
+		// 		'from_name' => 'Your Name',
+		// 		'to' => [
+		// 			[
+		// 				'email' => 'ibrahim@digitalmib.com',
+		// 				'name' => 'Recipient Name',
+		// 				'type' => 'to'
+		// 			]
+		// 		],
+		// 		'merge_vars' => [
+		// 			[
+		// 				'rcpt' => 'ibrahim@digitalmib.com',
+		// 				'vars' => [
+		// 					[
+		// 						'name' => 'QR_CODE',
+		// 						'content' => '<p>6546</p>'
+		// 					],
+		// 				]
+		// 			]
+		// 		]
+		// 	],
+		// ]);
+
+		$response = $transactional->messages->send(['message' => $message]);
+		dd($response[0]);
+
+
+        // if ($response[0]['status'] == 'sent') {
+        //     echo 'Message sent successfully';
+        // } else {
+        //     echo 'Message failed: ' . $response[0]['reject_reason'];
+        // }
+
+
+    }
+
+    public function svgToBase64 ($filepath){
+
+        if (file_exists($filepath)){
+
+            $filetype = pathinfo($filepath, PATHINFO_EXTENSION);
+
+            if ($filetype==='svg'){
+                $filetype .= '+xml';
+            }
+
+            $get_img = file_get_contents($filepath);
+            return 'data:image/' . $filetype . ';base64,' . base64_encode($get_img );
+        }
     }
 }

@@ -1,6 +1,8 @@
 <?php namespace App\Jobs;
 
+use App\Mail\QRCodeMail;
 use App\Models\User;
+use Choowx\RasterizeSvg\Svg;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,8 +12,12 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Osiset\ShopifyApp\Objects\Values\ShopDomain;
 use stdClass;
+use \MailchimpMarketing\ApiClient;
+use \MailchimpTransactional\ApiClient as Transactional;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class OrdersCreateJob implements ShouldQueue
 {
@@ -83,7 +89,91 @@ class OrdersCreateJob implements ShouldQueue
             }
 
 
-            mail('dL4mS@example.com', 'New Order Creation Webhook', json_encode($this->data));
+            // Mail::to('ibrahimbutt348@gmail.com')->send(new QRCodeMail($orderData));
+
+
+            // Set your API key and template name
+            $api_key = config('services.mailchimp.MAILCHIMP_TRANSACTIONAL_API_KEY');
+
+            // Create a new MailchimpTransactional client
+            $transactional = new Transactional();
+            $transactional->setApiKey($api_key);
+
+            $mailchimp = new ApiClient();
+            $mailchimp->setConfig([
+                'apiKey' => config('services.mailchimp.MAILCHIMP_API_KEY'),
+                'server' => config('services.mailchimp.MAILCHIMP_SERVER_PREFIX')
+            ]);
+
+
+            $template = $mailchimp->campaigns->getContent(config('services.mailchimp.MAILCHIMP_CAMPAIGN_ID'));
+
+		    $html = $template->html;
+            $items = '<div>';
+            foreach ($orderData['line_items'] as $key => $item) {
+                $items .= '<p>' . $item['name'] . ' (' . $item['quantity'] . ')</p>';
+            }
+            $items .= '</div>';
+
+            Svg::make(QrCode::format('svg')->size(200)->generate($orderData['order_number']))->saveAsJpg(public_path('qrcodes/qrcode' . $orderData['order_number'] . '.jpg'));
+
+            $message = [
+                'html' => $html,
+                'subject' => 'Hello from Sushi Catering: Order # ' . $orderData['order_number'],
+                'from_email' => 'ibrahim@digitalmib.com',
+                'from_name' => 'Sushi Catering',
+                'to' => [
+                    [
+                        'email' => $orderData['email'],
+                        'name' => $orderData['customer']['first_name'] . ' ' . $orderData['customer']['last_name'],
+                        'type' => 'to'
+                    ]
+                ],
+                'merge_vars' => [
+                    [
+                        'rcpt' => 'ibrahim@digitalmib.com',
+                        'vars' => [
+                            [
+                                'name' => 'QR_CODE',
+                                'content' => '<img src="https://sushicatering.digitalmib.com/qrcodes/qrcode' . $orderData['order_number'] . '.jpg" alt="Converted Image" />',
+                            ],
+                            [
+                                'name' => 'AMOUNT',
+                                'content' => $orderData['total_price'] . ' ' . $orderData['currency'],
+                            ],
+                            [
+                                'name' => 'WAY_PAYMENT',
+                                'content' => $orderData['payment_gateway_names'][0],
+                            ],
+                            [
+                                'name' => 'PICKUP_DATE',
+                                'content' => $orderData['line_items'][0]['properties'][1]['value'],
+                            ],
+                            [
+                                'name' => 'LOCATION',
+                                'content' => $orderData['line_items'][0]['properties'][0]['value'],
+                            ],
+                            [
+                                'name' => 'ITEMS',
+                                'content' => $items,
+                            ],
+                        ]
+                    ]
+                ]
+            ];
+
+            $response = $transactional->messages->send(['message' => $message]);
+
+            // dd($response);
+            $response = json_decode(json_encode($response), TRUE);
+
+            if ($response[0]['status'] == 'sent') {
+                Log::info('Handler New Order Creation Webhook MailChimp Email sent successfully: '. json_encode($response));
+            } else {
+                Log::error('Handler New Order Creation Webhook Error MailChimp Email not sent: '. json_encode($response));
+                throw new Exception("Handler New Order Creation Webhook Error MailChimp Email not sent: " . json_encode($response), 1);
+            }
+
         } catch (\Throwable $th) {
             Log::error('Handler New Order Creation Webhook Error: '. json_encode($th));
             // throw $th;
@@ -246,3 +336,4 @@ class OrdersCreateJob implements ShouldQueue
 
 
 }
+
