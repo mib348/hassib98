@@ -245,7 +245,7 @@ class OrdersCreateJob implements ShouldQueue
             // Split the value into date and quantity parts
             list($date, $quantity) = explode(':', $value);
 
-            $dateCarbon = Carbon::createFromFormat('Y-m-d', $date, 'Europe/Berlin');
+            $dateCarbon = Carbon::createFromFormat('d-m-Y', $date, 'Europe/Berlin');
 
             // Skip past dates
             if ($dateCarbon < $today) {
@@ -298,7 +298,7 @@ class OrdersCreateJob implements ShouldQueue
 			'metafield' => [
 				'namespace' => 'custom',
 				'key' => 'pick_up_date',
-				'value' => $pickUpDate,
+				'value' => date("Y-m-d", strtotime($pickUpDate)),
 				'type' => 'date'
 			]
 		];

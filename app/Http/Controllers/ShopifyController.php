@@ -80,7 +80,7 @@ class ShopifyController extends Controller
                     $datesQuantities = json_decode($metafield['value'], true);
                     foreach ($datesQuantities as $dateQuantity) {
                         [$date, $quantity] = explode(':', $dateQuantity);
-                        if ($date === $filterDate) {
+                        if (date('d-m-Y', strtotime($date)) === date('d-m-Y', strtotime($filterDate))) {
                             $includeProduct = true;
                             $product['b_date_product'] = true;
                         }
@@ -283,7 +283,7 @@ class ShopifyController extends Controller
 
         // Get all products
         $productsResponse = $shop->api()->rest('GET', '/admin/webhooks.json');
-        dd($productsResponse);
+        dd($productsResponse['body']['container']);
     }
 
     public function setWebhooks(Request $request){
@@ -291,11 +291,17 @@ class ShopifyController extends Controller
         if(!isset($shop) || !$shop)
             $shop = User::find(env('db_shop_id', 1));
 
-        $productsResponse = $shop->api()->rest('POST', '/admin/webhooks.json', ['webhook' => ['topic' => 'orders/create', 'address' => 'https://4d9d-2a09-bac1-5b40-28-00-31-cd.ngrok-free.app/webhook/orders-create', 'format' => 'json']]);
-        // Assuming $shop is your authenticated shop instance
-        // $webhookId = '1144663244870'; // The ID of the webhook you want to delete
-        // $endpoint = "/admin/api/2024-01/webhooks/{$webhookId}.json"; // Adjust API version as necessary
+        $response = $shop->api()->rest('POST', '/admin/webhooks.json', ['webhook' => ['topic' => 'orders/create', 'address' => 'https://9816-2400-adc5-11e-cb00-588f-dbf7-8107-d5b5.ngrok-free.app/webhook/orders-create', 'format' => 'json']]);
+        // $response = $shop->api()->rest('POST', '/admin/webhooks.json', ['webhook' => ['topic' => 'app/uninstalled', 'address' => 'https://9816-2400-adc5-11e-cb00-588f-dbf7-8107-d5b5.ngrok-free.app/webhook/app-uninstalled', 'format' => 'json']]);
+        // $response = $shop->api()->rest('POST', '/admin/webhooks.json', ['webhook' => ['topic' => 'theme/publish', 'address' => 'https://9816-2400-adc5-11e-cb00-588f-dbf7-8107-d5b5.ngrok-free.app/webhook/app-uninstalled', 'format' => 'json']]);
+        // $response = $shop->api()->rest('POST', '/admin/webhooks.json', ['webhook' => ['topic' => 'theme/update', 'address' => 'https://9816-2400-adc5-11e-cb00-588f-dbf7-8107-d5b5.ngrok-free.app/webhook/app-uninstalled', 'format' => 'json']]);
 
+        // Assuming $shop is your authenticated shop instance
+        // $webhookId = '1146084589638'; // The ID of the webhook you want to delete
+        // $endpoint = "/admin/api/2024-01/webhooks/{$webhookId}.json"; // Adjust API version as necessary
+        // $response = $shop->api()->rest('DELETE', $endpoint);
+        // $webhookId = '1146084786246'; // The ID of the webhook you want to delete
+        // $endpoint = "/admin/api/2024-01/webhooks/{$webhookId}.json"; // Adjust API version as necessary
         // $response = $shop->api()->rest('DELETE', $endpoint);
 
         // // Check response
@@ -306,7 +312,7 @@ class ShopifyController extends Controller
         //     echo "Webhook deleted successfully";
         // }
 
-        return json_encode($productsResponse);
+        return json_encode($response);
     }
 
     public function testmail(){
