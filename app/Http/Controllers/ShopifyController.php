@@ -31,11 +31,14 @@ class ShopifyController extends Controller
         Log::info("Shop {$domain}'s object:" . json_encode($shop));
         Log::info("Shop {$domain}'s API object:" . json_encode($shopApi));
 
-        return view('products');
+        $html = $this->getProductsList();
+
+        return view('products', ['html' => $html]);
     }
 
     public function getProducts(){
-        return view('products');
+        $html = $this->getProductsList();
+        return view('products')->with('html', $html);
     }
 
     public function getProductsJson(Request $request){
@@ -494,5 +497,49 @@ class ShopifyController extends Controller
             $get_img = file_get_contents($filepath);
             return 'data:image/' . $filetype . ';base64,' . base64_encode($get_img );
         }
+    }
+
+    public function getTheme(Request $request){
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+
+        $asset = 'sections/pf-b9ef5afd.liquid';
+
+        // $response = $shop->api()->rest('GET', '/admin/themes.json');
+        // $response = $shop->api()->rest('GET', '/admin/themes/153998885212/assets.json');
+        // $response = $shop->api()->rest('GET', '/admin/themes/153998885212/assets.json', ['asset' => ['key' => 'layout/theme.liquid']]);
+        $response = $shop->api()->rest('GET', '/admin/themes/153998885212/assets.json', ['asset' => ['key' => $asset]]);
+        // $response = $shop->api()->rest('GET', '/admin/themes/126962761798/assets.json');
+        // $response = $shop->api()->rest('GET', '/admin/themes/126962761798/assets.json', ['asset' => ['key' => 'layout/theme.liquid']]);
+
+        // dd($response);
+
+        // Assuming $shop is your authenticated shop instance
+        // $webhookId = '1146084589638'; // The ID of the webhook you want to delete
+        // $endpoint = "/admin/api/2024-01/webhooks/{$webhookId}.json"; // Adjust API version as necessary
+        // $response = $shop->api()->rest('DELETE', $endpoint);
+
+        // // Check response
+        if ($response['errors']) {
+            echo "Error request: " . $response['body']['errors'];
+        } else {
+            $content = (string) $response['body']['container']['asset']['value'];
+            $content = "{% assign days_in_english = \"Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday\" | split: \",\" %} {% assign current_day_index = 'now' | date: \"%w\" | plus: 0 %} {% assign current_day_name_in_english = days_in_english[current_day_index] %} {% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'date' %} {% assign date = key_and_value[1] %} {% endif %} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%}" . $content;
+            $content = str_replace("{% assign defaultProduct = product %}{% paginate collections.all.products by 1 %}{% for product in collections.all.products %}", "{% assign defaultProduct = product %} {% paginate collections.all.products by 50 %} {% for product in collections.all.products %} {% assign dateAndQtyList = product.metafields.custom.date_and_quantity %} {% assign productToShow = false %} {% for dateAndQty in dateAndQtyList.value %} {% assign dateAndQtyArray = dateAndQty | split: ':' %} {% assign dateValue = dateAndQtyArray[0] %} {% assign qtyValue = dateAndQtyArray[1] %} {% if dateValue == date %} {% assign productToShow = true %} {% endif %} {% endfor %} {% assign dayList = product.metafields.custom.available_on %} {% for day in dayList.value %} {% if day == current_day_name_in_english %} {% assign productToShow = true %} {% assign qtyValue = product.variants[0].inventory_quantity %} {% endif %} {% endfor %} {% if productToShow %}", $content);
+            $content = str_replace("{% endfor %}{% endpaginate %}", "{% endif %}{% endfor %}{% endpaginate %}", $content);
+            $content = str_replace("{% if product.metafields.custom['date_and_quantity'] != null %}", "", $content);
+            $content = str_replace("|metafield_tag }}</span>{% endif %}</div>", "|metafield_tag }}</span></div>", $content);
+            $content = str_replace("product.metafields.custom['date_and_quantity']|metafield_tag", "qtyValue", $content);
+            $content = str_replace('data-variants-continue="{% for variant in product.variants %}{% if variant.inventory_policy == \'continue\' %}{{ variant.id | append: " " }}{% endif %}{% endfor %}"', "", $content);
+            $content = str_replace('max="{%- if product.selected_or_first_available_variant.inventory_quantity > 0 -%}{{ product.selected_or_first_available_variant.inventory_quantity }}{%- else -%}50{%- endif -%}"', 'max="{{ qtyValue }}"', $content);
+
+            $response = $shop->api()->rest('PUT', '/admin/themes/153998885212/assets.json', ['asset' => ['key' => $asset, 'value' => $content]]);
+
+            // dd($response);
+            echo 'success';
+        }
+
+        // return json_encode($response);
     }
 }
