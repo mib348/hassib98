@@ -3,9 +3,9 @@ first make changes in the frontend
 
 top
 
-{% assign days_in_english = "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday" | split: "," %}
+{% comment %} {% assign days_in_english = "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday" | split: "," %}
 {% assign current_day_index = 'now' | date: "%w" | plus: 0 %}
-{% assign current_day_name_in_english = days_in_english[current_day_index] %}
+{% assign current_day_name_in_english = days_in_english[current_day_index] %} {% endcomment %}
 
 
 {% assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %}
@@ -31,6 +31,12 @@ top
 {%- endfor -%}
 
 
+{% if date %}
+  {% assign date_parts = date | split: "-" %}
+  {% assign reformatted_date = date_parts[2] | append: "-" | append: date_parts[1] | append: "-" | append: date_parts[0] %}
+  {% assign day_name = reformatted_date | date: "%A" %}
+{% endif %}
+
 
 
 
@@ -51,13 +57,13 @@ product
             {% assign dateValue = dateAndQtyArray[0] %} 
             {% if dateValue == date %} 
                 {% assign qtyValue = dateAndQtyArray[1] %} 
-                {% assign productToShow = true %} 
+                {% comment %} {% assign productToShow = true %}  {% endcomment %}
             {% endif %} 
         {% endfor %}
 
         {% assign dayList = product.metafields.custom.available_on %}
         {% for day in dayList.value %}
-            {% if day == current_day_name_in_english %} 
+            {% if day == day_name %} 
                 {% assign productToShow = true %} 
                 {% comment %} {% assign qtyValue = product.variants[0].inventory_quantity %}  {% endcomment %}
             {% endif %}
