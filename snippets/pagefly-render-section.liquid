@@ -1,0 +1,49 @@
+
+  {%- liquid
+    assign refined_google_font_url = ''
+    assign refined_google_font_url_html = ''
+    capture pagefly_content
+      unless template.suffix contains 'pf-'
+        if pagefly_content_for_layout contains 'PageFlyGlobalSection'
+          render 'pagefly-main-js'
+          echo '<!-- PageFlyContentForlayoutSection -->'
+          render 'pagefly-main-css'
+        endif
+      endunless
+      echo pagefly_content_for_layout
+    endcapture
+    if pagefly_content contains 'PageFlyGlobalSection' or template.suffix contains 'pf-'
+      if pagefly_content contains 'data-pf-font="google"'
+        assign pagefly_content_split = pagefly_content | split: '<link rel="stylesheet" data-pf-font="google" href="'
+        for pagefly_content_item in pagefly_content_split
+          if pagefly_content_item contains "https://fonts.googleapis.com/css2?"
+            assign pagefly_content_item_split = pagefly_content_item | split: '&display=swap" media="all">'
+            assign original_google_font = pagefly_content_item_split[0] | append: '&display=swap" media="all">' | prepend: '<link rel="stylesheet" data-pf-font="google" href="'
+            assign pagefly_content = pagefly_content | replace: original_google_font , ''
+            assign google_font_url = pagefly_content_item_split[0] | split: 'https://fonts.googleapis.com/css2?'
+            assign refined_google_font_url = google_font_url[1] | prepend: '&' | append: refined_google_font_url
+          endif
+        endfor
+        if refined_google_font_url != ''
+          assign refined_google_font_url = refined_google_font_url | replace_first: '&', '' | prepend: 'https://fonts.googleapis.com/css2?'
+          capture refined_google_font_url_html
+            echo '<!-- PageFly begins loading Google fonts -->'
+            echo '<link rel="preconnect" href="https://fonts.googleapis.com">'
+            echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+            echo refined_google_font_url | prepend: '<link rel="preload" as="style" fetchpriority="low" href="' | append: '&display=block">'
+            echo refined_google_font_url | prepend: '<link rel="stylesheet" href="' | append: '&display=block" media="(min-width: 640px)">'
+            echo refined_google_font_url | prepend: '<link rel="stylesheet" href="' | append: '&display=block" media="print" onload="this.onload=null;this.media=__PF_GOOGLE_FONT_MEDIA_ALL__">' | replace: '__PF_GOOGLE_FONT_MEDIA_ALL__', "'all'"
+            echo '<!-- PageFly ends loading Google fonts -->'
+          endcapture
+        endif
+        if pagefly_content contains 'PageFlyContentForlayoutSection'
+          assign pagefly_content = pagefly_content | replace: '<!-- PageFlyContentForlayoutSection -->', refined_google_font_url_html
+        else
+          echo refined_google_font_url_html
+        endif
+      endif
+      assign pagefly_content = pagefly_content | append: '<!-- PageFly Section Render ends -->' | prepend: '<!-- PageFly Section Render starts -->'
+    endif
+    echo pagefly_content
+  -%}
+  

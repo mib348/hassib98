@@ -1,0 +1,102 @@
+{{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
+
+<div id="datepicker"></div>
+<br>
+<br>
+<br>
+
+<script>
+  window.onload = function() {
+      if (window.jQuery) {
+        let $ = window.jQuery;
+
+        var strLocation =
+        sessionStorage.getItem("location") != null
+          ? sessionStorage.getItem("location")
+          : "";
+
+        var strDate =
+        sessionStorage.getItem("date") != null
+          ? sessionStorage.getItem("date")
+          : "";
+
+        var button = $(".preorderbtn");
+        var buttonOffset = button.offset();
+
+        // Calculate new top and left positions
+        var newTop = buttonOffset.top + button.outerHeight();
+        var newLeft = buttonOffset.left;
+
+        // Apply the calculated positions
+        //$("#datepicker").css({ position: "absolute", top: newTop - 310, left: newLeft });
+        //$("#datepicker").css({ display:"none" });
+        $("#datepicker").datepicker('hide');
+
+        $(".todayorderbtn").click(function(e){
+          e.preventDefault();
+
+          var href = $(this).attr("href");
+          var today = new Date();
+          var dd = String(today.getDate()).padStart(2, '0');
+          var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+          var yyyy = today.getFullYear();
+
+          today = dd + '-' + mm + '-' + yyyy;
+
+          sessionStorage.setItem("date", today);
+
+          window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today;
+        });
+
+        $(".preorderbtn").click(function(e){
+            e.preventDefault();
+
+            $("#datepicker").datepicker({
+                minDate: 0,
+                maxDate: '+1w',
+                dateFormat: "dd-mm-yy",
+                onSelect: function(dateText, inst) {
+                    sessionStorage.setItem("date", dateText);
+
+                    var newUrl = $(".preorderbtn").attr("href");
+
+                    // Redirect the user to the new URL or handle it as needed
+                    window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText;
+                }
+            }).datepicker('show');
+            $('.ui-datepicker').addClass('notranslate');
+        });
+
+        // Remove the HTML element if the time condition is met
+        if (isTimeBetween()) {
+            $('.todayorderbtn').remove();
+        }
+
+        $(function() {
+
+
+        });
+    }
+
+    // Function to get current time in Germany
+    function getCurrentTimeInGermany() {
+        const options = { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hour12: false };
+        const formatter = new Intl.DateTimeFormat([], options);
+        return formatter.format(new Date());
+    }
+
+    // Function to check if current time is between 11:30 AM and 12:00 AM
+    function isTimeBetween() {
+        const currentTime = getCurrentTimeInGermany();
+        const currentHoursMinutes = currentTime.split(':').map(Number); // Convert "HH:MM" to [HH, MM]
+
+        // Convert times to minutes for easier comparison
+        const currentTimeInMinutes = currentHoursMinutes[0] * 60 + currentHoursMinutes[1];
+        const start = 11 * 60 + 30; // 11:30 AM in minutes
+        const end = 11 * 60 + 59; // 11:59 AM in minutes
+
+        return currentTimeInMinutes >= start && currentTimeInMinutes <= end;
+    }
+  }
+</script>
