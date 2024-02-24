@@ -7,7 +7,6 @@ top
 {% assign current_day_index = 'now' | date: "%w" | plus: 0 %}
 {% assign current_day_name_in_english = days_in_english[current_day_index] %} {% endcomment %}
 
-
 {% assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %}
 {% assign param = blank %}
 
@@ -104,4 +103,6 @@ remove data-variants-continue ---------- max {{ qtyValue }}
 
 before endpaginate button
 
-<input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ current_day_name_in_english }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ current_day_name_in_english }}">
+<input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ day_name }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ day_name }}">
+
+
