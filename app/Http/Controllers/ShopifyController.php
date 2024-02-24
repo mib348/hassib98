@@ -500,6 +500,7 @@ class ShopifyController extends Controller
     }
 
     public function getTheme(Request $request){
+        //added function getTheme to restore the custom changes overwritten by pagefly regenerated code
         $shop = Auth::user();
         if(!isset($shop) || !$shop)
             $shop = User::find(env('db_shop_id', 1));
@@ -525,7 +526,8 @@ class ShopifyController extends Controller
             echo "Error request: " . $response['body']['errors'];
         } else {
             $content = (string) $response['body']['container']['asset']['value'];
-            $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'date' %} {% assign date = key_and_value[1] %} {% endif %} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%} {% if date %} {% assign date_parts = date | split: \"-\" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
+            $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%}{% assign date = shop.metafields.custom.selected_date %} {% if date %} {% assign date_parts = date | split: \"-\" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
+            // $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'date' %} {% assign date = key_and_value[1] %} {% endif %} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%} {% if date %} {% assign date_parts = date | split: \"-\" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
             // $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'date' %} {% assign date = key_and_value[1] %} {% endif %} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%}{% if date %} {% assign date_parts = date | split: "-" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
             $content = str_replace("{% assign defaultProduct = product %}{% paginate collections.all.products by 1 %}{% for product in collections.all.products %}", "{% assign defaultProduct = product %} {% paginate collections.all.products by 50 %} {% for product in collections.all.products %} {% assign dateAndQtyList = product.metafields.custom.date_and_quantity %} {% assign productToShow = false %} {% for dateAndQty in dateAndQtyList.value %} {% assign dateAndQtyArray = dateAndQty | split: ':' %} {% assign dateValue = dateAndQtyArray[0] %} {% if dateValue == date %} {% assign qtyValue = dateAndQtyArray[1] %} {% endif %} {% endfor %} {% assign dayList = product.metafields.custom.available_on %} {% for day in dayList.value %} {% if day == day_name %} {% assign productToShow = true %} {% endif %} {% endfor %} {% if productToShow %}", $content);
             $content = str_replace("{% endfor %}{% endpaginate %}", "{% endif %}{% endfor %}{% endpaginate %}", $content);
@@ -534,7 +536,7 @@ class ShopifyController extends Controller
             $content = str_replace("product.metafields.custom['date_and_quantity']|metafield_tag", "qtyValue", $content);
             $content = str_replace('data-variants-continue="{% for variant in product.variants %}{% if variant.inventory_policy == \'continue\' %}{{ variant.id | append: " " }}{% endif %}{% endfor %}"', "", $content);
             $content = str_replace('max="{%- if product.selected_or_first_available_variant.inventory_quantity > 0 -%}{{ product.selected_or_first_available_variant.inventory_quantity }}{%- else -%}50{%- endif -%}"', 'max="{{ qtyValue }}"', $content);
-            $content = str_replace('</div></div><button data-product-id', '</div></div><input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ current_day_name_in_english }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ current_day_name_in_english }}"><button data-product-id', $content);
+            $content = str_replace('</div></div><button data-product-id', '</div></div><input type="hidden" name="properties[max_quantity]" value="{{ qtyValue }}"><input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ day_name }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ day_name }}"><button data-product-id', $content);
 
             $response = $shop->api()->rest('PUT', '/admin/themes/153998885212/assets.json', ['asset' => ['key' => $asset, 'value' => $content]]);
 
@@ -543,5 +545,30 @@ class ShopifyController extends Controller
         }
 
         // return json_encode($response);
+    }
+
+    public function updateSelectedDate(Request $request, $date){
+        //added feature to refresh product list on the basis of the selected order date
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+
+
+
+
+		$updateResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/metafields/42434560622940.json", [
+            'metafield' => [
+                'id' => 42434560622940,
+                'value' => $date,
+                // 'value_type' => 'json_string', // Correct value_type for JSON string
+                'namespace' => 'custom',
+                'key' => 'selected_date',
+                'type' => 'single_line_text_field', // Ensure this matches the actual type expected by Shopify
+            ],
+        ]);
+
+
+        echo $json = json_encode($updateResponse['body']['container']['metafield']);
+        // echo response($json)->header('Content-Type', 'application/json');
     }
 }
