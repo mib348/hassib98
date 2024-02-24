@@ -43,7 +43,8 @@ window.onload = function () {
             newVal = Math.max(oldValue - 1, 1); // Ensure newVal doesn't go below 1
         }
 
-        $input.val(newVal).trigger('change'); // Update and trigger change to handle states
+        // $input.val(newVal).trigger('change'); // Update and trigger change to handle states
+        updateButtonStates2($input, newVal);
     });
 
     // Handle key up and paste events for the input
@@ -82,6 +83,13 @@ window.onload = function () {
         var max = parseInt($input.attr('max'), 10); // Max can be undefined
         var value = parseInt($input.val(), 10);
 
+        console.log(value);
+        $input.siblings('button[data-quantity-action="decrease"]').prop('disabled', value <= min);
+        $input.siblings('button[data-quantity-action="increase"]').prop('disabled', value >= max);
+    }
+    function updateButtonStates2($input, value) {
+        var min = parseInt($input.attr('min'), 10) || 1; // Default minimum to 1 if not set
+        var max = parseInt($input.attr('max'), 10); // Max can be undefined
         $input.siblings('button[data-quantity-action="decrease"]').prop('disabled', value <= min);
         $input.siblings('button[data-quantity-action="increase"]').prop('disabled', value >= max);
     }
