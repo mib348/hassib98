@@ -5,6 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="theme-color" content="">
+
     <link rel="canonical" href="{{ canonical_url }}">
 
     {%- if settings.favicon != blank -%}
@@ -278,6 +279,197 @@
 
 
 
+
+{% include 'pagefly-app-header' cache: false %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 {% include 'pagefly-app-header' %}</head>
 
   <body class="gradient{% if settings.animations_hover_elements != 'none' %} animate--hover-{{ settings.animations_hover_elements }}{% endif %}">
@@ -291,12 +483,13 @@
 
     {% sections 'header-group' %}
 
-    <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1">
+    <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1" cache="false">
+
       
   {% capture pagefly_content_for_layout %}
     {{ content_for_layout }}
   {% endcapture %}
-  {% render 'pagefly-render-section', pagefly_content_for_layout: pagefly_content_for_layout %}
+  {% render 'pagefly-render-section', pagefly_content_for_layout: pagefly_content_for_layout cache: false %}
   
     </main>
 

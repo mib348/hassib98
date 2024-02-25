@@ -244,20 +244,28 @@
                       </span>
                       {% render 'icon-minus' %}
                     </button>
+                    {% assign date = shop.metafields.custom.selected_date %}
+                    {% assign dateAndQtyList = product.metafields.custom.date_and_quantity %}
+                    {% for dateAndQty in dateAndQtyList.value %} 
+                      {% assign dateAndQtyArray = dateAndQty | split: ':' %} 
+                      {% assign dateValue = dateAndQtyArray[0] %} 
+                      {% if dateValue == date %} 
+                          {% assign qtyValue = dateAndQtyArray[1] %} 
+                      {% endif %} 
+                    {% endfor %}
+                    
                     <input
                       class="quantity__input"
                       type="number"
                       name="quantity"
                       id="Quantity-{{ section.id }}"
                       data-cart-quantity="{{ cart_qty }}"
-                      data-min="{{ product.selected_or_first_available_variant.quantity_rule.min }}"
-                      min="{{ product.selected_or_first_available_variant.quantity_rule.min }}"
-                      {% if product.selected_or_first_available_variant.quantity_rule.max != null %}
-                        data-max="{{ product.selected_or_first_available_variant.quantity_rule.max }}"
-                        max="{{ product.selected_or_first_available_variant.quantity_rule.max }}"
-                      {% endif %}
-                      step="{{ product.selected_or_first_available_variant.quantity_rule.increment }}"
-                      value="{{ product.selected_or_first_available_variant.quantity_rule.min }}"
+                      data-min="1"
+                      min="1"
+                        data-max="{{ qtyValue }}"
+                        max="{{ qtyValue }}"
+                      step="1"
+                      value="1"
                       form="{{ product_form_id }}"
                     />
                     <button class="quantity__button no-js-hidden" name="plus" type="button">

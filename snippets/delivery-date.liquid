@@ -7,7 +7,28 @@
 <br>
 
 <script>
+  let pageFullyLoaded = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.body.addEventListener('click', function(e) {
+    if ((e.target.classList.contains('todayorderbtn') || e.target.classList.contains('preorderbtn')) && !pageFullyLoaded) {
+      e.preventDefault(); // Prevent navigation if page hasn't fully loaded
+      // Optionally, visually indicate that the link is disabled
+      e.target.style.pointerEvents = 'none';
+      e.target.style.opacity = '0.5';
+    } else {
+      // Optionally, reset visual changes if any were made
+      e.target.style.pointerEvents = '';
+      e.target.style.opacity = '';
+    }
+  });
+});
+
+
+
+
   window.onload = function() {
+    pageFullyLoaded = true;
       if (window.jQuery) {
         let $ = window.jQuery;
 
@@ -20,6 +41,13 @@
         sessionStorage.getItem("date") != null
           ? sessionStorage.getItem("date")
           : "";
+
+        $(".todayorderbtn, .preorderbtn").each(function() {
+          // Reset any inline styles that might have been applied to indicate disabled state
+          this.style.pointerEvents = '';
+          this.style.opacity = '';
+        });
+
 
         var button = $(".preorderbtn");
         var buttonOffset = button.offset();
@@ -46,7 +74,22 @@
 
           sessionStorage.setItem("date", today);
 
-          window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today;
+          $.ajax({
+              url:"https://app.sushi.catering/updateSelectedDate/" + today,
+              type:"GET",
+              cache:false,
+              async:false,
+              dataType:"json",
+              success:function(data){
+                console.log(data);
+                window.location.href = href + "?location=" + sessionStorage.getItem("location");
+              },
+              error: function (request, status, error) {
+                  alert('set selected date error: today ');
+                  console.log('set selected date error: today ',  error);
+              }
+          });
+
         });
 
         $(".preorderbtn").click(function(e){
@@ -61,8 +104,23 @@
 
                     var newUrl = $(".preorderbtn").attr("href");
 
-                    // Redirect the user to the new URL or handle it as needed
-                    window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText;
+                    $.ajax({
+                    	url:"https://app.sushi.catering/updateSelectedDate/" + dateText,
+                    	type:"GET",
+                    	cache:false,
+                        async:false,
+                    	dataType:"json",
+                    	success:function(data){
+                          console.log(data);
+                          // Redirect the user to the new URL or handle it as needed
+                          window.location.href = newUrl + "?location=" + sessionStorage.getItem("location");
+                        },
+                        error: function (request, status, error) {
+                            alert('set selected date error: preorder ');
+                            console.log('set selected date error: preorder ',  error);
+                        }
+                    });
+
                 }
             }).datepicker('show');
             $('.ui-datepicker').addClass('notranslate');

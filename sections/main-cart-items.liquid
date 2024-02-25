@@ -29,7 +29,7 @@
 <cart-items class="page-width{% if cart == empty %} is-empty{% else %} section-{{ section.id }}-padding{% endif %}">
   <div class="title-wrapper-with-link">
     <h1 class="title title--primary">{{ 'sections.cart.title' | t }}</h1>
-    <a href="{{ routes.all_products_collection_url }}" class="underlined-link">{{ 'general.continue_shopping' | t }}</a>
+    <a href="/pages/bestellen" class="underlined-link">{{ 'general.continue_shopping' | t }}</a>
   </div>
 
   <div class="cart__warnings">
@@ -100,7 +100,15 @@
                       <p class="caption-with-letter-spacing">{{ item.product.vendor }}</p>
                     {%- endif -%}
 
-                    <a href="{{ item.url }}" class="cart-item__name h4 break">{{ item.product.title | escape }}</a>
+
+                    {%- for property in item.properties -%}
+                      {%- if property.first == 'location' -%}
+                      {%- assign location = property.last -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    
+
+                    <a href="{{ item.url }}&location={{ location }}" class="cart-item__name h4 break">{{ item.product.title | escape }}</a>
 
                     {%- if item.original_price != item.final_price -%}
                       <div class="cart-item__discounted-prices">
@@ -257,6 +265,16 @@
                               </span>
                               {% render 'icon-minus' %}
                             </button>
+                            {% assign date = shop.metafields.custom.selected_date %}
+                            {% assign dateAndQtyList = item.product.metafields.custom.date_and_quantity %}
+                            {% for dateAndQty in dateAndQtyList.value %} 
+                              {% assign dateAndQtyArray = dateAndQty | split: ':' %} 
+                              {% assign dateValue = dateAndQtyArray[0] %} 
+                              {% if dateValue == date %} 
+                                  {% assign qtyValue = dateAndQtyArray[1] %} 
+                              {% endif %} 
+                            {% endfor %}
+                                    
                             <input
                               class="quantity__input"
                               data-quantity-variant-id="{{ item.variant.id }}"
@@ -264,12 +282,21 @@
                               name="updates[]"
                               value="{{ item.quantity }}"
                               {% # theme-check-disable %}
+
+                              data-cart-quantity="{{ cart | qtyValue }}"
+                              min="1"
+                              step="1"
+                              max="{{ qtyValue }}"
+                              
+                              {% comment %}
                               data-cart-quantity="{{ cart | item_count_for_variant: item.variant.id }}"
                               min="{{ item.variant.quantity_rule.min }}"
-                              {% if item.variant.quantity_rule.max != null %}
+                             {% if item.variant.quantity_rule.max != null %}
                                 max="{{ item.variant.quantity_rule.max }}"
-                              {% endif %}
+                              {% endif %} 
                               step="{{ item.variant.quantity_rule.increment }}"
+                              {% endcomment %}
+                              
                               {% # theme-check-enable %}
                               aria-label="{{ 'products.product.quantity.input_label' | t: product: item.product.title | escape }}"
                               id="Quantity-{{ item.index | plus: 1 }}"

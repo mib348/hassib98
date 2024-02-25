@@ -1,3 +1,260 @@
+//mib348
+// if (performance.navigation.type == 2 && (window.location.pathname === "/pages/bestellen" || window.location.pathname === "/pages/datum" || window.location.pathname === "/pages/order-menue")) {
+//     sessionStorage.clear();
+//     window.location.href = "/pages/bestellen";
+// }
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.location.pathname === "/pages/order-menue") {
+        history.pushState(null, null, window.location.href); // Push current state to history
+
+        window.onpopstate = function(event) {
+            sessionStorage.clear();
+            window.location.href = "/pages/bestellen";
+        };
+    }
+});
+
+
+//mib348
+// Function to format today's date as yyyy-mm-dd
+function getFormattedDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  // Month is 0-based, so add 1; ensure it's two digits
+  const month = ("0" + (today.getMonth() + 1)).slice(-2);
+  // Ensure the day is two digits
+  const day = ("0" + today.getDate()).slice(-2);
+
+  //return `${year}-${month}-${day}`;
+  return `${day}-${month}-${year}`;
+}
+
+// Check if the session storage 'date' exists and is not null
+if (sessionStorage.getItem("date") !== null) {
+  const storedDate = sessionStorage.getItem("date");
+  const todayDate = getFormattedDate();
+
+  console.log(todayDate);
+
+  // Compare the stored date with today's date
+  if (new Date(storedDate) < new Date(todayDate)) {
+    // Update to today's date if stored date is less
+    sessionStorage.setItem("date", todayDate);
+  }
+}
+
+if (window.jQuery) {
+  let $ = window.jQuery;
+
+  // if (window.history && window.history.pushState) {
+  //     window.history.pushState('', null, window.location.pathname);
+  //     $(window).on('popstate', function() {
+  //         sessionStorage.clear();
+  //     });
+  // }
+
+//when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
+if (window.location.pathname === "/pages/bestellen") {
+  if (
+    sessionStorage.getItem("location") == null &&
+    sessionStorage.getItem("date") == null
+  ) {
+  } else if (sessionStorage.getItem("location") == null) {
+  } else if (sessionStorage.getItem("date") == null) {
+    window.location.replace("/pages/datum");
+  } else {
+    $.ajax({
+          url:"https://app.sushi.catering/updateSelectedDate/" + sessionStorage.getItem("date"),
+          type:"GET",
+          cache:false,
+          async:false,
+          dataType:"json",
+          success:function(data){
+            console.log(data);
+            //window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
+            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location");
+          },
+          error: function (request, status, error) {
+              alert('set selected date error: global ');
+              console.log('set selected date error: global ', error);
+          }
+      });
+  }
+} else {
+   if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null)) {
+    // Parse the query string
+    const queryParams = new URLSearchParams(window.location.search);
+  
+    // Check if 'location' and 'date' parameters are missing in the URL
+    //if (!queryParams.has('location') && !queryParams.has('date')) {
+      if (
+        sessionStorage.getItem("location") == null &&
+        sessionStorage.getItem("date") == null
+      ) {
+        window.location.href = "/pages/bestellen";
+      } else if (sessionStorage.getItem("location") == null) {
+        window.location.href = "/pages/bestellen";
+      } else if (sessionStorage.getItem("date") == null) {
+        window.location.replace("/pages/datum");
+      } else {
+        //window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
+      }
+    //}
+  }
+  else if(window.location.pathname === "/pages/datum" && sessionStorage.getItem("date") != null){
+    sessionStorage.clear();
+    window.location.replace("/pages/bestellen");
+  }
+
+}
+
+
+
+  var strLocation =
+    sessionStorage.getItem("location") != null
+      ? sessionStorage.getItem("location")
+      : "";
+  var strDate =
+    sessionStorage.getItem("date") != null
+      ? sessionStorage.getItem("date")
+      : "";
+
+  if (
+    sessionStorage.getItem("location") == null &&
+    sessionStorage.getItem("date") == null
+  )
+    $(".location_bar").remove();
+  else {
+    $(".location_bar_text").html("&nbsp;" + strLocation + "&nbsp;" + strDate);
+  }
+
+  $(document).on("click", ".location_bar_closer", function () {
+    sessionStorage.clear();
+    $(".location_bar").remove();
+
+    $.ajax({
+      type: "POST",
+      url: window.Shopify.routes.root + "cart/clear.js",
+      dataType: "json",
+      success: function (response) {
+        window.location.href = "/";
+       },
+      error: function (xhr, status, error) {
+        alert("Cart clear error:");
+        console.log("Cart clear error:", error);
+      },
+    });
+
+  });
+
+  $(document).on("click", ".station", function (e) {
+    e.preventDefault();
+
+    var href = $(this).attr("href");
+
+    var strLocation = $(this).html();
+    $("div.shopify-section.shopify-section-group-header-group")
+      .not(".section-header")
+      .find("p")
+      .html(" " + strLocation + " " + strDate);
+
+    sessionStorage.setItem("location", strLocation);
+
+    // alert(location);
+
+    //window.location.href = href + "?location=" + strLocation;
+    //window.location.replace(href + "?location=" + strLocation);
+    location.replace(href + "?location=" + strLocation);
+
+  });
+
+  Shopify.onCartUpdate = function(cart) {
+    alert('There are now ' + cart.item_count + ' items in the cart.');
+  };  
+
+  $(document).on("click", "#checkout", function (e) {
+    e.preventDefault();
+    var el = $(this);
+    var b_allowed = true;
+
+    /*var attributesToUpdate = {
+      attributes: {
+        'Delivery Date': '2024-02-18',
+        'Special Instructions': 'Leave package at the back door, please.'
+      }
+    };
+  
+    $.ajax({
+      type: "POST",
+      url: window.Shopify.routes.root + "cart/update.js",
+      dataType: "json",
+      data: attributesToUpdate,
+      success: function(response) {
+        console.log("Cart attributes updated successfully.", response);
+        // You can update the UI to reflect the change or show a confirmation message here
+      },
+      error: function(xhr, status, error) {
+        console.error("Failed to update cart attributes.", error);
+        // You can show an error message to the user here
+      }
+    });*/
+
+    // CartJS.updateAttributes({
+    //     'Location': sessionStorage.getItem('location'),
+    //     'Date': sessionStorage.getItem('date')
+    //   }, {
+    //     success: function (data, textStatus, jqXHR) {
+    //       console.log('Cart attributes updated successfully');
+    //       // Optionally, redirect to the cart page or display a success message
+    //     },
+    //     error: function (jqXHR, textStatus, errorThrown) {
+    //       console.error('Failed to update cart attributes');
+    //       // Handle error
+    //     }
+    //   });
+
+    $.ajax({
+      type: "GET",
+      url: window.Shopify.routes.root + "cart.js",
+      dataType: "json",
+      success: function (response) {
+        // console.log(response);
+        $.each(response.items, function (index, product) {          
+          //if (sessionStorage.getItem(product.product_id)) {
+            //var stored_qty = sessionStorage.getItem(product.product_id);
+            var stored_qty = parseInt(product.properties.max_quantity, 10);
+            if (product.quantity >= stored_qty) {
+                $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
+                $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').prop('disabled', true);
+            }
+            if (product.quantity > stored_qty) {
+              b_allowed = false;
+              $(
+                'input.quantity__input[data-quantity-variant-id="' +
+                  product.id +
+                  '"]'
+              )
+                .closest(".cart-item__quantity")
+                .append(
+                  '<small style="color:red;">Es sind nur ' +
+                    stored_qty +
+                    " Artikel verfügbar</small>"
+                );
+            }
+          //}
+        });
+
+        if (b_allowed) window.location.href = "/checkout";
+      },
+      error: function (xhr, status, error) {
+        alert("fetching cart error:");
+        console.log("fetching cart error:", error);
+      },
+    });
+  });
+}
+
 function getFocusableElements(container) {
   return Array.from(
     container.querySelectorAll(
@@ -1495,196 +1752,4 @@ class ProductRecommendations extends HTMLElement {
 
 customElements.define("product-recommendations", ProductRecommendations);
 
-//mib348
-// Function to format today's date as yyyy-mm-dd
-function getFormattedDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  // Month is 0-based, so add 1; ensure it's two digits
-  const month = ("0" + (today.getMonth() + 1)).slice(-2);
-  // Ensure the day is two digits
-  const day = ("0" + today.getDate()).slice(-2);
 
-  //return `${year}-${month}-${day}`;
-  return `${day}-${month}-${year}`;
-}
-
-// Check if the session storage 'date' exists and is not null
-if (sessionStorage.getItem("date") !== null) {
-  const storedDate = sessionStorage.getItem("date");
-  const todayDate = getFormattedDate();
-
-  // Compare the stored date with today's date
-  if (new Date(storedDate) < new Date(todayDate)) {
-    // Update to today's date if stored date is less
-    sessionStorage.setItem("date", todayDate);
-  }
-}
-
-//when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
-if (window.location.pathname === "/pages/bestellen") {
-  if (
-    sessionStorage.getItem("location") == null &&
-    sessionStorage.getItem("date") == null
-  ) {
-  } else if (sessionStorage.getItem("location") == null) {
-  } else if (sessionStorage.getItem("date") == null) {
-    window.location.href = "/pages/datum";
-  } else {
-    window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
-  }
-} else {
-   if (window.location.pathname === "/pages/order-menue") {
-    // Parse the query string
-    const queryParams = new URLSearchParams(window.location.search);
-  
-    // Check if 'location' and 'date' parameters are missing in the URL
-    if (!queryParams.has('location') && !queryParams.has('date')) {
-      if (
-        sessionStorage.getItem("location") == null &&
-        sessionStorage.getItem("date") == null
-      ) {
-        window.location.href = "/pages/bestellen";
-      } else if (sessionStorage.getItem("location") == null) {
-        window.location.href = "/pages/bestellen";
-      } else if (sessionStorage.getItem("date") == null) {
-        window.location.href = "/pages/datum";
-      } else {
-        window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
-      }
-    }
-  }
-
-}
-
-if (window.jQuery) {
-  let $ = window.jQuery;
-
-  var strLocation =
-    sessionStorage.getItem("location") != null
-      ? sessionStorage.getItem("location")
-      : "";
-  var strDate =
-    sessionStorage.getItem("date") != null
-      ? sessionStorage.getItem("date")
-      : "";
-
-  if (
-    sessionStorage.getItem("location") == null &&
-    sessionStorage.getItem("date") == null
-  )
-    $(".location_bar").remove();
-  else {
-    $(".location_bar_text").html("&nbsp;" + strLocation + "&nbsp;" + strDate);
-  }
-
-  $(document).on("click", ".location_bar_closer", function () {
-    sessionStorage.clear();
-    $(".location_bar").remove();
-
-    $.ajax({
-      type: "POST",
-      url: window.Shopify.routes.root + "cart/clear.js",
-      dataType: "json",
-      success: function (response) {},
-      error: function (xhr, status, error) {
-        console.log("Cart clear error:", error);
-      },
-    });
-
-    window.location.href = "/";
-  });
-
-  $(document).on("click", ".station", function (e) {
-    e.preventDefault();
-
-    var href = $(this).attr("href");
-
-    var strLocation = $(this).html();
-    $("div.shopify-section.shopify-section-group-header-group")
-      .not(".section-header")
-      .find("p")
-      .html(" " + strLocation + " " + strDate);
-
-    sessionStorage.setItem("location", strLocation);
-
-    // alert(location);
-
-    window.location.href = href;
-  });
-
-  $(document).on("click", "#checkout", function (e) {
-    e.preventDefault();
-    var el = $(this);
-    var b_allowed = true;
-
-    /*var attributesToUpdate = {
-      attributes: {
-        'Delivery Date': '2024-02-18',
-        'Special Instructions': 'Leave package at the back door, please.'
-      }
-    };
-  
-    $.ajax({
-      type: "POST",
-      url: window.Shopify.routes.root + "cart/update.js",
-      dataType: "json",
-      data: attributesToUpdate,
-      success: function(response) {
-        console.log("Cart attributes updated successfully.", response);
-        // You can update the UI to reflect the change or show a confirmation message here
-      },
-      error: function(xhr, status, error) {
-        console.error("Failed to update cart attributes.", error);
-        // You can show an error message to the user here
-      }
-    });*/
-
-    // CartJS.updateAttributes({
-    //     'Location': sessionStorage.getItem('location'),
-    //     'Date': sessionStorage.getItem('date')
-    //   }, {
-    //     success: function (data, textStatus, jqXHR) {
-    //       console.log('Cart attributes updated successfully');
-    //       // Optionally, redirect to the cart page or display a success message
-    //     },
-    //     error: function (jqXHR, textStatus, errorThrown) {
-    //       console.error('Failed to update cart attributes');
-    //       // Handle error
-    //     }
-    //   });
-
-    $.ajax({
-      type: "GET",
-      url: window.Shopify.routes.root + "cart.js",
-      dataType: "json",
-      success: function (response) {
-        // console.log(response);
-        $.each(response.items, function (index, product) {
-          if (sessionStorage.getItem(product.product_id)) {
-            var stored_qty = sessionStorage.getItem(product.product_id);
-            if (product.quantity > stored_qty) {
-              b_allowed = false;
-              $(
-                'input.quantity__input[data-quantity-variant-id="' +
-                  product.id +
-                  '"]'
-              )
-                .closest(".cart-item__quantity")
-                .append(
-                  '<small style="color:red;">Es sind nur ' +
-                    stored_qty +
-                    " Artikel verfügbar</small>"
-                );
-            }
-          }
-        });
-
-        if (b_allowed) window.location.href = "/checkout";
-      },
-      error: function (xhr, status, error) {
-        console.log("fetching cart error:", error);
-      },
-    });
-  });
-}
