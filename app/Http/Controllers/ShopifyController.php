@@ -537,6 +537,8 @@ class ShopifyController extends Controller
             $content = str_replace('data-variants-continue="{% for variant in product.variants %}{% if variant.inventory_policy == \'continue\' %}{{ variant.id | append: " " }}{% endif %}{% endfor %}"', "", $content);
             $content = str_replace('max="{%- if product.selected_or_first_available_variant.inventory_quantity > 0 -%}{{ product.selected_or_first_available_variant.inventory_quantity }}{%- else -%}50{%- endif -%}"', 'max="{{ qtyValue }}"', $content);
             $content = str_replace('</div></div><button data-product-id', '</div></div><input type="hidden" name="properties[max_quantity]" value="{{ qtyValue }}"><input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ day_name }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ day_name }}"><button data-product-id', $content);
+            $content = str_replace('data-href="{{ product.url | within: collection }}"', 'data-href="{{ product.url | within: collection }}?location={{ location }}&date={{ date }}&day={{ day_name }}"', $content);
+            $content = str_replace('data-href="{{ product.url }}"', 'data-href="{{ product.url }}?location={{ location }}&date={{ date }}&day={{ day_name }}"', $content);
 
             $response = $shop->api()->rest('PUT', '/admin/themes/153998885212/assets.json', ['asset' => ['key' => $asset, 'value' => $content]]);
 
