@@ -185,9 +185,9 @@ class OrdersCreateJob
             }
 
             // Add to updated values if quantity is more than 0
-            if ($newQuantity > 0 || $quantity > 0) {
+            // if ($newQuantity > 0 || $quantity > 0) {
                 $updatedValues[] = $value;
-            }
+            // }
         }
 
 		//$updatedValues = implode(',', $updatedValues);
