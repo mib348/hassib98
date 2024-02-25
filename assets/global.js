@@ -10,7 +10,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
         window.onpopstate = function(event) {
             sessionStorage.clear();
-            window.location.href = "/pages/bestellen";
+
+            $.ajax({
+              type: "POST",
+              url: window.Shopify.routes.root + "cart/clear.js",
+              dataType: "json",
+              success: function (response) {
+                window.location.href = "/pages/bestellen";
+               },
+              error: function (xhr, status, error) {
+                alert("Cart clear error:");
+                console.log("Cart clear error:", error);
+              },
+            });
+          
         };
     }
 });
