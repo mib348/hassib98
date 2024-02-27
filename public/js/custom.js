@@ -11,6 +11,7 @@
 //     });
 // });
 
+
 $.xhrPool = [];
 $.xhrPool.abortAll = function () {
     $(this).each(function (i, jqXHR) {

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ArtisanController;
 use App\Http\Controllers\ShopifyController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -23,10 +24,21 @@ use Illuminate\Support\Facades\Route;
 // })->middleware(['verify.shopify'])->name('home');
 
 
+Route::get('/migrate/{type?}', [ArtisanController::class, 'migrate']);
+Route::get('/cache', [ArtisanController::class, 'cache']);
+Route::get('/storage', [ArtisanController::class, 'storage']);
+Route::get('/queue/start', [ArtisanController::class, 'queue_start']);
+Route::get('/queue/stop', [ArtisanController::class, 'queue_stop']);
+Route::get('/queue/clear', [ArtisanController::class, 'queue_clear']);
+Route::get('/queue/retry', [ArtisanController::class, 'queue_retry']);
+
 Route::get('/', [ShopifyController::class, 'index'])->middleware(['verify.shopify'])->name('home');
 Route::get('/metafields', [ShopifyController::class, 'getMetafields'])->name('metafields');
 Route::get('/products', [ShopifyController::class, 'getProducts'])->name('products');
 Route::get('/getProductsList', [ShopifyController::class, 'getProductsList'])->name('getProductsList');
 Route::get('/getWebhooks', [ShopifyController::class, 'getWebhooks'])->name('getWebhooks');
 Route::get('/setWebhooks', [ShopifyController::class, 'setWebhooks'])->name('setWebhooks');
+Route::get('/testmail', [ShopifyController::class, 'testmail'])->name('testmail');
+Route::get('/getTheme', [ShopifyController::class, 'getTheme'])->name('getTheme');
+Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelectedDate'])->name('updateSelectedDate');
 Route::resource('shopify', ShopifyController::class);
