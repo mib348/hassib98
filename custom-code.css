@@ -1,0 +1,24 @@
+/*.pf-slider {
+  display: none !important;
+}*/
+
+.qty_list ul {
+    margin: 0px;
+    padding: 0px;
+  }
+  
+  .qty_list ul li {
+    list-style-type: none;
+  }
+  
+  .progress_bar {
+    margin-top: 0px !important;
+  }
+  
+  .add_to_cart[disabled] {
+    cursor: not-allowed !important;
+  }
+  
+  .order_qty{
+    float:right
+  }
