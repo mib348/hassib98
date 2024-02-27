@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\QRCodeMail;
 use App\Models\User;
 use Choowx\RasterizeSvg\Svg;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -572,5 +573,20 @@ class ShopifyController extends Controller
 
         echo $json = json_encode($updateResponse['body']['container']['metafield']);
         // echo response($json)->header('Content-Type', 'application/json');
+    }
+
+    public function getordernumber(Request $request, $order_id){
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+
+        $updateResponse = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$order_id}.json");
+
+        // dd($updateResponse['body']['order']['order_number']);
+
+		if(isset($updateResponse['body']['order']['order_number']))
+			return $updateResponse['body']['order']['order_number'];
+		else
+            throw new Exception("Error Processing Request", 1);
     }
 }
