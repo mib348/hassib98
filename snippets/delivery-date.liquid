@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             $("#datepicker").datepicker({
                 minDate: 0,
-                maxDate: '+1w',
+                maxDate: '+6d',
                 dateFormat: "dd-mm-yy",
                 onSelect: function(dateText, inst) {
                     sessionStorage.setItem("date", dateText);

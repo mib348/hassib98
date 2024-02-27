@@ -67,7 +67,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
   let $ = window.jQuery;
 
   $('.order_qty').each(function () {
-    if (parseInt($(this).find('input').val(), 10) >= parseInt($(this).find('input').attr('max'), 10)) {
+    if (parseInt($(this).find('input').val(), 10) > parseInt($(this).find('input').attr('max'), 10)) {
       $(this).siblings('.add_to_cart').prop('disabled', true);
       $(this).siblings('.add_to_cart').attr('disabled', true);
       $(this).siblings('.add_to_cart').html($(this).siblings('.add_to_cart').data('soldout'));
@@ -79,6 +79,15 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
 window.onload = function () {
   if (window.jQuery) {
     let $ = window.jQuery;
+
+    $('.order_qty').each(function () {
+      if (parseInt($(this).find('input').val(), 10) > parseInt($(this).find('input').attr('max'), 10)) {
+        $(this).siblings('.add_to_cart').prop('disabled', true);
+        $(this).siblings('.add_to_cart').attr('disabled', true);
+        $(this).siblings('.add_to_cart').html($(this).siblings('.add_to_cart').data('soldout'));
+        $(this).remove();
+      }
+    });
 
     $(".add_to_cart").click(function (e) {
       // e.preventDefault();
