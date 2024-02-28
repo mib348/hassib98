@@ -232,8 +232,10 @@ if (window.location.pathname === "/pages/bestellen") {
       url: window.Shopify.routes.root + "cart.js",
       dataType: "json",
       success: function (response) {
+        var dateArray = [];
         // console.log(response);
-        $.each(response.items, function (index, product) {          
+        $.each(response.items, function (index, product) {        
+            dateArray.push(product.properties.date);
           //if (sessionStorage.getItem(product.product_id)) {
             //var stored_qty = sessionStorage.getItem(product.product_id);
             var stored_qty = parseInt(product.properties.max_quantity, 10);
@@ -257,6 +259,30 @@ if (window.location.pathname === "/pages/bestellen") {
             }
           //}
         });
+
+        var uncommonValues = [];
+
+        if (dateArray > 1){
+          $.each(dateArray, function(index, value) {
+              if ($.inArray(value, dateArray) === dateArray.lastIndexOf(value)) {
+                  uncommonValues.push(value);
+              }
+          });
+        }
+
+        console.log(dateArray);
+        console.log(uncommonValues);
+
+        if (uncommonValues.length > 0) {
+          alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben');
+          b_allowed = false;
+        }
+
+        if (!$('#agree').is(':checked')) {
+          alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
+          b_allowed = false;
+        }
+          
 
         if (b_allowed) window.location.href = "/checkout";
       },

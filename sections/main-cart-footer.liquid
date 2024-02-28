@@ -72,6 +72,11 @@
                 </small>
               </div>
             {%- else -%}
+                <div class="checkbox-wrapper">
+                  <input type="checkbox" id="agree" name="agree" value="agree">
+                  <label for="agree">Hiermit akzeptiere ich die AGB</label>
+                </div>
+                
               <div class="cart__ctas" {{ block.shopify_attributes }}>
                 <noscript>
                   <button type="submit" class="cart__update-button button button--secondary" form="cart">
