@@ -43,6 +43,27 @@
           "settings": {
           }
         },
+        "text_aTjnyX": {
+          "type": "text",
+          "settings": {
+            "text": "Allergene: {{ product.metafields.custom.allergene | metafield_text }}",
+            "text_style": "body"
+          }
+        },
+        "text_dembyT": {
+          "type": "text",
+          "settings": {
+            "text": "Zusatzstoffe: {{ product.metafields.custom.zusatzstoffe | metafield_text }}",
+            "text_style": "body"
+          }
+        },
+        "text_DHTibY": {
+          "type": "text",
+          "settings": {
+            "text": "Im Menü an folgenden Tagen: {{ product.metafields.custom.available_on | metafield_text }}",
+            "text_style": "body"
+          }
+        },
         "share": {
           "type": "share",
           "settings": {
@@ -58,6 +79,9 @@
         "quantity_selector",
         "buy_buttons",
         "description",
+        "text_aTjnyX",
+        "text_dembyT",
+        "text_DHTibY",
         "share"
       ],
       "settings": {

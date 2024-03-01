@@ -94,7 +94,72 @@ if (window.location.pathname === "/pages/bestellen") {
           }
       });
   }
-} else {
+} 
+else if(window.location.pathname === "/cart"){
+  $.ajax({
+      type: "GET",
+      url: window.Shopify.routes.root + "cart.js",
+      dataType: "json",
+      success: function (response) {
+        removePastDateProducts(response);
+      },
+      error:function(){        
+      }
+  });
+    function removeProductFromCart(productId) {
+      return new Promise((resolve, reject) => {
+        var changeUrl = '/cart/change.js';
+        var payload = {
+          id: productId,
+          quantity: 0 // Setting quantity to 0 will remove the item
+        };
+    
+        $.ajax({
+          url: changeUrl,
+          type: 'POST',
+          dataType: 'json',
+          data: payload,
+          success: function(response) {
+            console.log('Product removed from cart:', productId);
+            resolve(productId); // Resolve the promise when the product is successfully removed
+          },
+          error: function(xhr, status, error) {
+            console.error('Failed to remove product from cart:', productId, status, error);
+            reject(error); // Reject the promise if an error occurs
+          }
+        });
+      });
+    }
+
+    function removePastDateProducts(response) {
+      var removalPromises = [];
+      var bReload = false;
+          
+      $.each(response.items, function(index, product) {
+        var dateParts = product.properties.date.split('-');
+        var productDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+    
+        var currentDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Berlin"}));
+        currentDate.setHours(0, 0, 0, 0); // Remove time portion for comparison
+    
+        if (productDate < currentDate) {
+          bReload = true;
+          removalPromises.push(removeProductFromCart(product.id));
+        }
+      });
+    
+      Promise.all(removalPromises).then(function(results) {
+        console.log('All removable items have been removed:', results);
+        if(bReload === true)
+          window.location.reload(); // Reload the page
+      }).catch(function(error) {
+        console.error('An error occurred while removing items:', error);
+      });
+    }
+
+
+}
+else {
    if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null)) {
     // Parse the query string
     const queryParams = new URLSearchParams(window.location.search);
@@ -182,116 +247,66 @@ if (window.location.pathname === "/pages/bestellen") {
 
   });
 
-  Shopify.onCartUpdate = function(cart) {
-    alert('There are now ' + cart.item_count + ' items in the cart.');
-  };  
+  // Shopify.onCartUpdate = function(cart) {
+  //   alert('There are now ' + cart.item_count + ' items in the cart.');
+  // };  
 
-  $(document).on("click", "#checkout", function (e) {
-    e.preventDefault();
-    var el = $(this);
-    var b_allowed = true;
-
-    /*var attributesToUpdate = {
-      attributes: {
-        'Delivery Date': '2024-02-18',
-        'Special Instructions': 'Leave package at the back door, please.'
-      }
-    };
-  
-    $.ajax({
-      type: "POST",
-      url: window.Shopify.routes.root + "cart/update.js",
-      dataType: "json",
-      data: attributesToUpdate,
-      success: function(response) {
-        console.log("Cart attributes updated successfully.", response);
-        // You can update the UI to reflect the change or show a confirmation message here
-      },
-      error: function(xhr, status, error) {
-        console.error("Failed to update cart attributes.", error);
-        // You can show an error message to the user here
-      }
-    });*/
-
-    // CartJS.updateAttributes({
-    //     'Location': sessionStorage.getItem('location'),
-    //     'Date': sessionStorage.getItem('date')
-    //   }, {
-    //     success: function (data, textStatus, jqXHR) {
-    //       console.log('Cart attributes updated successfully');
-    //       // Optionally, redirect to the cart page or display a success message
-    //     },
-    //     error: function (jqXHR, textStatus, errorThrown) {
-    //       console.error('Failed to update cart attributes');
-    //       // Handle error
-    //     }
-    //   });
-
-    $.ajax({
-      type: "GET",
-      url: window.Shopify.routes.root + "cart.js",
-      dataType: "json",
-      success: function (response) {
-        var dateArray = [];
-        // console.log(response);
-        $.each(response.items, function (index, product) {        
-            dateArray.push(product.properties.date);
-          //if (sessionStorage.getItem(product.product_id)) {
-            //var stored_qty = sessionStorage.getItem(product.product_id);
-            var stored_qty = parseInt(product.properties.max_quantity, 10);
-            if (product.quantity >= stored_qty) {
-                $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
-                $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').prop('disabled', true);
-            }
-            if (product.quantity > stored_qty) {
+    $(document).on("click", "#checkout", function (e) {
+        e.preventDefault();
+        var el = $(this);
+        var b_allowed = true;
+    
+        $.ajax({
+          type: "GET",
+          url: window.Shopify.routes.root + "cart.js",
+          dataType: "json",
+          success: function (response) {
+            var dateArray = [];
+            // console.log(response);
+            $.each(response.items, function (index, product) {     
+                dateArray.push(product.properties.date);
+                var stored_qty = parseInt(product.properties.max_quantity, 10);
+                if (product.quantity >= stored_qty) {
+                    $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
+                    $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').prop('disabled', true);
+                }
+                if (product.quantity > stored_qty) {
+                  b_allowed = false;
+                  $(
+                    'input.quantity__input[data-quantity-variant-id="' +
+                      product.id +
+                      '"]'
+                  )
+                    .closest(".cart-item__quantity")
+                    .append(
+                      '<small style="color:red;">Es sind nur ' +
+                        stored_qty +
+                        " Artikel verfügbar</small>"
+                    );
+                }
+            });
+    
+            // Checking for all items having the same date
+            var allSameDate = dateArray.every((val, i, arr) => val === arr[0]);
+    
+            console.log(dateArray);
+    
+            if (!allSameDate) {
+              alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
               b_allowed = false;
-              $(
-                'input.quantity__input[data-quantity-variant-id="' +
-                  product.id +
-                  '"]'
-              )
-                .closest(".cart-item__quantity")
-                .append(
-                  '<small style="color:red;">Es sind nur ' +
-                    stored_qty +
-                    " Artikel verfügbar</small>"
-                );
             }
-          //}
+    
+            if (!$('#agree').is(':checked')) {
+              alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
+              b_allowed = false;
+            }
+    
+            if (b_allowed) window.location.href = "/checkout";
+          }
         });
-
-        var uncommonValues = [];
-
-        if (dateArray > 1){
-          $.each(dateArray, function(index, value) {
-              if ($.inArray(value, dateArray) === dateArray.lastIndexOf(value)) {
-                  uncommonValues.push(value);
-              }
-          });
-        }
-
-        console.log(dateArray);
-        console.log(uncommonValues);
-
-        if (uncommonValues.length > 0) {
-          alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben');
-          b_allowed = false;
-        }
-
-        if (!$('#agree').is(':checked')) {
-          alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
-          b_allowed = false;
-        }
-          
-
-        if (b_allowed) window.location.href = "/checkout";
-      },
-      error: function (xhr, status, error) {
-        alert("fetching cart error:");
-        console.log("fetching cart error:", error);
-      },
     });
-  });
+    
+
 }
 
 function getFocusableElements(container) {
