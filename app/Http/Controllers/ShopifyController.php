@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Mail\QRCodeMail;
 use App\Models\User;
 use Choowx\RasterizeSvg\Svg;
+use DateTime;
+use DateTimeZone;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -527,7 +529,7 @@ class ShopifyController extends Controller
             echo "Error request: " . $response['body']['errors'];
         } else {
             $content = (string) $response['body']['container']['asset']['value'];
-            $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%}{% assign date = shop.metafields.custom.selected_date %} {% if date %} {% assign date_parts = date | split: \"-\" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
+            $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {% if key_and_value[0] == 'uuid' %} {% assign uuid = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%}{% for item in shop.metafields.custom.selected_dates.value %} {% if item.first == uuid %} {% assign date = item.last %} {% break %} {% endif %} {% endfor %} {% if date %} {% assign date_parts = date | split: \"-\" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
             // $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'date' %} {% assign date = key_and_value[1] %} {% endif %} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%} {% if date %} {% assign date_parts = date | split: \"-\" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
             // $content = "{% assign page_url = content_for_header | split:'\"pageurl\":\"' | last | split:'\"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %} {% assign param = blank %} {%- for i in (1..1) -%} {%- unless page_url contains \"?\" -%}{% break %}{%- endunless -%} {%- assign query_string = page_url | split:'?' | last -%} {%- assign qry_parts= query_string | split:'&' -%} {%- for part in qry_parts -%} {%- assign key_and_value = part | split:'=' -%} {%- if key_and_value.size > 1 -%} {% if key_and_value[0] == 'date' %} {% assign date = key_and_value[1] %} {% endif %} {% if key_and_value[0] == 'location' %} {% assign location = key_and_value[1] %} {% endif %} {%- endif -%} {%- endfor -%} {%- endfor -%}{% if date %} {% assign date_parts = date | split: "-" %} {% assign reformatted_date = date_parts[2] | append: \"-\" | append: date_parts[1] | append: \"-\" | append: date_parts[0] %} {% assign day_name = reformatted_date | date: \"%A\" %} {% endif %}" . $content;
             $content = str_replace("{% assign defaultProduct = product %}{% paginate collections.all.products by 1 %}{% for product in collections.all.products %}", "{% assign defaultProduct = product %} {% paginate collections.all.products by 50 %} {% for product in collections.all.products %} {% assign dateAndQtyList = product.metafields.custom.date_and_quantity %} {% assign productToShow = false %} {% for dateAndQty in dateAndQtyList.value %} {% assign dateAndQtyArray = dateAndQty | split: ':' %} {% assign dateValue = dateAndQtyArray[0] %} {% if dateValue == date %} {% assign qtyValue = dateAndQtyArray[1] %} {% endif %} {% endfor %} {% assign dayList = product.metafields.custom.available_on %} {% for day in dayList.value %} {% if day == day_name %} {% assign productToShow = true %} {% endif %} {% endfor %} {% if productToShow %}", $content);
@@ -551,28 +553,64 @@ class ShopifyController extends Controller
     }
 
     public function updateSelectedDate(Request $request, $date){
-        //added feature to refresh product list on the basis of the selected order date
         $shop = Auth::user();
         if(!isset($shop) || !$shop)
             $shop = User::find(env('db_shop_id', 1));
 
 
+       $currentValue = []; // Default to an empty array if the metafield isn't found
+		$metafieldId = null; // To store the ID of our specific metafield, if found
+
+		// Step 1: Retrieve all metafields and find the correct one
+		$response = $shop->api()->rest('GET', '/admin/api/2024-01/metafields.json', [
+			'namespace' => 'custom',
+			'key' => 'selected_dates'
+		]);
+
+		foreach ($response['body']['container']['metafields'] as $metafield) {
+			if ($metafield['namespace'] == 'custom' && $metafield['key'] == 'selected_dates') {
+				$currentValue = json_decode($metafield['value'], true); // Assuming the value is stored as a JSON string
+				$metafieldId = $metafield['id']; // Capture the metafield ID for later update
+				break; // Exit the loop once we've found our specific metafield
+			}
+		}
+
+		// Proceed only if we found our metafield
+		if ($metafieldId !== null) {
+			$today = new DateTime('now', new DateTimeZone('Europe/Berlin'));
+			$today->setTime(0, 0, 0); // Ignore time part for comparison
 
 
-		$updateResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/metafields/42434560622940.json", [
-            'metafield' => [
-                'id' => 42434560622940,
-                'value' => $date,
-                // 'value_type' => 'json_string', // Correct value_type for JSON string
-                'namespace' => 'custom',
-                'key' => 'selected_date',
-                'type' => 'single_line_text_field', // Ensure this matches the actual type expected by Shopify
-            ],
-        ]);
+			// Step 2: Update the value
+			$uuid = $request->input('uuid');
+			// Update the array with the new value, keyed by UUID
+			$currentValue[$uuid] = $date;
+
+			foreach ($currentValue as $uuid => $storedDate) {
+				$entryDate = DateTime::createFromFormat('d-m-Y', $storedDate, new DateTimeZone('Europe/Berlin'));
+				$entryDate->setTime(0, 0, 0); // Ignore time part for comparison
+
+				if ($entryDate < $today) {
+					unset($currentValue[$uuid]); // Remove entries with dates before today
+				}
+			}
+
+			// Step 3: Save the updated value back to Shopify
+			$updateResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/metafields/{$metafieldId}.json", [
+				'metafield' => [
+					'id' => $metafieldId,
+					'value' => json_encode($currentValue),
+					'namespace' => 'custom',
+					'key' => 'selected_dates',
+					'type' => 'json',
+				],
+			]);
+		}
 
 
-        echo $json = json_encode($updateResponse['body']['container']['metafield']);
-        // echo response($json)->header('Content-Type', 'application/json');
+
+        echo $json = json_encode($updateResponse['body']);
+        //echo response($json)->header('Content-Type', 'application/json');
     }
 
     public function getordernumber(Request $request, $order_id){
