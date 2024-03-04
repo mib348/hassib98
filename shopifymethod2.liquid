@@ -1,4 +1,4 @@
-first make changes in the frontend
+first make changes in the frontend (pagefly page builder)
 
 
 top
@@ -25,13 +25,23 @@ top
         {% if key_and_value[0] == 'location' %}
           {% assign location = key_and_value[1] %}
         {% endif %}
+        {% if key_and_value[0] == 'uuid' %}
+          {% assign uuid = key_and_value[1] %}
+        {% endif %}
       {%- endif -%}
     {%- endfor -%}
   {%- endfor -%}
 
 
 
-{% assign date = shop.metafields.custom.selected_date %}
+  {% for item in shop.metafields.custom.selected_dates.value %}
+    {% if item.first == uuid %}
+      {% assign date = item.last %}
+      {% break %}
+    {% endif %}
+  {% endfor %}
+  
+{% assign dateAndQtyArray = dateAndQty | split: ':' %} 
 
 {% if date %}
   {% assign date_parts = date | split: "-" %}
