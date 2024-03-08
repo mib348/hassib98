@@ -627,4 +627,58 @@ class ShopifyController extends Controller
 		else
             throw new Exception("Error Processing Request", 1);
     }
+
+    public function checkCartProductsQty(Request $request) {
+		$shop = Auth::user();
+		if (!isset($shop) || !$shop)
+			$shop = User::find(env('db_shop_id', 1));
+
+		$orderData = json_decode($request->input('items'), true);
+
+		$arr = [];
+
+		$i = 0;
+		foreach ($orderData as $product) {
+			$arr[$i]['id'] =  $product['product_id'];
+			$matchingQty = null; // Initialize matchingQty
+
+			$namespace = 'custom';
+			$key = 'date_and_quantity';
+			$metafieldEndpoint = "/admin/api/2024-01/products/{$product['product_id']}/metafields.json";
+
+			// Fetch the current metafield for the product
+			$metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
+			$metafields = $metafieldsResponse['body']['metafields'] ?? [];
+
+			// Find the specific metafield we want to update
+			foreach ($metafields as $item) {
+				if ($item['namespace'] === $namespace && $item['key'] === $key) {
+					$metafield = $item;
+					break; // Stop the loop once the matching metafield is found
+				}
+			}
+
+			if (isset($metafield['value'])) {
+				$values = json_decode($metafield['value'], TRUE);
+
+				foreach ($values as $value) {
+					// Split the value into date and quantity
+					$parts = explode(':', $value);
+
+					// Check if the date part matches today's date
+					if ($parts[0] === $product['properties']['date']) {
+						// If the date matches, set the matching quantity
+						$matchingQty = $parts[1];
+						break; // Break out of the loop since we found the matching quantity
+					}
+				}
+			}
+
+			$arr[$i]['qty'] = $matchingQty; // Set matchingQty after the loop
+			
+			$i++;
+		}
+
+		return json_encode($arr);
+	}
 }

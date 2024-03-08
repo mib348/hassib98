@@ -31,6 +31,7 @@ Route::any('/getOrderCreationWebhook', [ShopifyController::class, 'getOrderCreat
 Route::any('/getOrderUpdateWebhook', [ShopifyController::class, 'getOrderUpdateWebhook'])->name('getOrderUpdateWebhook');
 Route::any('/getOrderPaymentWebhook', [ShopifyController::class, 'getOrderPaymentWebhook'])->name('getOrderPaymentWebhook');
 Route::any('/getordernumber/{order_id}', [ShopifyController::class, 'getordernumber'])->name('getordernumber');
+Route::any('/checkCartProductsQty', [ShopifyController::class, 'checkCartProductsQty'])->name('checkCartProductsQty');
 // Route::get('/getProductsList', function(){
 //     return redirect('https://council-moms-commissioners-tip.trycloudflare.com/authenticate');
 // })->name('api_getProductsList');
