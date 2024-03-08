@@ -639,7 +639,7 @@ class ShopifyController extends Controller
 
 		$i = 0;
 		foreach ($orderData as $product) {
-			$arr[$i]['id'] =  $product['product_id'];
+			$arr[$i]['id'] =  $product['id'];
 			$matchingQty = null; // Initialize matchingQty
 
 			$namespace = 'custom';
