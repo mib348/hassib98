@@ -77,12 +77,13 @@ document.addEventListener('DOMContentLoaded', function() {
           $.ajax({
               url:"https://app.sushi.catering/updateSelectedDate/" + today,
               type:"GET",
+              data:{"uuid":localStorage.getItem("uuid")},
               cache:false,
               async:false,
               dataType:"json",
               success:function(data){
                 console.log(data);
-                window.location.href = href + "?location=" + sessionStorage.getItem("location");
+                window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
               },
               error: function (request, status, error) {
                   alert('set selected date error: today ');
@@ -107,13 +108,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     $.ajax({
                     	url:"https://app.sushi.catering/updateSelectedDate/" + dateText,
                     	type:"GET",
+                        data:{"uuid":localStorage.getItem("uuid")},
                     	cache:false,
                         async:false,
                     	dataType:"json",
                     	success:function(data){
                           console.log(data);
                           // Redirect the user to the new URL or handle it as needed
-                          window.location.href = newUrl + "?location=" + sessionStorage.getItem("location");
+                          window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
                         },
                         error: function (request, status, error) {
                             alert('set selected date error: preorder ');

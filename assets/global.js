@@ -4,6 +4,18 @@
 //     window.location.href = "/pages/bestellen";
 // }
 
+
+function generateShortUUID() {
+    return 'xxxxxx'.replace(/[x]/g, function() {
+        return (Math.random() * 16 | 0).toString(16);
+    });
+}
+
+if (localStorage.getItem("uuid") == null) {
+  const uuid = generateShortUUID();
+  localStorage.setItem("uuid", uuid);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     if (window.location.pathname === "/pages/order-menue") {
         history.pushState(null, null, window.location.href); // Push current state to history
@@ -29,7 +41,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
-//mib348
 // Function to format today's date as yyyy-mm-dd
 function getFormattedDate() {
   const today = new Date();
@@ -48,7 +59,7 @@ if (sessionStorage.getItem("date") !== null) {
   const storedDate = sessionStorage.getItem("date");
   const todayDate = getFormattedDate();
 
-  console.log(todayDate);
+  //console.log(todayDate);
 
   // Compare the stored date with today's date
   if (new Date(storedDate) < new Date(todayDate)) {
@@ -80,13 +91,14 @@ if (window.location.pathname === "/pages/bestellen") {
     $.ajax({
           url:"https://app.sushi.catering/updateSelectedDate/" + sessionStorage.getItem("date"),
           type:"GET",
+          data:{"uuid":localStorage.getItem("uuid")},
           cache:false,
           async:false,
           dataType:"json",
           success:function(data){
-            console.log(data);
+            // console.log(data);
             //window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
-            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location");
+            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
           },
           error: function (request, status, error) {
               alert('set selected date error: global ');
@@ -244,6 +256,7 @@ else {
     //window.location.href = href + "?location=" + strLocation;
     //window.location.replace(href + "?location=" + strLocation);
     location.replace(href + "?location=" + strLocation);
+    
 
   });
 
@@ -263,7 +276,7 @@ else {
           success: function (response) {
             var dateArray = [];
             // console.log(response);
-            $.each(response.items, function (index, product) {     
+            $.each(response.items, function (index, product) {
                 dateArray.push(product.properties.date);
                 var stored_qty = parseInt(product.properties.max_quantity, 10);
                 if (product.quantity >= stored_qty) {
@@ -272,27 +285,22 @@ else {
                 }
                 if (product.quantity > stored_qty) {
                   b_allowed = false;
-                  $(
-                    'input.quantity__input[data-quantity-variant-id="' +
-                      product.id +
-                      '"]'
-                  )
-                    .closest(".cart-item__quantity")
-                    .append(
-                      '<small style="color:red;">Es sind nur ' +
-                        stored_qty +
-                        " Artikel verfügbar</small>"
-                    );
+                  $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest(".cart-item__quantity") .append( '<small style="color:red;">Es sind nur ' + stored_qty + " Artikel verfügbar</small>" );
                 }
             });
     
             // Checking for all items having the same date
             var allSameDate = dateArray.every((val, i, arr) => val === arr[0]);
     
-            console.log(dateArray);
+            //console.log(dateArray);
     
             if (!allSameDate) {
               alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
+              b_allowed = false;
+            }
+    
+            if (!$('#incorrent_item_agree').is(':checked')) {
+              alert("Um fortzufahren, müssen Sie das Kontrollkästchen ‘Bei Entnahme eines falschen Artikels wird eine 20€-Gebühr pro Artikel fällig.’ akzeptieren.");
               b_allowed = false;
             }
     
@@ -300,8 +308,57 @@ else {
               alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
               b_allowed = false;
             }
+
     
-            if (b_allowed) window.location.href = "/checkout";
+              if (b_allowed){
+                  //check product available quantity
+                  $.ajax({
+                        type: "POST",
+                        url: "https://app.sushi.catering/api/checkCartProductsQty",
+                        async: false,
+                        cache: false,
+                        data: {
+                            items: JSON.stringify(response.items)
+                        },
+                        dataType: "json",
+                        success: function(response) {
+                            //console.log(response);
+                    
+                            // Check if any product quantity is zero
+                            var products = response;
+                            var allProductsAvailable = true;
+                            for (var i = 0; i < products.length; i++) {
+                                if (products[i].qty == 0) {
+                                    // Check if the message has already been appended
+                                    alert(products[i].name + ' ist Ausverkauft');
+                                    if (!$( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").find("small.soldout").length) {
+                                        $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ) .closest(".cart-item__quantity") .append( '<small class="soldout" style="color:red;">Ausverkauft</small>' );
+                                    }
+                                    allProductsAvailable = false;
+
+                                    var elementTop = $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").offset().top;
+                                    window.scrollTo({
+                                        top: elementTop - 150,
+                                        behavior: "smooth"
+                                    });
+                                }
+                            }
+                    
+                            // Block further execution if any product quantity is zero
+                            if (!allProductsAvailable) {
+                                console.log("Some product quantities are zero. Further execution blocked.");
+                                return;
+                            }
+                    
+                            window.location.href = "/checkout";
+                        },
+                        error: function() {
+                            console.log('Cart quantity fetch error');
+                        }
+                    });
+                    
+
+              } 
           }
         });
     });
