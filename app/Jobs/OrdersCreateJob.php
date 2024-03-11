@@ -164,6 +164,8 @@ class OrdersCreateJob
 		$values = json_decode($values, TRUE);
 		//$values = explode(',', $values);
         $newQuantity = 0;
+		
+		//dd($values);
 
         foreach ($values as $value) {
 
@@ -185,9 +187,9 @@ class OrdersCreateJob
             }
 
             // Add to updated values if quantity is more than 0
-            // if ($newQuantity > 0 || $quantity > 0) {
+            //if ($newQuantity > 0 || $quantity > 0) {
                 $updatedValues[] = $value;
-            // }
+            //}
         }
 
 		//$updatedValues = implode(',', $updatedValues);
@@ -288,8 +290,8 @@ class OrdersCreateJob
 
         $message = [
             'html' => $html,
-            'subject' => 'Hello from Sushi Catering: Order # ' . $orderData['order_number'],
-            'from_email' => 'ibrahim@digitalmib.com',
+            'subject' => 'Sushi Catering: Order # ' . $orderData['order_number'] . ' Weitere Informationen',
+            'from_email' => 'info@sushi.catering',
             'from_name' => 'Sushi Catering',
             'to' => [
                 [
@@ -300,7 +302,7 @@ class OrdersCreateJob
             ],
             'merge_vars' => [
                 [
-                    'rcpt' => 'ibrahim@digitalmib.com',
+                    'rcpt' => $orderData['email'],
                     'vars' => [
                         [
                             'name' => 'QR_CODE',
