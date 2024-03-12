@@ -285,7 +285,15 @@ else {
                 }
                 if (product.quantity > stored_qty) {
                   b_allowed = false;
-                  $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest(".cart-item__quantity") .append( '<small style="color:red;">Es sind nur ' + stored_qty + " Artikel verfügbar</small>" );
+                  if (!$( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ).closest(".cart-item__quantity").find("small.lowstock").length) {
+                    $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest(".cart-item__quantity") .append( '<small class="lowstock" style="color:red;">Es sind nur ' + stored_qty + " Artikel verfügbar</small>" );
+
+                    var elementTop = $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ).closest(".cart-item__quantity").offset().top;
+                    window.scrollTo({
+                        top: elementTop - 150,
+                        behavior: "smooth"
+                    });
+                  }
                 }
             });
     
@@ -309,8 +317,9 @@ else {
               b_allowed = false;
             }
 
-    
+    console.log(b_allowed);
               if (b_allowed){
+                  let items = response.items;
                   //check product available quantity
                   $.ajax({
                         type: "POST",
@@ -321,18 +330,29 @@ else {
                             items: JSON.stringify(response.items)
                         },
                         dataType: "json",
-                        success: function(response) {
-                            //console.log(response);
-                    
+                        success: function(response) {                    
                             // Check if any product quantity is zero
                             var products = response;
                             var allProductsAvailable = true;
                             for (var i = 0; i < products.length; i++) {
                                 if (products[i].qty == 0) {
-                                    // Check if the message has already been appended
                                     alert(products[i].name + ' ist Ausverkauft');
+                                    // Check if the message has already been appended
                                     if (!$( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").find("small.soldout").length) {
                                         $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ) .closest(".cart-item__quantity") .append( '<small class="soldout" style="color:red;">Ausverkauft</small>' );
+                                    }
+                                    allProductsAvailable = false;
+
+                                    var elementTop = $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").offset().top;
+                                    window.scrollTo({
+                                        top: elementTop - 150,
+                                        behavior: "smooth"
+                                    });
+                                }
+                                else if (products[i].qty < items[i].quantity) {
+                                    alert('Für ' + products[i].name + ' sind nur noch ' + products[i].qty + ' Artikel übrig');
+                                    if (!$( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").find("small.soldout").length) {
+                                        $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ) .closest(".cart-item__quantity") .append( '<small class="soldout" style="color:red;">' + products[i].qty + ' Produkte verfügbar</small>' );
                                     }
                                     allProductsAvailable = false;
 
@@ -349,6 +369,8 @@ else {
                                 console.log("Some product quantities are zero. Further execution blocked.");
                                 return;
                             }
+
+                            console.log(allProductsAvailable);
                     
                             window.location.href = "/checkout";
                         },
