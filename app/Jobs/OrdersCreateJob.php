@@ -83,7 +83,7 @@ class OrdersCreateJob
             foreach ($lineItems as $item) {
                 $productId = $item['product_id'] ?? null;
                 if ($productId) {
-                    $this->updateProductMetafieldForOrder($shop, $productId, $item);
+                    $this->updateProductMetafieldForOrder($shop, $productId, $item, $orderData);
                     $this->updateOrder($shop, $productId, $item, $orderData);
                 }
             }
@@ -102,11 +102,11 @@ class OrdersCreateJob
         }
 
 
-        $mailResponse = $this->sendOrderConfirmationEmail($orderData);
-        info('Handler New Order Creation Webhook with Email complete: '. json_encode($mailResponse));
+        /*$mailResponse = $this->sendOrderConfirmationEmail($orderData);
+        info('Handler New Order Creation Webhook with Email complete: '. json_encode($mailResponse));*/
     }
 
-    protected function updateProductMetafieldForOrder($shop, $productId, $lineItem)
+    protected function updateProductMetafieldForOrder($shop, $productId, $lineItem, $orderData)
     {
         // Define the metafield details
         $namespace = 'custom';
@@ -131,7 +131,7 @@ class OrdersCreateJob
         if ($metafield) {
             // Assume the value is a list of "date:quantity" strings, e.g., "2024-02-12:5"
             //$values = explode(',', $metafield['value']);
-            $updatedValues = $this->updateValuesBasedOnOrder($metafield['value'], $lineItem);
+            $updatedValues = $this->updateValuesBasedOnOrder($shop, $metafield['value'], $lineItem, $orderData);
 			//dd($updatedValues);
 
             // Update the metafield with the new values
@@ -153,7 +153,7 @@ class OrdersCreateJob
         }
     }
 
-    protected function updateValuesBasedOnOrder($values, $lineItem)
+    protected function updateValuesBasedOnOrder($shop, $values, $lineItem, $orderData)
     {
         // Placeholder for the updated values
         $updatedValues = [];
@@ -164,7 +164,7 @@ class OrdersCreateJob
 		$values = json_decode($values, TRUE);
 		//$values = explode(',', $values);
         $newQuantity = 0;
-		
+
 		//dd($values);
 
         foreach ($values as $value) {
@@ -178,6 +178,47 @@ class OrdersCreateJob
             // if ($dateCarbon < $today) {
             //     continue;
             // }
+
+
+			if($lineItem['quantity'] > $quantity){
+				//order cancellation
+				$response = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/cancel.json");
+
+				//get order transactions
+				$arrTransaction = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$orderData['id']}/transactions.json");
+
+
+
+				$arrTransaction = $arrTransaction['body']['container']['transactions'];
+				$arrTransaction = end($arrTransaction);
+
+
+
+				$refundAmount = $orderData["total_price"]; // Replace with the actual refund amount
+				$refundReason = 'Der Artikel ' . $lineItem['title'] . ' ist nicht vorrätig'; // Replace with an appropriate reason
+
+				// Create the refund
+				$refundResponse = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/refunds.json", [
+					'refund' => [
+						'currency' => $orderData["currency"], // Replace with the order currency
+						'shipping' => [
+							'full_refund' => true,
+						],
+						'notify' => true,
+						'note' => $refundReason,
+						'transactions' => [
+							[
+								"parent_id" => $arrTransaction['id'],
+								'kind' => 'refund',
+								'amount' => $refundAmount,
+								"gateway" => $arrTransaction['gateway']
+							],
+						],
+					],
+				]);
+
+				exit;
+			}
 
             // Check if the date matches the order date
             if (isset($lineItem['properties']) && $lineItem['properties'][2]['name'] == 'date' && $date == $lineItem['properties'][2]['value']) {
@@ -282,7 +323,7 @@ class OrdersCreateJob
         $html = $template->html;
         $items = '<div>';
         foreach ($orderData['line_items'] as $key => $item) {
-            $items .= '<p>' . $item['name'] . ' (' . $item['quantity'] . ')</p>';
+            $items .= '<p style=" text-align: left;">' . $item['name'] . ' (' . $item['quantity'] . ')</p>';
         }
         $items .= '</div>';
 
