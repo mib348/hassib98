@@ -184,15 +184,13 @@ class OrdersCreateJob
 				//order cancellation
 				$response = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/cancel.json");
 
+                Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity {$lineItem['quantity']} is greater than available quantity {$quantity} " . json_encode($orderData));
+
 				//get order transactions
 				$arrTransaction = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$orderData['id']}/transactions.json");
 
-
-
 				$arrTransaction = $arrTransaction['body']['container']['transactions'];
 				$arrTransaction = end($arrTransaction);
-
-
 
 				$refundAmount = $orderData["total_price"]; // Replace with the actual refund amount
 				$refundReason = 'Der Artikel ' . $lineItem['title'] . ' ist nicht vorrätig'; // Replace with an appropriate reason
@@ -216,6 +214,8 @@ class OrdersCreateJob
 						],
 					],
 				]);
+
+                Log::info("Amount {$refundAmount} refunded to order {$orderData['id']} {$orderData['order_number']} " . json_encode($refundResponse));
 
 				exit;
 			}
