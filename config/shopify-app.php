@@ -404,6 +404,14 @@ return [
         [
             'topic' => env('SHOPIFY_WEBHOOK_2_TOPIC', 'APP_UNINSTALLED'),
             'address' => env('SHOPIFY_WEBHOOK_2_ADDRESS', 'https://(your-domain).com/webhook/app-uninstalled')
+        ],
+        [
+            'topic' => env('SHOPIFY_WEBHOOK_3_TOPIC', 'REFUNDS_CREATE'),
+            'address' => env('SHOPIFY_WEBHOOK_3_ADDRESS', 'https://(your-domain).com/webhook/refunds-create')
+        ],
+        [
+            'topic' => env('SHOPIFY_WEBHOOK_4_TOPIC', 'ORDERS_UPDATED'),
+            'address' => env('SHOPIFY_WEBHOOK_4_ADDRESS', 'https://(your-domain).com/webhook/orders-update')
         ]
     ],
 
