@@ -624,8 +624,10 @@ class ShopifyController extends Controller
 
 		if(isset($updateResponse['body']['order']['order_number']))
 			return $updateResponse['body']['order']['order_number'];
-		else
+		else{
+            Log::error("Error fetching order number for order id {$order_id}");
             throw new Exception("Error Processing Request", 1);
+        }
     }
 
     public function checkCartProductsQty(Request $request) {
@@ -678,7 +680,7 @@ class ShopifyController extends Controller
 			}
 
 			$arr[$i]['qty'] = $matchingQty; // Set matchingQty after the loop
-			
+
 			$i++;
 		}
 
