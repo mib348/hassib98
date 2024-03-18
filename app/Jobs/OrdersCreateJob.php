@@ -57,6 +57,21 @@ class OrdersCreateJob
         Log::error('Handler New Order Creation Webhook Job Fail: '. json_encode($error));
     }
 
+    public function handleWebhook(Request $request, RespondWithShopify $response)
+    {
+        // Your webhook handling logic goes here
+
+        // Process the incoming webhook payload
+        $data = $request->all();
+
+        // Example: Log the received payload
+        Log::info('Webhook received:', $data);
+
+        // Return a successful response to Shopify
+        return $response->success();
+    }
+
+
     /**
      * Execute the job.
      *
@@ -88,6 +103,7 @@ class OrdersCreateJob
                 }
             }
 
+			return response()->json(['message' => 'Webhook received successfully'], 200);
         } catch (\Throwable $th) {
             $errorDetails = [
                 'message' => $th->getMessage(),
@@ -145,10 +161,10 @@ class OrdersCreateJob
             ]);
 
             if ($updateResponse['errors']) {
-                Log::error("Failed to update metafield: " . json_encode($updateResponse['body']));
-                throw new Exception("Failed to update metafield: "  . json_encode($updateResponse['body']), 1);
+                Log::error("Failed to update date_and_quantity metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+                throw new Exception("Failed to date_and_quantity update metafield for product ID {$productId} for order number {$orderData['order_number']}: "  . json_encode($updateResponse['body']), 1);
             } else {
-                Log::info("Metafield updated successfully for product ID {$productId}: " . json_encode($updateResponse['body']));
+                Log::info("date_and_quantity Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
             }
         }
     }
@@ -180,11 +196,32 @@ class OrdersCreateJob
             // }
 
 
-			if($lineItem['quantity'] > $quantity){
-				//order cancellation
-				$response = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/cancel.json");
+			if((isset($lineItem['quantity']) && $lineItem['quantity'] > 0) && isset($quantity) && ($lineItem['quantity'] > $quantity) && (isset($orderData['id']) && !empty($orderData['id']))){
+				$note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity}";
 
-                Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity {$lineItem['quantity']} is greater than available quantity {$quantity} " . json_encode($orderData));
+				$updateOrderRequestBody = [
+					'order' => [
+						'id' => $orderData['id'],
+						'note' => $note,
+					],
+				];
+
+				// Send the request to update the order with the note
+				$updateOrderResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/orders/{$orderData['id']}.json", $updateOrderRequestBody);
+
+
+
+				//order cancellation
+				$requestBody = [
+                    'reason' => 'inventory',
+					'email' => true
+                ];
+
+                // Send the cancel order request
+                $response = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/cancel.json", $requestBody);
+
+                Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity for {$lineItem['title']} : {$lineItem['quantity']} is greater than available quantity {$quantity} " . json_encode($orderData));
+
 
 				//get order transactions
 				$arrTransaction = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$orderData['id']}/transactions.json");
@@ -282,21 +319,21 @@ class OrdersCreateJob
 
 
         if (!$responseLocation['errors']) {
-            Log::info($orderData['order_number'] . ' Order metafields updated successfully: ' . json_encode($updatePayloadLocation));
+            Log::info($orderData['order_number'] . ' Order location metafield updated successfully: ' . json_encode($updatePayloadLocation));
         } else {
             // Handle errors
-            Log::error($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responseLocation['body']));
+            Log::error($orderData['order_number'] . ' Order location metafield could not be updated: ' . json_encode($responseLocation['body']));
 
-			throw new Exception($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responseLocation['body']), 1);
+			throw new Exception($orderData['order_number'] . ' Order location metafield could not be updated: ' . json_encode($responseLocation['body']), 1);
         }
 
 		if (!$responsePickUpDate['errors']) {
-            Log::info($orderData['order_number'] . ' Order metafields updated successfully: ' . json_encode($updatePayloadPickUpDate));
+            Log::info($orderData['order_number'] . ' Order pickup-date metafield updated successfully: ' . json_encode($updatePayloadPickUpDate));
         } else {
             // Handle errors
-            Log::error($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responsePickUpDate['body']));
+            Log::error($orderData['order_number'] . ' Order pickup-date metafield could not be updated: ' . json_encode($responsePickUpDate['body']));
 
-			throw new Exception($orderData['order_number'] . ' Order metafields could not be updated: ' . json_encode($responsePickUpDate['body']), 1);
+			throw new Exception($orderData['order_number'] . ' Order pickup-date metafield could not be updated: ' . json_encode($responsePickUpDate['body']), 1);
         }
 
     }
