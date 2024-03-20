@@ -60,6 +60,40 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
+    if (window.location.pathname.includes('/products/')) {
+        const queryParams = new URLSearchParams(window.location.search);
+    
+        // Check if 'location', 'date', and 'uuid' parameters are missing in the URL
+        if (!queryParams.has('location') || !queryParams.has('date') || !queryParams.has('uuid')) {
+            // Get all elements with the specified class names and hide them
+            var quantityElements = document.querySelectorAll('.product-form__quantity');
+            var submitElements = document.querySelectorAll('.product-form__submit');
+            var buttonElements = document.querySelectorAll('.product-form__buttons');
+    
+            // Hide quantity and submit elements
+            quantityElements.forEach(function(element) {
+                element.style.display = 'none';
+            });
+            submitElements.forEach(function(element) {
+                element.style.display = 'none';
+            });
+    
+            // Clear session storage
+            sessionStorage.clear();
+    
+            // Update the innerHTML of the button elements
+            buttonElements.forEach(function(element) {
+                element.innerHTML = '<a class="product-form__submit button button--full-width button--primary" href="/pages/bestellen">Bitte bestellen Sie hier</a>';
+            });
+        }else {
+            // Console log the parameters if they exist
+            console.log('Location:', queryParams.get('location'));
+            console.log('Date:', queryParams.get('date'));
+            console.log('UUID:', queryParams.get('uuid'));
+        }
+    }
+
+
 });
 
 

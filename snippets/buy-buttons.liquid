@@ -108,11 +108,10 @@
         {% assign productToShow = false %} 
         {% assign dayList = product.metafields.custom.available_on %}
         {% for day in dayList.value %}
-            {% if day == day_name %} 
+            {% if day == day_name and location != blank  and date != blank  and uuid != blank  %} 
                 {% assign productToShow = true %} 
             {% endif %}
         {% endfor %} 
-
 
         <input type="hidden" name="properties[max_quantity]" value="{{ qtyValue }}" />
         <input type="hidden" name="properties[location]" value="{{ location }}" />
