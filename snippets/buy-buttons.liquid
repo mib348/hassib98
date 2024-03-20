@@ -59,7 +59,6 @@
           class="product-variant-id"
         >
 
-
         {% comment %}mib348{% endcomment %}
                     
         {% assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %}
@@ -106,6 +105,15 @@
           {% endif %} 
         {% endfor %}
 
+        {% assign productToShow = false %} 
+        {% assign dayList = product.metafields.custom.available_on %}
+        {% for day in dayList.value %}
+            {% if day == day_name %} 
+                {% assign productToShow = true %} 
+            {% endif %}
+        {% endfor %} 
+
+
         <input type="hidden" name="properties[max_quantity]" value="{{ qtyValue }}" />
         <input type="hidden" name="properties[location]" value="{{ location }}" />
         <input type="hidden" name="properties[date]" value="{{ date }}" />
@@ -125,6 +133,8 @@
               assign quantity_rule_soldout = true
             endif
           -%}
+
+          {% if productToShow == true %}
           <button
             id="ProductSubmitButton-{{ section_id }}"
             type="submit"
@@ -153,6 +163,13 @@
               </svg>
             </div>
           </button>
+          {%- else -%}
+            <script>
+              sessionStorage.clear();
+            </script>
+            <a class="product-form__submit button button--full-width button--primary" href="/pages/bestellen" >Bitte bestellen Sie hier</a>
+          {%- endif -%}
+          
           {%- if show_dynamic_checkout -%}
             {{ form | payment_button }}
           {%- endif -%}

@@ -38,6 +38,28 @@ document.addEventListener('DOMContentLoaded', function() {
           
         };
     }
+    if (window.location.pathname === "/pages/menue") {
+      // Select all elements with the class .product_media
+      document.querySelectorAll('.product_media').forEach(function(element) {
+        // Find the first .pf-main-media element within the current .product_media element
+        var pfMainMedia = element.querySelector('.pf-main-media');
+        
+        // Get the 'data-href' attribute and append '?page=menue'
+        var href = pfMainMedia.getAttribute('data-href') + '?page=menue';
+    
+        // Append additional query parameters if they exist in sessionStorage
+        if (sessionStorage.getItem("location") != null)
+          href += "&location=" + sessionStorage.getItem("location");
+        if (sessionStorage.getItem("date") != null)
+          href += "&date=" + sessionStorage.getItem("date");
+        if (localStorage.getItem("uuid") != null)
+          href += "&uuid=" + localStorage.getItem("uuid");
+    
+        // Set the updated href back as the 'data-href' attribute
+        pfMainMedia.setAttribute('data-href', href);
+      });
+    }
+
 });
 
 
@@ -70,7 +92,6 @@ if (sessionStorage.getItem("date") !== null) {
 
 if (window.jQuery) {
   let $ = window.jQuery;
-
   // if (window.history && window.history.pushState) {
   //     window.history.pushState('', null, window.location.pathname);
   //     $(window).on('popstate', function() {

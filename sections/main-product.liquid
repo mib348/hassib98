@@ -217,33 +217,8 @@
                 {% # theme-check-disable %}
                 {%- assign cart_qty = cart | item_count_for_variant: product.selected_or_first_available_variant.id -%}
                 {% # theme-check-enable %}
-                <label class="quantity__label form__label" for="Quantity-{{ section.id }}">
-                  {{ 'products.product.quantity.label' | t }}
-                  <span class="quantity__rules-cart no-js-hidden{% if cart_qty == 0 %} hidden{% endif %}">
-                    <span class="loading-overlay hidden">
-                      <span class="loading-overlay__spinner">
-                        <svg
-                          aria-hidden="true"
-                          focusable="false"
-                          class="spinner"
-                          viewBox="0 0 66 66"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
-                        </svg>
-                      </span>
-                    </span>
-                    <span>({{- 'products.product.quantity.in_cart_html' | t: quantity: cart_qty -}})</span>
-                  </span>
-                </label>
-                <div class="price-per-item__container">
-                  <quantity-input class="quantity" data-url="{{ product.url }}" data-section="{{ section.id }}">
-                    <button class="quantity__button no-js-hidden" name="minus" type="button">
-                      <span class="visually-hidden">
-                        {{- 'products.product.quantity.decrease' | t: product: product.title | escape -}}
-                      </span>
-                      {% render 'icon-minus' %}
-                    </button>
+
+                {% comment %}mib348{% endcomment %}
                     {% assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %}
                     {% assign param = blank %}
                   
@@ -268,6 +243,7 @@
                         {%- endif -%}
                       {%- endfor -%}
                     {%- endfor -%}
+                  
                     
                     {% for item in shop.metafields.custom.selected_dates.value %}
                       {% if item.first == uuid %}
@@ -275,7 +251,13 @@
                         {% break %}
                       {% endif %}
                     {% endfor %}
-                    
+
+                  {% if date %}
+                    {% assign date_parts = date | split: "-" %}
+                    {% assign reformatted_date = date_parts[2] | append: "-" | append: date_parts[1] | append: "-" | append: date_parts[0] %}
+                    {% assign day_name = reformatted_date | date: "%A" %}
+                  {% endif %}
+
                     {% assign dateAndQtyList = product.metafields.custom.date_and_quantity %}
                     {% for dateAndQty in dateAndQtyList.value %} 
                       {% assign dateAndQtyArray = dateAndQty | split: ':' %} 
@@ -284,7 +266,47 @@
                           {% assign qtyValue = dateAndQtyArray[1] %} 
                       {% endif %} 
                     {% endfor %}
-                    
+
+                  {% assign productToShow = false %} 
+                  {% assign dayList = product.metafields.custom.available_on %}
+                  {% for day in dayList.value %}
+                      {% if day == day_name %} 
+                          {% assign productToShow = true %} 
+                      {% endif %}
+                  {% endfor %} 
+
+                {% if productToShow == true %}
+                <label class="quantity__label form__label" for="Quantity-{{ section.id }}">
+                  {{ 'products.product.quantity.label' | t }}
+                  <span class="quantity__rules-cart no-js-hidden{% if cart_qty == 0 %} hidden{% endif %}">
+                    <span class="loading-overlay hidden">
+                      <span class="loading-overlay__spinner">
+                        <svg
+                          aria-hidden="true"
+                          focusable="false"
+                          class="spinner"
+                          viewBox="0 0 66 66"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+                        </svg>
+                      </span>
+                    </span>
+                    <span>({{- 'products.product.quantity.in_cart_html' | t: quantity: cart_qty -}})</span>
+                  </span>
+                </label>
+                {% endif %} 
+                
+                <div class="price-per-item__container"> 
+                  
+                  {% if productToShow == true %}
+                    <quantity-input class="quantity" data-url="{{ product.url }}" data-section="{{ section.id }}">
+                    <button class="quantity__button no-js-hidden" name="minus" type="button">
+                      <span class="visually-hidden">
+                        {{- 'products.product.quantity.decrease' | t: product: product.title | escape -}}
+                      </span>
+                      {% render 'icon-minus' %}
+                    </button>
                     <input
                       class="quantity__input"
                       type="number"
@@ -306,6 +328,8 @@
                       {% render 'icon-plus' %}
                     </button>
                   </quantity-input>
+                    {% endif %} 
+                  
                   {%- liquid
                     assign volume_pricing_array = product.selected_or_first_available_variant.quantity_price_breaks | sort: 'quantity' | reverse
                     assign current_qty_for_volume_pricing = cart_qty | plus: product.selected_or_first_available_variant.quantity_rule.min
