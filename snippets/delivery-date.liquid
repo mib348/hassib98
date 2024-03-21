@@ -22,10 +22,28 @@ document.addEventListener('DOMContentLoaded', function() {
       e.target.style.opacity = '';
     }
   });
+
+    const button = document.querySelector('.todayorderbtn');
+
+    function toggleButton() {
+      const now = new Date();
+      const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+      const timeGermany = new Date(utcTime + (3600000 * 1)); // Germany (Central European Time) is UTC+2
+      const hours = timeGermany.getHours();
+      const minutes = timeGermany.getMinutes();
+
+      if (hours < 12) {
+        button.classList.remove('show-button');
+      } else {
+        // Enable button from 12 p.m. (noon) to midnight
+        button.classList.add('show-button'); 
+      }
+    }
+
+    toggleButton();
+
+    setInterval(toggleButton, 60000);
 });
-
-
-
 
   window.onload = function() {
     pageFullyLoaded = true;
@@ -130,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Remove the HTML element if the time condition is met
         if (isTimeBetween()) {
-            $('.todayorderbtn').remove();
+            //$('.todayorderbtn').remove();
         }
 
         $(function() {
