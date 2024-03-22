@@ -1,3 +1,12 @@
+<style>
+  .ui-datepicker {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000; /* Adjust z-index as needed */
+  }
+</style>
+
 {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
 
@@ -23,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-    const button = document.querySelector('.todayorderbtn');
+    const buttonTodayOrder = document.querySelector('.todayorderbtn');
 
     function toggleButton() {
       const now = new Date();
@@ -33,10 +42,10 @@ document.addEventListener('DOMContentLoaded', function() {
       const minutes = timeGermany.getMinutes();
 
       if (hours < 12) {
-        button.classList.remove('show-button');
+        buttonTodayOrder.classList.remove('show-button');
       } else {
         // Enable button from 12 p.m. (noon) to midnight
-        button.classList.add('show-button'); 
+        buttonTodayOrder.classList.add('show-button'); 
       }
     }
 
