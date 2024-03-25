@@ -3527,3 +3527,4 @@ html, body{overflow-x:hidden !important;}
 .todayorderbtn.show-button {
     display: inline-block !important;
 }
+.cart__dynamic-checkout-buttons{display:none;}
