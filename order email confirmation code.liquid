@@ -1,0 +1,75 @@
+{% capture email_title %}
+    <td>
+      
+    
+<table class="row">
+{% for line in subtotal_line_items %}
+<tr class="order-list__item">
+<td class="order-list__item__cell">
+<table>
+<td>
+  {% if line.image %}
+    <img src="{{ line | img_url: 'compact_cropped' }}" align="left" width="60" height="60" class="order-list__product-image"/>
+  {% endif %}
+</td>
+<td class="order-list__product-description-cell">
+  {% if line.product.title %}
+    {% assign line_title = line.product.title %}
+  {% else %}
+    {% assign line_title = line.title %}
+  {% endif %}
+
+    
+
+  {% if line.quantity < line.quantity %}
+    {% capture line_display %}
+      {{ 'notifications.views.mailers.notifications.quantity_of_total_quantity' | t: quantity: line.quantity, total_quantity: line.quantity }}
+    {% endcapture %}
+  {% else %}
+    {% assign line_display = line.quantity  %}
+  {% endif %}
+
+  <span class="order-list__item-title">{{ line_title }}&nbsp;&times;&nbsp;{{ line_display }}</span><br/>
+
+  {% if line.variant.title != 'Default Title' %}
+    <span class="order-list__item-variant">{{ line.variant.title }}</span><br/>
+  {% endif %}
+
+  {%- for prop in line.properties -%}
+      {%- if forloop.index == 1 -%}
+        {%- continue -%}
+      {%- endif -%}
+  <div>                     
+      <span>{{ prop.first }}: </span>
+      <span> {{ prop.last }}  </span>
+  <div>  
+  {%- endfor -%}
+
+  {% for group in line.groups %}
+    <span class="order-list__item-variant">Teil von: {{ group.display_title }}</span><br/>
+  {% endfor %}
+
+    {% if line.gift_card and line.properties["__shopify_send_gift_card_to_recipient"] %}
+      {% for property in line.properties %}
+{% assign property_first_char = property.first | slice: 0 %}
+{% if property.last != blank and property_first_char != '_' %}
+<div class="order-list__item-property">
+<dt>{{ property.first }}:</dt>
+<dd>
+{% if property.last contains '/uploads/' %}
+<a href="{{ property.last }}" class="link" target="_blank">
+{{ property.last | split: '/' | last }}
+</a>
+{% else %}
+{{ property.last }}
+{% endif %}
+</dd>
+</div>
+{% endif %}
+{% endfor %}
+
+    {% endif %}
+
+  {% if line.selling_plan_allocation %}
+    <span class="order-list__item-variant">{{ line.selling_plan_allocation.selling_plan.name }}</span><br/>
+  {% endif %}
