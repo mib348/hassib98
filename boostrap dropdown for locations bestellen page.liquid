@@ -1,0 +1,62 @@
+<style>
+  #stationDropdown {
+    background-color: transparent;
+    font-weight: 100;
+    font-family: "Bebas Neue";
+    font-size: 21px;
+    border: 2px solid white;
+    border-radius: 0px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  #stationDropdown:hover {
+    background-color: #bd9e7f;
+    font-weight: 100;
+    font-family: "Bebas Neue";
+    font-size: 21px;
+    border: 2px solid white;
+    border-radius: 0px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .station {
+    background-color: #bd9e7f;
+    font-weight: 100;
+    font-family: "Bebas Neue";
+    font-size: 21px;
+    border-radius: 0px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .station:hover {
+    background-color: #bd9e7f !important;
+    font-weight: 100;
+    font-family: "Bebas Neue";
+    font-size: 21px;
+    border-radius: 0px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+</style>
+
+{{ '//cdn.jsdelivr.net/npm/bootstrap@4.0/dist/css/bootstrap.min.css' | stylesheet_tag }}
+{{ '//cdn.jsdelivr.net/npm/bootstrap@4.0/dist/js/bootstrap.bundle.min.js' | script_tag }}
+
+<div class="dropdown">
+  <button class="btn btn-secondary dropdown-toggle" type="button" id="stationDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+    Sender auswählen
+  </button>
+  <div class="dropdown-menu" aria-labelledby="stationDropdown">
+    {% assign location_metaobject = shop.metaobjects.location.values %}
+    {% for locations in location_metaobject %}
+    {% assign locations_array = locations['location'] | remove_first: '["' | remove_last: '"]' | split: '","' %}
+
+    {% for location in locations_array %}
+    <a class="dropdown-item station" href="/pages/datum">{{ location }}</a>
+    {% endfor %}
+    {% endfor %}
+  </div>
+</div>
