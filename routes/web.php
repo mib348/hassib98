@@ -42,3 +42,5 @@ Route::get('/testmail', [ShopifyController::class, 'testmail'])->name('testmail'
 Route::get('/getTheme', [ShopifyController::class, 'getTheme'])->name('getTheme');
 Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelectedDate'])->name('updateSelectedDate');
 Route::resource('shopify', ShopifyController::class);
+
+Route::get('/getLocations', [ShopifyController::class, 'getLocations'])->name('getLocations');

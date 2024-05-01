@@ -686,4 +686,30 @@ class ShopifyController extends Controller
 
 		return json_encode($arr);
 	}
+
+    public function getLocations() {
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+
+        $response = $shop->api()->graph('{
+                metaobjects(type: "location", first: 10) {
+                    nodes {
+                    handle
+                    type
+                    title: field(key: "location") { value }
+                    }
+                }
+                }');
+        $metaobjects = $response['body']['data'] ?? [];
+        if(isset($metaobjects['metaobjects'])){
+            $metaobjects = $metaobjects['metaobjects']['nodes'][0]['title']['value'];
+            $metaobjects = json_decode($metaobjects, true);
+        }
+        else{
+            $metaobjects = [];
+        }
+
+        return $metaobjects;
+    }
 }
