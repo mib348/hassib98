@@ -65,12 +65,15 @@ product
         {% assign productToShow = false %} 
 
         {% for dateAndQty in dateAndQtyList.value %} 
-            {% assign dateAndQtyArray = dateAndQty | split: ':' %} 
-            {% assign dateValue = dateAndQtyArray[0] %} 
-            {% if dateValue == date %} 
-                {% assign qtyValue = dateAndQtyArray[1] %} 
-                {% comment %} {% assign productToShow = true %}  {% endcomment %}
+          {% assign dateAndQtyArray = dateAndQty | remove_first: '["' | remove_last: '"]' | split: '","' %} 
+          {% for dateAndQtyVal in dateAndQtyArray %}
+            {% assign dateAndQtyValue = dateAndQtyVal | split: ':' %} 
+            {% assign dateValue = dateAndQtyValue[1] %} 
+            {% if dateValue == date and location == dateAndQtyValue[0] %} 
+              {% assign qtyValue = dateAndQtyValue[2] %} 
+              {% comment %} {% assign productToShow = true %}  {% endcomment %}
             {% endif %} 
+          {% endfor %}
         {% endfor %}
 
         {% assign dayList = product.metafields.custom.available_on %}
