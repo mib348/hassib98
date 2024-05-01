@@ -186,7 +186,7 @@ class OrdersCreateJob
         foreach ($values as $value) {
 
             // Split the value into date and quantity parts
-            list($date, $quantity) = explode(':', $value);
+            list($location, $date, $quantity) = explode(':', $value);
 
             // $dateCarbon = Carbon::createFromFormat('d-m-Y', $date . ' 23:59:59', 'Europe/Berlin');
 
@@ -258,10 +258,10 @@ class OrdersCreateJob
 			}
 
             // Check if the date matches the order date
-            if (isset($lineItem['properties']) && $lineItem['properties'][2]['name'] == 'date' && $date == $lineItem['properties'][2]['value']) {
+            if (isset($lineItem['properties']) && $lineItem['properties'][2]['name'] == 'date' && $date == $lineItem['properties'][2]['value'] && $location == $lineItem['properties'][1]['value']) {
                 $orderedQuantity = $lineItem['quantity'] ?? 0;
                 $newQuantity = max(0, $quantity - $orderedQuantity); // Ensure quantity doesn't go negative
-                $value = $date . ':' . $newQuantity;
+                $value = $location . ":" . $date . ':' . $newQuantity;
             }
 
             // Add to updated values if quantity is more than 0
