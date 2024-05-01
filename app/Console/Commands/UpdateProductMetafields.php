@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Http\Controllers\ShopifyController;
 use App\Models\User;
 use Exception;
 use Illuminate\Console\Command;
@@ -50,20 +51,25 @@ class UpdateProductMetafields extends Command
         $updatedValues = [];
         $today = strtotime('today');
 
-        // Remove past dates and adjust the existing ones if necessary
-        foreach ($values as $value) {
-            [$date, $quantity] = explode(':', $value);
-            $dateTimestamp = strtotime($date);
-            if ($dateTimestamp >= $today) {
-                $updatedValues[$date] = $quantity;
-            }
-        }
+        $handler = new ShopifyController();
+        $locations = $handler->getLocations();
 
-        // Add new dates up to 7 days ahead with default quantity if they don't exist
-        for ($i = 0; $i < 7; $i++) {
-            $newDate = date('d-m-Y', strtotime("+{$i} days", $today)); // Adjusted to 'Y-m-d' format
-            if (!array_key_exists($newDate, $updatedValues)) {
-                $updatedValues[$newDate] = '8'; // Default quantity
+        foreach ($locations as $key => $location) {
+            $updatedValues[$location] = [];
+            // Remove past dates and adjust the existing ones if necessary
+            foreach ($values as $value) {
+                [$date, $quantity] = explode(':', $value);
+                $dateTimestamp = strtotime($date);
+                if ($dateTimestamp >= $today) {
+                    $updatedValues[$location][$date] = $quantity;
+                }
+            }
+            // Add new dates up to 7 days ahead with default quantity if they don't exist
+            for ($i = 0; $i < 7; $i++) {
+                $newDate = date('d-m-Y', strtotime("+{$i} days", $today)); // Adjusted to 'Y-m-d' format
+                if (!array_key_exists($newDate, $updatedValues[$location])) {
+                    $updatedValues[$location][$newDate] = '8'; // Default quantity
+                }
             }
         }
 
@@ -74,9 +80,18 @@ class UpdateProductMetafields extends Command
         });
 
         // Prepare the value for updating
-        $newValue = array_map(function ($date, $quantity) {
-            return "{$date}:{$quantity}";
-        }, array_keys($updatedValues), $updatedValues);
+        $newValue = [];
+        array_walk($updatedValues, function($dates, $location) use (&$newValue) {
+            foreach ($dates as $date => $quantity) {
+                $newValue[] = "{$location}:{$date}:{$quantity}";
+            }
+        });
+        // dd($newValue);
+
+        // $newValue = array_map(function ($date, $quantity) {
+        //     return "{$date}:{$quantity}";
+        // }, array_keys($updatedValues), $updatedValues);
+
 
         $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
 
