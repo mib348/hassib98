@@ -19,7 +19,7 @@ use \MailchimpMarketing\ApiClient;
 use \MailchimpTransactional\ApiClient as Transactional;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
-class OrdersCreateJob
+class OrdersCreateJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
