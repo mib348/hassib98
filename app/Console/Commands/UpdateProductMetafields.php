@@ -58,17 +58,35 @@ class UpdateProductMetafields extends Command
             $updatedValues[$location] = [];
             // Remove past dates and adjust the existing ones if necessary
             foreach ($values as $value) {
-                [$date, $quantity] = explode(':', $value);
+                [$location, $date, $quantity] = explode(':', $value);
                 $dateTimestamp = strtotime($date);
                 if ($dateTimestamp >= $today) {
                     $updatedValues[$location][$date] = $quantity;
                 }
             }
+            // // Add new dates up to 7 days ahead with default quantity if they don't exist
+            // for ($i = 0; $i < 7; $i++) {
+            //     $newDate = date('d-m-Y', strtotime("+{$i} days", $today)); // Adjusted to 'Y-m-d' format
+            //     if (!array_key_exists($newDate, $updatedValues[$location])) {
+            //         $updatedValues[$location][$newDate] = '8'; // Default quantity
+            //     }
+            // }
+
             // Add new dates up to 7 days ahead with default quantity if they don't exist
             for ($i = 0; $i < 7; $i++) {
-                $newDate = date('d-m-Y', strtotime("+{$i} days", $today)); // Adjusted to 'Y-m-d' format
+                $newDate = date('Y-m-d', strtotime("+{$i} days", $today)); // Adjusted to 'Y-m-d' format
                 if (!array_key_exists($newDate, $updatedValues[$location])) {
-                    $updatedValues[$location][$newDate] = '8'; // Default quantity
+                    // Check for existing pre-orders and subtract from default quantity
+                    $existingPreOrders = 0; // Initialize variable to store existing pre-orders for the date
+                    foreach ($values as $value) {
+                        [$valueLocation, $valueDate, $valueQuantity] = explode(':', $value);
+                        if ($valueLocation === $location && $valueDate === $newDate) {
+                            $existingPreOrders += (int)$valueQuantity;
+                        }
+                    }
+                    $defaultQuantity = 8; // Default quantity
+                    $newQuantity = max(0, $defaultQuantity - $existingPreOrders); // Ensure quantity doesn't go below 0
+                    $updatedValues[$location][$newDate] = (string)$newQuantity;
                 }
             }
         }
