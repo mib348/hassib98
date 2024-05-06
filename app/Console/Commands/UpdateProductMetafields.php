@@ -74,7 +74,7 @@ class UpdateProductMetafields extends Command
 
             // Add new dates up to 7 days ahead with default quantity if they don't exist
             for ($i = 0; $i < 7; $i++) {
-                $newDate = date('Y-m-d', strtotime("+{$i} days", $today)); // Adjusted to 'Y-m-d' format
+                $newDate = date('d-m-Y', strtotime("+{$i} days", $today));
                 if (!array_key_exists($newDate, $updatedValues[$location])) {
                     // Check for existing pre-orders and subtract from default quantity
                     $existingPreOrders = 0; // Initialize variable to store existing pre-orders for the date
