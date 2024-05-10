@@ -18,6 +18,7 @@
     <div id="qrcode" style="margin: 0 auto; text-align: center; width: 100%;padding-top:25px;padding-bottom:25px;">
        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{order_name | remove: '#'}}" style="max-width:100%;height:auto;"/>
      </div>
+<p>Dein QR-Code wird nicht angezeigt? Dann klicke den Button "Bestellung ansehen" und dein QR-Code lädt nochmal im Browser.</p>
   {% endif %}
 {% endcapture %}
 {% capture email_body %}
