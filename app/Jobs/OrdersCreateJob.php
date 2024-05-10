@@ -196,8 +196,8 @@ class OrdersCreateJob implements ShouldQueue
             // }
 
 
-			if((isset($lineItem['quantity']) && $lineItem['quantity'] > 0) && isset($quantity) && ($lineItem['quantity'] > $quantity) && (isset($orderData['id']) && !empty($orderData['id']))){
-				$note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity}";
+			if(isset($lineItem['properties'][2]['value']) && ($lineItem['properties'][2]['value'] == $date) && (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) && isset($quantity) && ($lineItem['quantity'] > $quantity) && (isset($orderData['id']) && !empty($orderData['id']))){
+				$note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity} against the metafield value: {$value}";
 
 				$updateOrderRequestBody = [
 					'order' => [
@@ -220,7 +220,7 @@ class OrdersCreateJob implements ShouldQueue
                 // Send the cancel order request
                 $response = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/cancel.json", $requestBody);
 
-                Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity for {$lineItem['title']} : {$lineItem['quantity']} is greater than available quantity {$quantity} " . json_encode($orderData));
+                Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity for {$lineItem['title']} : {$lineItem['quantity']} is greater than available quantity {$quantity} against the metafield value: {$value} " . json_encode($orderData));
 
 
 				//get order transactions
