@@ -43,7 +43,6 @@ class UpdateProductMetafields extends Command
         $response = $api->rest('GET', "/admin/api/2024-01/products/{$product['id']}/metafields.json");
         $metafields = $response['body']['metafields'] ?? [];
 
-
         // Find the `date_and_quantity` metafield
         $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'date_and_quantity');
         $values = $dateAndQuantityMetafield ? json_decode($dateAndQuantityMetafield['value'], true) : [];
@@ -54,23 +53,23 @@ class UpdateProductMetafields extends Command
         $handler = new ShopifyController();
         $locations = $handler->getLocations();
 
-        foreach ($locations as $key => $location) {
-            $updatedValues[$location] = [];
+        foreach ($locations as $location) {
+            // Initialize the location array if not already set
+            if (!isset($updatedValues[$location])) {
+                $updatedValues[$location] = [];
+            }
+
             // Remove past dates and adjust the existing ones if necessary
             foreach ($values as $value) {
-                [$location, $date, $quantity] = explode(':', $value);
+                [$valueLocation, $date, $quantity] = explode(':', $value);
                 $dateTimestamp = strtotime($date);
                 if ($dateTimestamp >= $today) {
-                    $updatedValues[$location][$date] = $quantity;
+                    if (isset($updatedValues[$valueLocation])) {
+                        // $updatedValues[$valueLocation] = [];
+                        $updatedValues[$valueLocation][$date] = $quantity;
+                    }
                 }
             }
-            // // Add new dates up to 7 days ahead with default quantity if they don't exist
-            // for ($i = 0; $i < 7; $i++) {
-            //     $newDate = date('d-m-Y', strtotime("+{$i} days", $today)); // Adjusted to 'Y-m-d' format
-            //     if (!array_key_exists($newDate, $updatedValues[$location])) {
-            //         $updatedValues[$location][$newDate] = '8'; // Default quantity
-            //     }
-            // }
 
             // Add new dates up to 7 days ahead with default quantity if they don't exist
             for ($i = 0; $i < 7; $i++) {
@@ -91,11 +90,14 @@ class UpdateProductMetafields extends Command
             }
         }
 
-        uksort($updatedValues, function ($a, $b) {
-            $timestampA = strtotime($a);
-            $timestampB = strtotime($b);
-            return $timestampA <=> $timestampB;
-        });
+        // Sort dates within each location
+        foreach ($updatedValues as $location => &$dates) {
+            uksort($dates, function ($a, $b) {
+                $timestampA = strtotime($a);
+                $timestampB = strtotime($b);
+                return $timestampA <=> $timestampB;
+            });
+        }
 
         // Prepare the value for updating
         $newValue = [];
@@ -104,12 +106,6 @@ class UpdateProductMetafields extends Command
                 $newValue[] = "{$location}:{$date}:{$quantity}";
             }
         });
-        // dd($newValue);
-
-        // $newValue = array_map(function ($date, $quantity) {
-        //     return "{$date}:{$quantity}";
-        // }, array_keys($updatedValues), $updatedValues);
-
 
         $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
 
@@ -120,22 +116,18 @@ class UpdateProductMetafields extends Command
                 'metafield' => [
                     'id' => $metafieldId,
                     'value' => $newValue,
-                    // 'value_type' => 'json_string', // Correct value_type for JSON string
                     'namespace' => 'custom',
                     'key' => 'date_and_quantity',
                     'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
                 ],
             ]);
-        }
-        else {
+        } else {
             // Metafield does not exist, create it
-            // $updateResponse = $api->rest('GET', "/admin/api/2024-01/products/{$product['id']}/metafields.json");
             $updateResponse = $api->rest('POST', "/admin/api/2024-01/products/{$product['id']}/metafields.json", [
                 'metafield' => [
                     'namespace' => 'custom',
                     'key' => 'date_and_quantity',
                     'value' => $newValue,
-                    // 'value_type' => 'json_string', // Correct value_type for JSON string
                     'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
                 ],
             ]);
