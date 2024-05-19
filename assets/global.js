@@ -363,7 +363,7 @@ else {
             }
     
             if (!$('#incorrent_item_agree').is(':checked')) {
-              alert("Um fortzufahren, müssen Sie das Kontrollkästchen ‘Bei Entnahme eines falschen Artikels wird eine 20€-Gebühr pro Artikel fällig.’ akzeptieren.");
+              alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
               b_allowed = false;
             }
     
@@ -371,8 +371,13 @@ else {
               alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
               b_allowed = false;
             }
+    
+            // if (!$('#third_party').is(':checked')) {
+            //   alert("Um zur Kasse zu gehen, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen.");
+            //   b_allowed = false;
+            // }
 
-    console.log(b_allowed);
+    // console.log(b_allowed);
               if (b_allowed){
                   let items = response.items;
                   //check product available quantity
