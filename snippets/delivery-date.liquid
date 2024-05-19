@@ -34,13 +34,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
 
+    // function toggleButton() {
+    //   const now = new Date();
+    //   const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+    //   const timeGermany = new Date(utcTime + (3600000 * 1)); // Germany (Central European Time) is UTC+2
+    //   const hours = timeGermany.getHours();
+    //   const minutes = timeGermany.getMinutes();
+
+    //   if (hours < 12) {
+    //     buttonTodayOrder.classList.remove('show-button');
+    //   } else {
+    //     // Enable button from 12 p.m. (noon) to midnight
+    //     buttonTodayOrder.classList.add('show-button'); 
+    //   }
+    // }
+
     function toggleButton() {
       const now = new Date();
       const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
-      const timeGermany = new Date(utcTime + (3600000 * 1)); // Germany (Central European Time) is UTC+2
+      
+      // Check if daylight saving time is in effect in Germany
+      const daylightSavingTimeInEffect = (now.getMonth() > 2 && now.getMonth() < 10);
+      const timezoneOffset = daylightSavingTimeInEffect ? 2 : 1; // CEST: UTC+2, CET: UTC+1
+      
+      const timeGermany = new Date(utcTime + (3600000 * timezoneOffset));
       const hours = timeGermany.getHours();
-      const minutes = timeGermany.getMinutes();
-
+    
       if (hours < 12) {
         buttonTodayOrder.classList.remove('show-button');
       } else {
@@ -48,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
         buttonTodayOrder.classList.add('show-button'); 
       }
     }
+
 
     toggleButton();
 

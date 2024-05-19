@@ -25,10 +25,18 @@
         "padding_top": 12,
         "padding_bottom": 12
       }
+    },
+    "pagefly_section_ELg4qg": {
+      "type": "pagefly-section",
+      "disabled": true,
+      "settings": {
+        "section_id": "pf-750ca336"
+      }
     }
   },
   "order": [
     "pagefly_section_7CpFph",
-    "header"
+    "header",
+    "pagefly_section_ELg4qg"
   ]
 }
