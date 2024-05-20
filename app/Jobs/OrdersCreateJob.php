@@ -196,7 +196,7 @@ class OrdersCreateJob implements ShouldQueue
             // }
 
 
-			if(isset($lineItem['properties'][2]['value']) && ($lineItem['properties'][2]['value'] == $date) && (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) && isset($quantity) && ($lineItem['quantity'] > $quantity) && (isset($orderData['id']) && !empty($orderData['id']))){
+			if(isset($lineItem['properties'][2]['value']) && ($lineItem['properties'][2]['value'] == $date) && $location == $lineItem['properties'][1]['value'] && (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) && isset($quantity) && ($lineItem['quantity'] > $quantity) && (isset($orderData['id']) && !empty($orderData['id']))){
 				$note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity} against the metafield value: {$value}";
 
 				$updateOrderRequestBody = [
