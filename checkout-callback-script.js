@@ -1,14 +1,17 @@
 <style>
 .product__description span:nth-child(3) { display: none !important; }
 .content-box, .step__footer__continue-btn, #loadingMessage { display: none; }
+
 @media (max-width: 480px) {
     #order-qr-code {
         width: 100%;
-        max-width: none;
+        max-width: 100%;
+        display: flex;
+        justify-content: center;
     }
-    #order-qr-code img{
+    #order-qr-code img {
         width: 100%;
-        height:auto;
+        height: auto;
     }
 }
 </style>
@@ -21,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function getOrderNumber() {
         showLoadingMessage(true); // Show loading message before fetching the order number
-        
+
         try {
             const url = 'https://app.sushi.catering/api/getordernumber/' + Shopify.checkout.order_id;
             const response = await fetch(url);
@@ -35,8 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             new QRCode(document.getElementById("order-qr-code"), {
                 text: order_number,
-                width: 180,
-                height: 180,
+                width: mobileQuery.matches ? 350 : 180, // Adjust width based on screen size
+                height: mobileQuery.matches ? 350 : 180, // Adjust height based on screen size
                 colorDark : "#000000",
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.H
@@ -51,12 +54,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function getContent(mql){
+    function getContent(mql) {
         if (mql.matches) {
-            return orderContent = '<div style="display: flex; flex-direction: column; align-content: center; justify-content: center; align-items: center;"><div id="order-qr-code" style="flex: 1;margin-bottom: 15px;"></div><div class="custom-message" style="flex: 1;"><p>Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail. Fragen und Antworten rund um deine Bestellung findest du <a href="https://sushi.catering/pages/faq">hier</a>.</p></div></div>';
+            return `
+                <div style="width:100%;max-width:100%;display: flex; flex-direction: column; align-content: center; justify-content: center; align-items: center;">
+                    <div id="order-qr-code" style="flex: 1; margin-bottom: 15px;width:100%;"></div>
+                    <div class="custom-message" style="flex: 1;">
+                        <p>
+                            Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät waagerecht, mittig und im Abstand von ca. 10cm vor den Scanner.
+                            Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.
+                            Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.
+                            Fragen und Antworten rund um deine Bestellung findest du <a href="https://sushi.catering/pages/faq">hier</a>.
+                        </p>
+                    </div>
+                </div>
+            `;
+        } else {
+            return `
+                <div style="display: flex;">
+                    <div id="order-qr-code" style="flex: 1;"></div>
+                    <div class="custom-message" style="flex: 1; padding-left: 20px;">
+                        <p>
+                            Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät waagerecht, mittig und im Abstand von ca. 10cm vor den Scanner.
+                            Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.
+                            Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.
+                            Fragen und Antworten rund um deine Bestellung findest du <a href="https://sushi.catering/pages/faq">hier</a>.
+                        </p>
+                    </div>
+                </div>
+            `;
         }
-        else
-            return orderContent = '<div style="display: flex;"><div id="order-qr-code" style="flex: 1;"></div><div class="custom-message" style="flex: 1; padding-left: 20px;"><p>Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail. Fragen und Antworten rund um deine Bestellung findest du <a href="https://sushi.catering/pages/faq">hier</a>.</p></div></div>';
     }
 
     function toggleVisibility(show) {
