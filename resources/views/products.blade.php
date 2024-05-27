@@ -1,35 +1,29 @@
 @extends('shopify-app::layouts.default')
 
 @section('styles')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-<link rel="stylesheet" href="{{ asset('js/plugins/datatables/dataTables.bootstrap4.css') }}">
-<style>
-    .js-dataTable-full ul{margin: 0px;padding: 0px;}
-    .js-dataTable-full ul li{    list-style-type: none;}
-    .loader {
-        display:inline-block;
-        border: 7px solid #f3f3f3; /* Light grey */
-        border-top: 7px solid #ff0000; /* Blue */
-        border-radius: 50%;
-        width: 35px;
-        height: 35px;
-        animation: spin 2s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-</style>
 @endsection
 
 @section('content')
 <div class="container-fluid p-2">
     {{-- <h5>Products <div class="loader spinning_status"></div></h5> --}}
-    <h5>Products</h5>
+    {{-- <div class="row">
+        <div class="col-6">
+            <h5>Products</h5>
+        </div>
+        <div class="col-6 d-flex flex-row flex-wrap align-items-center justify-content-end mb-3">
+            <div class="d-grid gap-2 d-md-block">
+                <a href="https://admin.shopify.com/store/dc9ef9/apps/sushi-catering-1/orders" class="btn btn-primary">Orders</a>
+              </div>
+        </div>
+    </div> --}}
     <div class="row">
         <div class="col-md-12">
+            {{-- <select id="strFilterLocation" name="strFilterLocation" class="form-select">
+                <option value="" selected>--- Select Location ---</option>
+                @foreach($locations as $location)
+                <option value="{{ $location }}">{{ $location }}</option>
+                @endforeach
+            </select> --}}
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
@@ -53,11 +47,49 @@
 
 @section('scripts')
     @parent
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js" integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-    <script src="{{ asset('js/plugins/datatables/jquery.dataTables.min.js') }}"></script>
-    <script src="{{ asset('js/plugins/datatables/dataTables.bootstrap4.min.js') }}"></script>
+
+    <script>
+        // Assuming 'app' is already initialized and available
+        // var actions = window['app-bridge'].actions;
+        var Button = actions.Button;
+        var TitleBar = actions.TitleBar;
+        var Redirect = actions.Redirect; // Ensure Redirect is defined
+
+
+        // Create a button for 'Orders'
+        var ordersButton = Button.create(app, { label: 'Location Order Overview' });
+        ordersButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/orders');
+            // Add your logic for when the 'Orders' button is clicked
+        });
+
+        // Create a button for 'Operation'
+        var operationdaysButton = Button.create(app, { label: 'Operation Days' });
+        operationdaysButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/operationdays');
+            // Add your logic for when the 'Operation Days' button is clicked
+        });
+
+        // Create a button for 'Amount Products Location Weekday'
+        var amountproductslocationweekday = Button.create(app, { label: 'Amount Products Location Weekday' });
+        amountproductslocationweekday.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/amountproductslocationweekday');
+            // Add your logic for when the 'Operation' button is clicked
+        });
+
+        // Update the title bar with the new buttons
+        TitleBar.create(app, {
+            title: 'Products',
+            buttons: {
+                primary: ordersButton,
+                secondary: [operationdaysButton, amountproductslocationweekday], // Use an array for secondary buttons
+            },
+        });
+    </script>
+
 
     <script type="text/javascript">
     	$(function(){
@@ -67,6 +99,10 @@
     	          order:[[0, 'desc']],
     	          autoWidth: false
     	      });
+
+              $(document).on('change', '#strFilterLocation', function(e){
+                LoadList();
+              });
 
     		//LoadList();
         });
