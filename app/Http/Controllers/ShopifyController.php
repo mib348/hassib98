@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Mail\QRCodeMail;
+use App\Models\Locations;
+use App\Models\Metafields;
+use App\Models\Products;
 use App\Models\User;
 use Choowx\RasterizeSvg\Svg;
 use DateTime;
@@ -36,6 +39,9 @@ class ShopifyController extends Controller
 
         $html = $this->getProductsList();
 
+        // $locations = ShopifyController::getLocations();
+
+        // return view('products', ['html' => $html, 'locations' => $locations]);
         return view('products', ['html' => $html]);
     }
 
@@ -124,25 +130,19 @@ class ShopifyController extends Controller
     }
 
     public function getProductsList(){
-        $shop = Auth::user();
-        if(!isset($shop) || !$shop)
-            $shop = User::find(env('db_shop_id', 1));
-
-        // Get all products
-        $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
-        $products = (array) $productsResponse['body']['products'] ?? [];
-        $products = $products['container'];
+        $products = Products::all()->toArray();
 
         $html = "";
         foreach ($products as $arr) {
             $date_qty = $days = null;
             // // Get metafields for each product
-            $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$arr['id']}/metafields.json");
-            $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
+            // $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$arr['id']}/metafields.json");
+            // $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
 
-            if(isset($metafields['container'])){
-                $metafields = $metafields['container'];
-            }
+            // if(isset($metafields['container'])){
+            //     $metafields = $metafields['container'];
+            // }
+            $metafields = Metafields::where('product_id', $arr['product_id'])->get()->toArray();
 
             foreach ($metafields as $field) {
                 if (isset($field['key']) && $field['key'] == 'date_and_quantity') {
@@ -170,15 +170,15 @@ class ShopifyController extends Controller
 
 
             $image_src = '';
-            if(isset($arr['image']['src']))
-            $image_src = $arr['image']['src'];
+            if(isset($arr['image_url']))
+            $image_src = $arr['image_url'];
 
-        $html .= '<tr data-id="' . $arr['id'] .  '">
-                            <td style="width:5%;" class="text-right">' . $arr['id'] . '</td>
+        $html .= '<tr data-id="' . $arr['product_id'] .  '">
+                            <td style="width:5%;" class="text-right">' . $arr['product_id'] . '</td>
                             <td><img style="width:50px;height:50px;aspect-ratio:3/4;object-fit:cover;" src="' . $image_src . '" />&nbsp;' . $arr['title'] . '</td>
                             <td style="width:15%;" class="text-center">' . $date_qty . '</td>
                             <td style="width:5%;" class="text-center">' . $days . '</td>
-                            <td style="width:5%;" class="text-center"><a href="https://admin.shopify.com/store/dc9ef9/products/' . $arr['id'] . '" target="_blank" class="btn btn-sm btn-info text-white">view</a></td>
+                            <td style="width:5%;" class="text-center"><a href="https://admin.shopify.com/store/dc9ef9/products/' . $arr['product_id'] . '" target="_blank" class="btn btn-sm btn-info text-white">view</a></td>
                             </tr>';
         }
 
@@ -688,29 +688,13 @@ class ShopifyController extends Controller
 		return json_encode($arr);
 	}
 
-    public function getLocations() {
-        $shop = Auth::user();
-        if(!isset($shop) || !$shop)
-            $shop = User::find(env('db_shop_id', 1));
+    static public function getLocations() {
+        $arrLocations = Locations::select('name')->get()->toArray();
 
-        $response = $shop->api()->graph('{
-                metaobjects(type: "location", first: 10) {
-                    nodes {
-                    handle
-                    type
-                    title: field(key: "location") { value }
-                    }
-                }
-                }');
-        $metaobjects = $response['body']['data'] ?? [];
-        if(isset($metaobjects['metaobjects'])){
-            $metaobjects = $metaobjects['metaobjects']['nodes'][0]['title']['value'];
-            $metaobjects = json_decode($metaobjects, true);
-        }
-        else{
-            $metaobjects = [];
-        }
+        $arrLocations = array_map(function ($item) {
+            return $item['name'];
+        }, $arrLocations);
 
-        return $metaobjects;
+        return $arrLocations;
     }
 }
