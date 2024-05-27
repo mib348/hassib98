@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\AmountProductsLocationWeekdayController;
 use App\Http\Controllers\ArtisanController;
+use App\Http\Controllers\OperationDaysController;
+use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ShopifyController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -44,3 +47,16 @@ Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelec
 Route::resource('shopify', ShopifyController::class);
 
 Route::get('/getLocations', [ShopifyController::class, 'getLocations'])->name('getLocations');
+
+//orders
+Route::get('/getOrdersList', [OrdersController::class, 'getOrdersList'])->name('getOrdersList');
+Route::resource('orders', OrdersController::class);
+
+//operation days
+Route::get('/getOperationDaysList', [OperationDaysController::class, 'getOperationDaysList'])->name('getOperationDaysList');
+Route::resource('operationdays', OperationDaysController::class);
+
+//Amount Products Location Weekday Table
+Route::get('/getAmountProductsLocationWeekdayList', [AmountProductsLocationWeekdayController::class, 'getAmountProductsLocationWeekdayList'])->name('getAmountProductsLocationWeekdayList');
+Route::resource('amountproductslocationweekday', AmountProductsLocationWeekdayController::class);
+
