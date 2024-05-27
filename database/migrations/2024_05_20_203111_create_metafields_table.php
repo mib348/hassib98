@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('metafields', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('order_id')->index()->nullable();
+            $table->integer('order_number')->index()->nullable();
+            $table->bigInteger('product_id')->index()->nullable();
+            $table->bigInteger('metafield_id')->index()->nullable();
+            $table->string('key')->index()->nullable();
+            $table->longText('value')->nullable();
+            $table->timestamp('created_at')->nullable();
+            $table->timestamp('updated_at')->nullable();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('metafields');
+    }
+};
