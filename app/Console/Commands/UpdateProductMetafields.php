@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Http\Controllers\ShopifyController;
+use App\Models\AmountProductsLocationWeekday;
 use App\Models\User;
 use Exception;
 use Illuminate\Console\Command;
@@ -47,11 +48,15 @@ class UpdateProductMetafields extends Command
         $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'date_and_quantity');
         $values = $dateAndQuantityMetafield ? json_decode($dateAndQuantityMetafield['value'], true) : [];
 
+        // $available_on_metafield = collect($metafields)->firstWhere('key', 'available_on');
+        // $available_on_metafield_values = $available_on_metafield ? json_decode($available_on_metafield['value'], true) : [];
+
         $updatedValues = [];
         $today = strtotime('today');
 
         $handler = new ShopifyController();
         $locations = $handler->getLocations();
+
 
         foreach ($locations as $location) {
             // Initialize the location array if not already set
@@ -62,6 +67,7 @@ class UpdateProductMetafields extends Command
             // Remove past dates and adjust the existing ones if necessary
             foreach ($values as $value) {
                 [$valueLocation, $date, $quantity] = explode(':', $value);
+
                 $dateTimestamp = strtotime($date);
                 if ($dateTimestamp >= $today) {
                     if (isset($updatedValues[$valueLocation])) {
@@ -83,7 +89,11 @@ class UpdateProductMetafields extends Command
                             $existingPreOrders += (int)$valueQuantity;
                         }
                     }
-                    $defaultQuantity = 8; // Default quantity
+
+                    $defaultQuantity = $this->getProductDefaultQuantity($product['id'], $location, $newDate);
+                    // if($product['id'] == 8742073860444)
+                    // dd($product['id'], $defaultQuantity, $quantity, $updatedValues);
+
                     $newQuantity = max(0, $defaultQuantity - $existingPreOrders); // Ensure quantity doesn't go below 0
                     $updatedValues[$location][$newDate] = (string)$newQuantity;
                 }
@@ -99,6 +109,7 @@ class UpdateProductMetafields extends Command
             });
         }
 
+
         // Prepare the value for updating
         $newValue = [];
         array_walk($updatedValues, function($dates, $location) use (&$newValue) {
@@ -108,6 +119,7 @@ class UpdateProductMetafields extends Command
         });
 
         $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
+
 
         if ($dateAndQuantityMetafield) {
             // Metafield exists, update it
@@ -145,4 +157,28 @@ class UpdateProductMetafields extends Command
     }
 
 
+    public function getProductDefaultQuantity($nProductId, $strLocation, $date){
+        // if(is_array($strDay))
+        //     $available_on_metafield_values = $strDay;
+        // else{
+        //     $available_on_metafield_values[0] = $strDay;
+        // }
+
+        // foreach ($available_on_metafield_values as $available_on_metafield_value){
+            $day = date("l", strtotime($date));
+            $arrProduct = AmountProductsLocationWeekday::where('product_id', $nProductId)
+                            ->where('location', $strLocation)
+                            ->where('day', $day)
+                            ->first();
+
+            if(isset($arrProduct['quantity'])){
+                // foreach ($arrProducts as $arrProduct) {
+                    return $defaultQuantity = $arrProduct['quantity'];
+                    // break;
+                // }
+            }
+        // }
+
+        return 8;
+    }
 }
