@@ -30,21 +30,51 @@ class ImportShopifyOrders extends Command
             //     'status' => 'any'
             // ])['body']['orders'];
 
-            $createdAtMin = now()->subDays(15)->toIso8601String();
-            $createdAtMax = now()->addDays(7)->toIso8601String();
 
-            // Fetch orders from Shopify API
-            $orders = $api->rest('GET', '/admin/orders.json', [
-                'created_at_min' => $createdAtMin,
-                'created_at_max' => $createdAtMax,
-                'status' => 'any'
-            ])['body']['orders'];
+			$createdAtMin = now()->subDays(15)->toIso8601String();
+			$createdAtMax = now()->addDays(7)->toIso8601String();
 
-            $orders = (array) $orders ?? [];
-            $orders = $orders['container'];
+			$limit = 250; // Maximum allowed limit per request
+			$allOrders = []; // Array to hold all orders
+			$params = [
+				'created_at_min' => $createdAtMin,
+				'created_at_max' => $createdAtMax,
+				'status' => 'any',
+				'limit' => $limit
+			];
+
+			do {
+				// Fetch orders from Shopify API
+				$response = $api->rest('GET', '/admin/orders.json', $params);
+
+				// Check if the response contains orders
+				if (isset($response['body']['orders'])) {
+					$orders = $response['body']['orders'];
+					$orders = (array) $orders ?? [];
+					$orders = $orders['container'];
+					// Merge the fetched orders with the allOrders array
+					$allOrders = array_merge($allOrders, $orders);
+				}
+
+				// Check if there is a 'next' page link
+				$nextPageInfo = null;
+				if (isset($response['body']['next_page_info'])) {
+					$nextPageInfo = $response['body']['next_page_info'];
+					$params['page_info'] = $nextPageInfo; // Set page_info for the next request
+				}
+
+				// Log the current number of orders fetched
+				Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
+				echo 'Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders) . PHP_EOL;
+
+			} while (isset($nextPageInfo));
+
+			$allOrders = (array) $allOrders;
+
+			// Now $allOrders contains all the orders within the specified date range
 
             // foreach ($orders as $order) {
-                $this->importOrders($api, $orders);
+                $this->importOrders($api, $allOrders);
             // }
         } catch (\Throwable $th) {
             Log::error("Error running job for importing orders: " . json_encode($th));
@@ -53,6 +83,7 @@ class ImportShopifyOrders extends Command
     }
 
     public function importOrders($api, $orders){
+		echo PHP_EOL;
         foreach ($orders as $order) {
             $arr = Orders::updateOrCreate(['number' => $order['order_number']], [
                 'order_id' => $order['id'],
@@ -73,8 +104,8 @@ class ImportShopifyOrders extends Command
                 'updated_at' => $order['updated_at'],
             ]);
 
-                Log::info("Order: {$order['order_number']} has been imported successfully");
-                echo "Order: {$order['order_number']} has been imported successfully" . PHP_EOL;
+               Log::info("Order: {$order['order_number']} has been imported successfully");
+               echo "Order: {$order['order_number']} has been imported successfully" . PHP_EOL;
 
             $this->importOrdersMetafields($api, $order);
         }
