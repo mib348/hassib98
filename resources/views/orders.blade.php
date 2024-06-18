@@ -103,12 +103,22 @@
             // Add your logic for when the 'Operation' button is clicked
         });
 
+
+        // Create a button for 'Locations Revenue'
+        var locations_revenue = Button.create(app, { label: 'Locations Revenue' });
+        locations_revenue.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
             title: 'Location Order Overview',
             buttons: {
                 primary: productsButton,
-                secondary: [operationdays, amountproductslocationweekday]
+                secondary: [operationdays, amountproductslocationweekday, locations_revenue]
             },
         });
     </script>
