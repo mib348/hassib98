@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AmountProductsLocationWeekdayController;
 use App\Http\Controllers\ArtisanController;
+use App\Http\Controllers\LocationRevenueController;
 use App\Http\Controllers\OperationDaysController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ShopifyController;
@@ -59,4 +60,8 @@ Route::resource('operationdays', OperationDaysController::class);
 //Amount Products Location Weekday Table
 Route::get('/getAmountProductsLocationWeekdayList', [AmountProductsLocationWeekdayController::class, 'getAmountProductsLocationWeekdayList'])->name('getAmountProductsLocationWeekdayList');
 Route::resource('amountproductslocationweekday', AmountProductsLocationWeekdayController::class);
+
+//Locations Revenue Table
+Route::get('/getLocationsRevenueList', [LocationRevenueController::class, 'getLocationsRevenueList'])->name('getLocationsRevenueList');
+Route::resource('locations_revenue', LocationRevenueController::class);
 
