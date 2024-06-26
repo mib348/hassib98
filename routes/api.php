@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\ShopifyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -35,3 +36,6 @@ Route::any('/checkCartProductsQty', [ShopifyController::class, 'checkCartProduct
 // Route::get('/getProductsList', function(){
 //     return redirect('https://council-moms-commissioners-tip.trycloudflare.com/authenticate');
 // })->name('api_getProductsList');
+Route::resource('/order/fulfillment', FulfillmentController::class)->parameters([
+    'fulfillment' => 'order',
+]);
