@@ -8,7 +8,7 @@
         "php": "^8.1",
         "choowx/rasterize-svg": "^0.1.1",
         "guzzlehttp/guzzle": "^7.2",
-        "kyon147/laravel-shopify": "^20.0",
+        "kyon147/laravel-shopify": "^21.1",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.3",
         "laravel/telescope": "^4.17",
@@ -23,7 +23,7 @@
         "laravel/pint": "^1.0",
         "laravel/sail": "^1.18",
         "mockery/mockery": "^1.4.4",
-        "nunomaduro/collision": "^7.0",
+        "nunomaduro/collision": "^7.10",
         "phpunit/phpunit": "^10.1",
         "spatie/laravel-ignition": "^2.0"
     },

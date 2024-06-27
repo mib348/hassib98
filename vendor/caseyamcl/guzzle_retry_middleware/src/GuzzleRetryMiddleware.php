@@ -207,13 +207,13 @@ class GuzzleRetryMiddleware
             // If was bad response exception, test if we retry based on the response headers
             if ($reason instanceof BadResponseException) {
                 if ($this->shouldRetryHttpResponse($options, $request, $reason->getResponse())) {
-                    return $this->doRetry($request, $options, $reason->getResponse());
+                    return $this->doRetry($request, $options, $reason->getResponse(), $reason);
                 }
             // If this was a connection exception, test to see if we should retry based on connect timeout rules
             } elseif ($reason instanceof ConnectException) {
                 // If was another type of exception, test if we should retry based on timeout rules
                 if ($this->shouldRetryConnectException($options, $request)) {
-                    return $this->doRetry($request, $options);
+                    return $this->doRetry($request, $options, null, $reason);
                 }
             }
 
@@ -231,6 +231,7 @@ class GuzzleRetryMiddleware
      * Decide whether to retry on connect exception
      *
      * @param array<string,mixed> $options
+     * @param RequestInterface $request
      * @return bool
      */
     protected function shouldRetryConnectException(array $options, RequestInterface $request): bool
@@ -278,6 +279,16 @@ class GuzzleRetryMiddleware
     ): bool {
         $statuses = array_map('\intval', (array) $options['retry_on_status']);
         $hasRetryAfterHeader = $response && $response->hasHeader('Retry-After');
+
+        // Abort if next request time would be greater than the time
+        if ((int) $options['give_up_after_secs'] > 0) {
+            $delayTimeout = ($this->determineDelayTimeout($options, $response));
+            $nextRequestTime = (float) $options['first_request_timestamp'] + $delayTimeout;
+            $giveUpAfterTime = (float) $options['first_request_timestamp'] + $options['give_up_after_secs'];
+            if ($nextRequestTime > $giveUpAfterTime) {
+                return false;
+            }
+        }
 
         switch (true) {
             case $options['retry_enabled'] === false:
@@ -327,10 +338,15 @@ class GuzzleRetryMiddleware
      * @param RequestInterface $request
      * @param array<string,mixed> $options
      * @param ResponseInterface|null $response
+     * @param Throwable|null $exception If this was called due to a ConnectException, then that is included
      * @return Promise
      */
-    protected function doRetry(RequestInterface $request, array $options, ResponseInterface $response = null): Promise
-    {
+    protected function doRetry(
+        RequestInterface $request,
+        array $options,
+        ResponseInterface $response = null,
+        ?Throwable $exception = null
+    ): Promise {
         // Increment the retry count
         ++$options['retry_count'];
 
@@ -346,7 +362,8 @@ class GuzzleRetryMiddleware
                     $delayTimeout,
                     &$request,
                     &$options,
-                    $response
+                    $response,
+                    $exception
                 ]
             );
         }
@@ -384,6 +401,8 @@ class GuzzleRetryMiddleware
      */
     protected function determineDelayTimeout(array $options, ?ResponseInterface $response = null): float
     {
+        $timeoutDerivedFromServer = false;
+
         // If 'default_retry_multiplier' option is a callable, call it to determine the default timeout...
         if (is_callable($options['default_retry_multiplier'])) {
             $defaultDelayTimeout = (float) call_user_func(
@@ -401,7 +420,12 @@ class GuzzleRetryMiddleware
             $timeout = $this->deriveTimeoutFromHeader(
                 $response->getHeader($options['retry_after_header'])[0],
                 $options['retry_after_date_format']
-            ) ?? $defaultDelayTimeout;
+            );
+            if ($timeout !== null) {
+                $timeoutDerivedFromServer = true;
+            } else {
+                $timeout = $defaultDelayTimeout;
+            }
         } else {
             $timeout = abs($defaultDelayTimeout);
         }
@@ -414,7 +438,7 @@ class GuzzleRetryMiddleware
         }
 
         // If 'give_up_after_secs' is set, account for it in determining the timeout
-        if ($options['give_up_after_secs']) {
+        if ($options['give_up_after_secs'] && ! $timeoutDerivedFromServer) {
             $giveUpAfterSecs = abs((float) $options['give_up_after_secs']);
             $timeSinceFirstReq =  $options['request_timestamp'] - $options['first_request_timestamp'];
             $timeout = min($timeout, ($giveUpAfterSecs - $timeSinceFirstReq));
@@ -449,8 +473,7 @@ class GuzzleRetryMiddleware
      */
     protected function deriveTimeoutFromHeader(string $headerValue, string $dateFormat = self::DATE_FORMAT): ?float
     {
-        // The timeout will either be a number or a HTTP-formatted date,
-        // or seconds (integer)
+        // The timeout will either be a number of seconds (int) or an HTTP-formatted date
         if (is_numeric($headerValue)) {
             return (float) trim($headerValue);
         } elseif ($date = DateTime::createFromFormat($dateFormat ?: self::DATE_FORMAT, trim($headerValue))) {
