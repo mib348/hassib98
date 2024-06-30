@@ -10,12 +10,38 @@ use Illuminate\Support\Facades\Validator;
 
 class FulfillmentController extends Controller
 {
+    protected $shop;
+    public function __construct()
+    {
+        // Check if the user is authenticated via Sanctum
+        $this->shop = Auth::guard('sanctum')->user();
+
+        // If the user is not authenticated and no token is provided, return an error response
+        if (!$this->shop && !$this->isTokenProvided()) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        // Optionally fall back to a default shop user if no authenticated user
+        if (!$this->shop) {
+            $this->shop = User::find(env('db_shop_id', 1));
+        }
+
+        // Return error if still no shop found
+        if (!$this->shop) {
+            return response()->json(['error' => 'Shop not found.'], 404);
+        }
+    }
+
+    private function isTokenProvided()
+    {
+        return request()->header('Authorization') !== null;
+    }
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        dd('index');
+        return response()->json(['message' => 'Index endpoint reached.'], 200);
     }
 
     /**

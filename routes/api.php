@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\ShopifyController;
+use App\Http\Controllers\TokenController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
@@ -36,6 +37,7 @@ Route::any('/checkCartProductsQty', [ShopifyController::class, 'checkCartProduct
 // Route::get('/getProductsList', function(){
 //     return redirect('https://council-moms-commissioners-tip.trycloudflare.com/authenticate');
 // })->name('api_getProductsList');
-Route::resource('/order/fulfillment', FulfillmentController::class)->parameters([
+Route::middleware('auth:sanctum')->resource('/order/fulfillment', FulfillmentController::class)->parameters([
     'fulfillment' => 'order',
 ]);
+Route::middleware('auth:sanctum')->post('/generate-token', [TokenController::class, 'generateToken']);
