@@ -322,8 +322,9 @@ class FulfillmentController extends Controller
                 'right-items-removed.*' => 'string', // Allow array of strings
                 'wrong-items-removed' => 'nullable',
                 'wrong-items-removed.*' => 'string', // Allow array of strings
-                'time-of-pick-up' => 'nullable|string|max:32',
-                'door-open-time' => 'nullable|string|max:16',
+                'time-of-pick-up' => 'nullable',
+                'time-of-pick-up.*' => 'string|max:32', // Allow array of strings
+                'door-open-time' => 'nullable|integer',
                 'image-before' => 'nullable|string',
                 'image-after' => 'nullable|string',
             ]);
@@ -505,19 +506,31 @@ class FulfillmentController extends Controller
                 ];
             }
 
+
             if (isset($validatedData['time-of-pick-up'])) {
-                $timeOfPickUp = date('Y-m-d\TH:i:s', strtotime($validatedData['time-of-pick-up']));
+                $times = $validatedData['time-of-pick-up'];
+
+                if (is_string($times) && (strpos($times, '[') === 0)) {
+                    $times = json_decode($times, true);
+                } elseif (!is_array($times)) {
+                    $times = [$times];
+                }
+
+                $formattedTimes = array_map(function ($time) {
+                    return date('Y-m-d\TH:i:s\Z', strtotime($time));
+                }, $times);
+
                 $metafields[] = [
                     'namespace' => 'custom',
                     'key' => 'time_of_pick_up',
-                    'value' => json_encode([$timeOfPickUp]),
+                    'value' => json_encode($formattedTimes),
                     'type' => 'list.date_time'
                 ];
             }
 
             if (isset($validatedData['door-open-time'])) {
                 // $doorOpenTime = date('Y-m-d\TH:i:s', strtotime($validatedData['door-open-time']));
-                $doorOpenTime = strtotime($validatedData['door-open-time']);
+                $doorOpenTime = $validatedData['door-open-time'];
                 $metafields[] = [
                     'namespace' => 'custom',
                     'key' => 'door_open_time',
@@ -587,8 +600,9 @@ class FulfillmentController extends Controller
                 'right-items-removed.*' => 'string', // Allow array of strings
                 'wrong-items-removed' => 'nullable',
                 'wrong-items-removed.*' => 'string', // Allow array of strings
-                'time-of-pick-up' => 'nullable|string|max:32',
-                'door-open-time' => 'nullable|string|max:16',
+                'time-of-pick-up' => 'nullable',
+                'time-of-pick-up.*' => 'string|max:32', // Allow array of strings
+                'door-open-time' => 'nullable|integer',
                 'image-before' => 'nullable|string',
                 'image-after' => 'nullable|string',
             ]);
@@ -752,18 +766,29 @@ class FulfillmentController extends Controller
             }
 
             if (isset($validatedData['time-of-pick-up'])) {
-                $timeOfPickUp = date('Y-m-d\TH:i:s', strtotime($validatedData['time-of-pick-up']));
+                $times = $validatedData['time-of-pick-up'];
+
+                if (is_string($times) && (strpos($times, '[') === 0)) {
+                    $times = json_decode($times, true);
+                } elseif (!is_array($times)) {
+                    $times = [$times];
+                }
+
+                $formattedTimes = array_map(function ($time) {
+                    return date('Y-m-d\TH:i:s\Z', strtotime($time));
+                }, $times);
+
                 $metafields[] = [
                     'namespace' => 'custom',
                     'key' => 'time_of_pick_up',
-                    'value' => json_encode([$timeOfPickUp]),
+                    'value' => json_encode($formattedTimes),
                     'type' => 'list.date_time'
                 ];
             }
 
             if (isset($validatedData['door-open-time'])) {
                 // $doorOpenTime = date('Y-m-d\TH:i:s', strtotime($validatedData['door-open-time']));
-                $doorOpenTime = strtotime($validatedData['door-open-time']);
+                $doorOpenTime = $validatedData['door-open-time'];
                 $metafields[] = [
                     'namespace' => 'custom',
                     'key' => 'door_open_time',
