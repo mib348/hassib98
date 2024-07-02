@@ -50,17 +50,17 @@ class ImportRevenue extends Command
         // ->groupBy('location', 'month_year')
         // ->get()->toArray();
 
-foreach ($arrOrders as $order) {
-// Insert or update the record in the LocationRevenue table
-$arrData = LocationRevenue::updateOrInsert([
-'location' => $order['location'],
-'date' => $order['month_year'], // Use month-year as date
-], [
-'location' => $order['location'],
-'date' => $order['month_year'], // Use month-year as date
-'amount' => $order['total_revenue'],
-]);
-}
+        foreach ($arrOrders as $order) {
+            // Insert or update the record in the LocationRevenue table
+            $arrData = LocationRevenue::updateOrInsert([
+                'location' => $order['location'],
+                'date' => $order['month_year'], // Use month-year as date
+            ], [
+                'location' => $order['location'],
+                'date' => $order['month_year'], // Use month-year as date
+                'amount' => $order['total_revenue'],
+            ]);
+        }
 
         Log::info('Import Revenue from Shopify completed');
         echo 'Import Revenue from Shopify completed' . PHP_EOL;

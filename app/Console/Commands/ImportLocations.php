@@ -50,6 +50,7 @@ class ImportLocations extends Command
 
         } catch (\Throwable $th) {
             Log::error("Error running job for importing locations: " . json_encode($th));
+            $this->error("Error running job for importing locations: " . json_encode($th));
             abort(403, $th);
         }
     }
