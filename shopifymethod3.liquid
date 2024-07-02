@@ -1,0 +1,127 @@
+this is for date and quantity json metafield
+
+first make changes in the frontend (pagefly page builder)
+
+
+top
+
+{% comment %} {% assign days_in_english = "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday" | split: "," %}
+{% assign current_day_index = 'now' | date: "%w" | plus: 0 %}
+{% assign current_day_name_in_english = days_in_english[current_day_index] %} {% endcomment %}
+
+  {% assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %}
+  {% assign param = blank %}
+
+  {%- for i in (1..1) -%}
+
+    {%- unless page_url contains "?" -%}{% break %}{%- endunless -%}
+    {%- assign query_string = page_url | split:'?' | last -%}
+    {%- assign qry_parts= query_string | split:'&' -%}
+
+    {%- for part in qry_parts -%}
+      {%- assign key_and_value = part | split:'=' -%}
+      {%- if key_and_value.size > 1 -%}
+        {% if key_and_value[0] == 'date' %}
+          {% assign date = key_and_value[1] %}
+        {% endif %}
+        {% if key_and_value[0] == 'location' %}
+          {% assign location = key_and_value[1] %}
+        {% endif %}
+        {% if key_and_value[0] == 'uuid' %}
+          {% assign uuid = key_and_value[1] %}
+        {% endif %}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endfor -%}
+
+
+
+  {% for item in shop.metafields.custom.selected_dates.value %}
+    {% if item.first == uuid %}
+      {% assign date = item.last %}
+      {% break %}
+    {% endif %}
+  {% endfor %}
+  
+{% comment %} {% assign dateAndQtyArray = dateAndQty | split: ':' %}  {% endcomment %}
+
+{% if date %}
+  {% assign date_parts = date | split: "-" %}
+  {% assign reformatted_date = date_parts[2] | append: "-" | append: date_parts[1] | append: "-" | append: date_parts[0] %}
+  {% assign day_name = reformatted_date | date: "%A" %}
+{% endif %}
+
+
+
+
+
+
+
+product
+
+
+{% assign defaultProduct = product %}
+{% paginate collections.all.products by 50 %}
+    {% for product in collections.all.products %}
+      {% assign productToShow = false %} 
+
+
+
+        {% assign dateAndQtyJSON = product.metafields.custom.json %}
+        {% assign dateAndQtyJSON = dateAndQtyJSON | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
+        {% assign dateAndQtyArray = dateAndQtyJSON | split: ',' %}
+        
+        {% for dateAndQtyVal in dateAndQtyArray %}
+          {% assign dateAndQtyVal = dateAndQtyVal | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
+          {% assign dateAndQtyValue = dateAndQtyVal | split: ':' %}
+          {% assign dateValue = dateAndQtyValue[1] %} 
+          {% if dateValue == date and location == dateAndQtyValue[0] %} 
+            {% assign qtyValue = dateAndQtyValue[2] %} 
+            {% comment %} {% assign productToShow = true %}  {% endcomment %}
+          {% endif %} 
+        {% endfor %}
+
+        {% assign dayList = product.metafields.custom.available_on %}
+        {% for day in dayList.value %}
+            {% if day == day_name %} 
+                {% assign productToShow = true %} 
+                {% comment %} {% assign qtyValue = product.variants[0].inventory_quantity %}  {% endcomment %}
+            {% endif %}
+        {% endfor %} 
+
+        {% if productToShow %}
+
+
+
+product goes here
+
+
+
+        {% endif %}  
+
+    {% endfor %}
+{% endpaginate %}
+
+
+
+
+
+qtyValue
+product.metafields.custom['date_and_quantity']|metafield_tag
+
+
+remove {% if product.metafields.custom['date_and_quantity'] != null %}
+  remove endif
+
+
+
+remove data-variants-continue ---------- max {{ qtyValue }}
+
+
+
+
+
+
+before endpaginate button
+
+<input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ day_name }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ day_name }}">
