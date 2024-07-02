@@ -96,12 +96,15 @@
           {% assign day_name = reformatted_date | date: "%A" %}
         {% endif %}
 
-        {% assign dateAndQtyList = product.metafields.custom.date_and_quantity %}
-        {% for dateAndQty in dateAndQtyList.value %} 
-          {% assign dateAndQtyArray = dateAndQty | split: ':' %} 
-          {% assign dateValue = dateAndQtyArray[0] %} 
-          {% if dateValue == date %} 
-              {% assign qtyValue = dateAndQtyArray[1] %} 
+        {% assign dateAndQtyJSON = product.metafields.custom.json %}
+        {% assign dateAndQtyJSON = dateAndQtyJSON | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
+        {% assign dateAndQtyArray = dateAndQtyJSON | split: ',' %}
+        {% for dateAndQtyVal in dateAndQtyArray %}
+          {% assign dateAndQtyVal = dateAndQtyVal | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
+          {% assign dateAndQtyValue = dateAndQtyVal | split: ':' %}
+          {% assign dateValue = dateAndQtyValue[1] %} 
+          {% if dateValue == date and location == dateAndQtyValue[0] %} 
+            {% assign qtyValue = dateAndQtyValue[2] %} 
           {% endif %} 
         {% endfor %}
 
