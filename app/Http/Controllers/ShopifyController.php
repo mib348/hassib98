@@ -150,7 +150,7 @@ class ShopifyController extends Controller
             $metafields = Metafields::where('product_id', $arr['product_id'])->get()->toArray();
 
             foreach ($metafields as $field) {
-                if (isset($field['key']) && $field['key'] == 'date_and_quantity') {
+                if (isset($field['key']) && $field['key'] == 'json') {
                     $value = json_decode($field['value'], true);
 
                     // $processedArray = [];
