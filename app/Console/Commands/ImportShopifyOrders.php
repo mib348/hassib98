@@ -65,7 +65,7 @@ class ImportShopifyOrders extends Command
 
 				// Log the current number of orders fetched
 				Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
-				echo 'Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders) . PHP_EOL;
+				$this->info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders)) . PHP_EOL;
 
 			} while (isset($nextPageInfo));
 
@@ -78,6 +78,7 @@ class ImportShopifyOrders extends Command
             // }
         } catch (\Throwable $th) {
             Log::error("Error running job for importing orders: " . json_encode($th));
+            $this->error("Error running job for importing orders: " . json_encode($th));
             abort(403, $th);
         }
     }
@@ -85,12 +86,29 @@ class ImportShopifyOrders extends Command
     public function importOrders($api, $orders){
 		echo PHP_EOL;
         foreach ($orders as $order) {
+            // Default values in case properties are missing
+            $location = null;
+            $date = null;
+            $day = null;
+
+            if (isset($order['line_items'][0]['properties'][1])) {
+                $location = $order['line_items'][0]['properties'][1]['value'];
+            }
+
+            if (isset($order['line_items'][0]['properties'][2])) {
+                $date = date("Y-m-d", strtotime($order['line_items'][0]['properties'][2]['value']));
+            }
+
+            if (isset($order['line_items'][0]['properties'][3])) {
+                $day = $order['line_items'][0]['properties'][3]['value'];
+            }
+
             $arr = Orders::updateOrCreate(['number' => $order['order_number']], [
                 'order_id' => $order['id'],
                 'number' => $order['order_number'],
-                'location' => $order['line_items'][0]['properties'][1]['value'],
-                'date' => date("Y-m-d", strtotime($order['line_items'][0]['properties'][2]['value'])),
-                'day' => $order['line_items'][0]['properties'][3]['value'],
+                'location' => $location,
+                'date' => $date,
+                'day' => $day,
                 'total_price' => $order['total_price'],
                 'email' => $order['email'],
                 'financial_status' => $order['financial_status'],
@@ -104,24 +122,40 @@ class ImportShopifyOrders extends Command
                 'updated_at' => $order['updated_at'],
             ]);
 
-               Log::info("Order: {$order['order_number']} has been imported successfully");
-               echo "Order: {$order['order_number']} has been imported successfully" . PHP_EOL;
+            Log::info("Order: {$order['order_number']} has been imported successfully");
+            $this->info("Order: {$order['order_number']} has been imported successfully") . PHP_EOL;
 
             $this->importOrdersMetafields($api, $order);
         }
     }
 
-    public function importOrdersMetafields($api, $order){
+    public function importOrdersMetafields($api, $order) {
         $metafieldsResponse = $api->rest('GET', "/admin/orders/{$order['id']}/metafields.json");
         $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
 
-        if(isset($metafields['container'])){
+        if (isset($metafields['container'])) {
             $metafields = $metafields['container'];
         }
 
-        if(count($metafields)){
-            foreach ($metafields as $field) {
-                $arrMetafields = Metafields::updateOrCreate(['order_id' => $order['id'], 'metafield_id' => $field['id']], [
+        // List of required metafields
+        $requiredMetafields = ['status', 'pick_up_date', 'location', 'right_items_removed', 'wrong_items_removed', 'time_of_pick_up', 'door_open_time', 'image_before', 'image_after'];
+        $metafieldValues = [];
+
+        // Initialize metafieldValues with null
+        foreach ($requiredMetafields as $key) {
+            $metafieldValues[$key] = null;
+        }
+
+        // Populate existing metafields
+        foreach ($metafields as $field) {
+            if (in_array($field['key'], $requiredMetafields)) {
+                $metafieldValues[$field['key']] = $field['value'];
+            }
+
+            // Update/Create existing metafields
+            Metafields::updateOrCreate(
+                ['order_id' => $order['id'], 'metafield_id' => $field['id']],
+                [
                     'order_id' => $order['id'],
                     'order_number' => $order['order_number'],
                     'metafield_id' => $field['id'],
@@ -129,12 +163,34 @@ class ImportShopifyOrders extends Command
                     'value' => $field['value'],
                     'created_at' => $field['created_at'],
                     'updated_at' => $field['updated_at'],
-                ]);
+                ]
+            );
 
-                Log::info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully\n");
-                echo "Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully" . PHP_EOL;
-            }
-            echo PHP_EOL;
+            Log::info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully\n");
+            $this->info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully") . PHP_EOL;
         }
+
+        // Update/Create missing metafields with null values
+        foreach ($requiredMetafields as $key) {
+            if ($metafieldValues[$key] === null) {
+                Metafields::updateOrCreate(
+                    ['order_id' => $order['id'], 'key' => $key],
+                    [
+                        'order_id' => $order['id'],
+                        'order_number' => $order['order_number'],
+                        'key' => $key,
+                        'value' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+
+                Log::info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null\n");
+                $this->info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null") . PHP_EOL;
+            }
+        }
+
+        echo PHP_EOL;
     }
+
 }
