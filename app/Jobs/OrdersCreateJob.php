@@ -126,8 +126,8 @@ class OrdersCreateJob implements ShouldQueue
     {
         // Define the metafield details
         $namespace = 'custom';
-        $key = 'date_and_quantity';
-        $metafieldEndpoint = "/admin/api/2024-01/products/{$productId}/metafields.json";
+        $key = 'json';
+        $metafieldEndpoint = "/admin/products/{$productId}/metafields.json";
 
         // Fetch the current metafield for the product
         $metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
@@ -151,20 +151,20 @@ class OrdersCreateJob implements ShouldQueue
 			//dd($updatedValues);
 
             // Update the metafield with the new values
-            $updateResponse = "/admin/api/2024-01/products/{$productId}/metafields/{$metafield['id']}.json";
+            $updateResponse = "/admin/products/{$productId}/metafields/{$metafield['id']}.json";
             $updateResponse = $shop->api()->rest('PUT', $updateResponse, [
                 'metafield' => [
                     'id' => $metafield['id'],
                     'value' => $updatedValues,
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'json'
                 ],
             ]);
 
             if ($updateResponse['errors']) {
-                Log::error("Failed to update date_and_quantity metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
-                throw new Exception("Failed to date_and_quantity update metafield for product ID {$productId} for order number {$orderData['order_number']}: "  . json_encode($updateResponse['body']), 1);
+                Log::error("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+                throw new Exception("Failed to json update metafield for product ID {$productId} for order number {$orderData['order_number']}: "  . json_encode($updateResponse['body']), 1);
             } else {
-                Log::info("date_and_quantity Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+                Log::info("json Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
             }
         }
     }
@@ -217,13 +217,13 @@ class OrdersCreateJob implements ShouldQueue
                 ];
 
                 // Send the cancel order request
-                $response = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/cancel.json", $requestBody);
+                $response = $shop->api()->rest('POST', "/admin/orders/{$orderData['id']}/cancel.json", $requestBody);
 
                 Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity for {$lineItem['title']} : {$lineItem['quantity']} is greater than available quantity {$quantity} against the metafield value: {$value} " . json_encode($orderData));
 
 
 				//get order transactions
-				$arrTransaction = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$orderData['id']}/transactions.json");
+				$arrTransaction = $shop->api()->rest('GET', "/admin/orders/{$orderData['id']}/transactions.json");
 
 				$arrTransaction = $arrTransaction['body']['container']['transactions'];
 				$arrTransaction = end($arrTransaction);
@@ -232,7 +232,7 @@ class OrdersCreateJob implements ShouldQueue
 				$refundReason = 'Der Artikel ' . $lineItem['title'] . ' ist nicht vorrätig'; // Replace with an appropriate reason
 
 				// Create the refund
-				$refundResponse = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderData['id']}/refunds.json", [
+				$refundResponse = $shop->api()->rest('POST', "/admin/orders/{$orderData['id']}/refunds.json", [
 					'refund' => [
 						'currency' => $orderData["currency"], // Replace with the order currency
 						'shipping' => [

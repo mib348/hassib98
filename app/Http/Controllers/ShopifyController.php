@@ -88,7 +88,7 @@ class ShopifyController extends Controller
                     }
                 }
 
-                if ($metafield['key'] === 'date_and_quantity') {
+                if ($metafield['key'] === 'json') {
                     $datesQuantities = json_decode($metafield['value'], true);
                     foreach ($datesQuantities as $dateQuantity) {
                         [$date, $quantity] = explode(':', $dateQuantity);
@@ -208,7 +208,7 @@ class ShopifyController extends Controller
             $metafields = $metafieldsResponse['body']['metafields'] ?? [];
 
             foreach ($metafields as $field) {
-                if (isset($field['key']) && $field['key'] == 'date_and_quantity') {
+                if (isset($field['key']) && $field['key'] == 'json') {
                     $value = json_decode($field['value'], true);
 
                     $processedArray = [];
@@ -654,8 +654,8 @@ class ShopifyController extends Controller
 			$matchingQty = null; // Initialize matchingQty
 
 			$namespace = 'custom';
-			$key = 'date_and_quantity';
-			$metafieldEndpoint = "/admin/api/2024-01/products/{$product['product_id']}/metafields.json";
+			$key = 'json';
+			$metafieldEndpoint = "/admin/products/{$product['product_id']}/metafields.json";
 
 			// Fetch the current metafield for the product
 			$metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
