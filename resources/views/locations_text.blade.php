@@ -1,6 +1,7 @@
 @extends('shopify-app::layouts.default')
 
 @section('styles')
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/css/bootstrap-timepicker.min.css" rel="stylesheet">
 <style>
 </style>
 @endsection
@@ -20,37 +21,36 @@
     </div> --}}
     <div class="row">
         <div class="col-md-12">
-            <form id="locations_revenue_form">
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
-                    <thead>
-                        <tr>
-                            <th style="width:33%;">
-                                Location
-                                <select id="strFilterLocation" name="strFilterLocation" class="form-select">
-                                    <option value="" selected>--- Select Location ---</option>
-                                    @foreach($arrLocations as $location)
-                                    <option value="{{ $location->name }}">{{ $location->name }}</option>
-                                    @endforeach
-                                </select>
-                            </th>
-                            <th style="width:33%;">
-                                Month
-                                <select id="strFilterDate" name="strFilterDate" class="form-select">
-                                    <option value="" selected>--- Select Month ---</option>
-                                    @foreach($years_months as $key => $value)
-                                    <option value="{{ $key }}">{{ $value }}</option>
-                                    @endforeach
-                                </select>
-                            </th>
-                            <th style="width:33%;">Revenue</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
-            </div>
-            <button type="button" class="btn btn-primary" id="save_btn">Save</button>
+            <form id="locations_text_form">
+                <div class="form-group">
+                    <label class="label fw-bold font-bold" for="strFilterLocation">Filter Location</label>
+                    <select id="strFilterLocation" name="strFilterLocation" class="form-select">
+                        <option value="" selected>--- Select Location ---</option>
+                        @foreach($arrLocations as $location)
+                        <option value="{{ $location->name }}">{{ $location->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <br>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rows">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="form-group">
+                    <label class="label fw-bold font-bold" for="strFilterLocation">Note</label>
+                    <textarea id='note' name='note' rows='3' cols='5' class='form-control'></textarea>
+                </div>
+                <br>
+                <button type="button" class="btn btn-primary" id="save_btn">Save</button>
             </form>
         </div>
     </div>
@@ -60,6 +60,7 @@
 
 @section('scripts')
     @parent
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/js/bootstrap-timepicker.min.js"></script>
 
 
     <script>
@@ -102,56 +103,56 @@
             // Add your logic for when the 'Operation' button is clicked
         });
 
-        // Create a button for 'Locations Text'
-        var locations_text = Button.create(app, { label: 'Locations Text' });
-        locations_text.subscribe(Button.Action.CLICK, function() {
+        // Create a button for 'Locations Revenue'
+        var locations_revenue = Button.create(app, { label: 'Locations Revenue' });
+        locations_revenue.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/locations_text');
+            redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
-            title: 'Locations Revenue',
+            title: 'Locations Text',
             buttons: {
                 primary: productsButton,
-                secondary: [ordersButton, operationdays, amountproductslocationweekday, locations_text]
+                secondary: [ordersButton, operationdays, amountproductslocationweekday, locations_revenue]
             },
         });
     </script>
 
     <script type="text/javascript">
     	$(function(){
-    	      window.table = jQuery('.js-dataTable-full').DataTable({
-    	          pageLength: 10,
-    	          lengthMenu: [[5, 10, 20], [5, 10, 20]],
-    	          order:[[0, 'desc']],
-                  columnDefs: [{ orderable: false, targets: 0 }, { orderable: false, targets: 1 }],
-    	          autoWidth: false
-    	      });
+    	    //   window.table = jQuery('.js-dataTable-full').DataTable({
+    	    //       pageLength: 10,
+    	    //       lengthMenu: [[5, 10, 20], [5, 10, 20]],
+    	    //       order:[[0, 'desc']],
+            //       columnDefs: [{ orderable: false, targets: 0 }, { orderable: false, targets: 1 }],
+    	    //       autoWidth: false
+    	    //   });
 
-              $(document).on('change', '#strFilterLocation, #strFilterDate', function(e){
+              $(document).on('change', '#strFilterLocation', function(e){
                 LoadList();
               });
 
               $(document).on('click', '#save_btn', function(e){
                 $.ajax({
-                    url:"{{ route('locations_revenue.store') }}",
-                    type:"POST",
+                    url:"{{ route('locations_text.store') }}/" + $("#strFilterLocation").val(),
+                    type:"PUT",
                     // data: {
                     //     "_token": "{{ csrf_token() }}",
                     //     "strFilterLocation": $("#strFilterLocation").val(),
                     //     "strFilterDate": $("#strFilterDate").val(),
-                    //     "locations_revenue_form": $("#locations_revenue_form").serialize()
+                    //     "locations_text_form": $("#locations_text_form").serialize()
                     // },
-                    data: "_token={{ csrf_token() }}&"+$("#locations_revenue_form").serialize(),
+                    data: "_token={{ csrf_token() }}&"+$("#locations_text_form").serialize(),
                     cache:false,
                     dataType:"json",
                     success:function(data){
-                        alert('Locations Revenue Data Saved Successfully');
+                        alert('Locations Text Data Saved Successfully');
                     },
                     error: function (request, status, error) {
-                        alert('error saving Locations Revenue Data');
+                        alert('error saving Locations Text Data');
                     }
                 });
               });
@@ -165,19 +166,26 @@
             	type:"GET",
             	data: {
                     "_token": "{{ csrf_token() }}",
-                    "strFilterLocation": $("#strFilterLocation").val(),
-                    "strFilterDate": $("#strFilterDate").val()
+                    "strFilterLocation": $("#strFilterLocation").val()
             	},
             	cache:false,
-            	dataType:"html",
+            	dataType:"json",
             	success:function(data){
-            		table.clear();
-            		table.rows.add($(data)).draw(true);
+                    if(data || data.length){
+                        $("#note").val(data.note);
+                        $("#rows").html(data.html);
+                    }
+                    else{
+                        $("#note").val('');
+                        $("#rows").html('');
+                    }
+            		// table.clear();
+            		// table.rows.add($(data.html)).draw(true);
 //                 	$(".table tbody").html(data);
                 },
                 error: function (request, status, error) {
                     table.clear();
-                    console.log('error fetching Locations Revenue Data');
+                    console.log('error fetching Locations Text Data');
                 }
             });
         }

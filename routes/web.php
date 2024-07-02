@@ -3,6 +3,7 @@
 use App\Http\Controllers\AmountProductsLocationWeekdayController;
 use App\Http\Controllers\ArtisanController;
 use App\Http\Controllers\LocationRevenueController;
+use App\Http\Controllers\LocationsTextController;
 use App\Http\Controllers\OperationDaysController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ShopifyController;
@@ -40,6 +41,7 @@ Route::get('/', [ShopifyController::class, 'index'])->middleware(['verify.shopif
 Route::get('/metafields', [ShopifyController::class, 'getMetafields'])->name('metafields');
 Route::get('/products', [ShopifyController::class, 'getProducts'])->name('products');
 Route::get('/getProductsList', [ShopifyController::class, 'getProductsList'])->name('getProductsList');
+Route::get('/getProductsListJson', [ShopifyController::class, 'getProductsListJson'])->name('getProductsListJson');
 Route::get('/getWebhooks', [ShopifyController::class, 'getWebhooks'])->name('getWebhooks');
 Route::get('/setWebhooks', [ShopifyController::class, 'setWebhooks'])->name('setWebhooks');
 Route::get('/testmail', [ShopifyController::class, 'testmail'])->name('testmail');
@@ -47,7 +49,10 @@ Route::get('/getTheme', [ShopifyController::class, 'getTheme'])->name('getTheme'
 Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelectedDate'])->name('updateSelectedDate');
 Route::resource('shopify', ShopifyController::class);
 
-Route::get('/getLocations', [ShopifyController::class, 'getLocations'])->name('getLocations');
+//locations
+Route::get('/getLocations/{location?}', [ShopifyController::class, 'getLocations'])->name('getLocations');
+Route::get('/getLocationsTextList', [LocationsTextController::class, 'getLocationsTextList'])->name('getLocationsTextList');
+Route::resource('locations_text', LocationsTextController::class);
 
 //orders
 Route::get('/getOrdersList', [OrdersController::class, 'getOrdersList'])->name('getOrdersList');
@@ -64,4 +69,3 @@ Route::resource('amountproductslocationweekday', AmountProductsLocationWeekdayCo
 //Locations Revenue Table
 Route::get('/getLocationsRevenueList', [LocationRevenueController::class, 'getLocationsRevenueList'])->name('getLocationsRevenueList');
 Route::resource('locations_revenue', LocationRevenueController::class);
-

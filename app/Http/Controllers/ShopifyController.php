@@ -129,6 +129,11 @@ class ShopifyController extends Controller
         // return response($json)->header('Content-Type', 'application/json');
     }
 
+    public function getProductsListJson(){
+        $products = Products::all();
+        return response()->json($products);
+    }
+
     public function getProductsList(){
         $products = Products::all()->toArray();
 
@@ -688,12 +693,20 @@ class ShopifyController extends Controller
 		return json_encode($arr);
 	}
 
-    static public function getLocations() {
-        $arrLocations = Locations::select('name')->get()->toArray();
+    static public function getLocations($location = null) {
+        // Check if the optional parameter is passed
+        if ($location) {
+            // If the parameter is passed, select all fields for the specified location
+            $arrLocations = Locations::where('name', $location)->first();
+        } else {
+            // If the parameter is not passed, select only the 'name' field for all locations
+            $arrLocations = Locations::select('name')->get()->toArray();
 
-        $arrLocations = array_map(function ($item) {
-            return $item['name'];
-        }, $arrLocations);
+            // Extract the names from the array
+            $arrLocations = array_map(function ($item) {
+                return $item['name'];
+            }, $arrLocations);
+        }
 
         return $arrLocations;
     }
