@@ -33,61 +33,74 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
-
-    // function toggleButton() {
-    //   const now = new Date();
-    //   const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
-    //   const timeGermany = new Date(utcTime + (3600000 * 1)); // Germany (Central European Time) is UTC+2
-    //   const hours = timeGermany.getHours();
-    //   const minutes = timeGermany.getMinutes();
-
-    //   if (hours < 12) {
-    //     buttonTodayOrder.classList.remove('show-button');
-    //   } else {
-    //     // Enable button from 12 p.m. (noon) to midnight
-    //     buttonTodayOrder.classList.add('show-button'); 
-    //   }
-    // }
-
-    function toggleButton() {
-      const now = new Date();
-      const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
-      
-      // Check if daylight saving time is in effect in Germany
-      const daylightSavingTimeInEffect = (now.getMonth() > 2 && now.getMonth() < 10);
-      const timezoneOffset = daylightSavingTimeInEffect ? 2 : 1; // CEST: UTC+2, CET: UTC+1
-      
-      const timeGermany = new Date(utcTime + (3600000 * timezoneOffset));
-      const hours = timeGermany.getHours();
+    const strLocation = sessionStorage.getItem("location") || "";
     
-      if (hours < 12) {
-        buttonTodayOrder.classList.remove('show-button');
+      function toggleButton(startTime, endTime) {
+          const now = new Date();
+          const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+      
+          // Check if daylight saving time is in effect in Germany
+          const daylightSavingTimeInEffect = (now.getMonth() > 2 && now.getMonth() < 10);
+          const timezoneOffset = daylightSavingTimeInEffect ? 2 : 1; // CEST: UTC+2, CET: UTC+1
+      
+          const timeGermany = new Date(utcTime + (3600000 * timezoneOffset));
+          const currentHours = timeGermany.getHours();
+          const currentMinutes = timeGermany.getMinutes();
+      
+          const [startHours, startMinutes] = startTime.split(':').map(Number);
+          let [endHours, endMinutes] = endTime.split(':').map(Number);
+      
+          // Adjust for end time being 00:00 (midnight)
+          if (endHours === 0 && endMinutes === 0) {
+              endHours = 24;
+          }
+      
+          const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+          const startTimeInMinutes = startHours * 60 + startMinutes;
+          const endTimeInMinutes = endHours * 60 + endMinutes;
+      
+          const isWithinTimeSlot = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
+      
+          if (isWithinTimeSlot) {
+              buttonTodayOrder.classList.add('show-button');
+          } else {
+              buttonTodayOrder.classList.remove('show-button');
+          }
+       }
+    
+      if (strLocation !== "") {
+        $.ajax({
+          url: `https://app.sushi.catering/getLocations/${strLocation}`,
+          type: "GET",
+          dataType: "json",
+          success: function(data) {
+            if (data.note)
+              $("#note").html(data.note);
+            if (data.start_time && data.end_time) {
+              toggleButton(data.start_time, data.end_time);
+              setInterval(() => toggleButton(data.start_time, data.end_time), 60000);
+            } else if (data.error) {
+              console.error('Error fetching location time:', data.error);
+            }
+          },
+          error: function(request, status, error) {
+            console.error('Error fetching location time:', error);
+          }
+        });
       } else {
-        // Enable button from 12 p.m. (noon) to midnight
-        buttonTodayOrder.classList.add('show-button'); 
+        // Fallback if no location is set
+        $("#note").html('Auffüllung täglich um 12 Uhr, Abholung bis 24 Uhr');
+        const fallbackStartTime = "12:00";
+        const fallbackEndTime = "23:59";
+        toggleButton(fallbackStartTime, fallbackEndTime);
+        setInterval(() => toggleButton(fallbackStartTime, fallbackEndTime), 60000);
       }
-    }
-
-
-    toggleButton();
-
-    setInterval(toggleButton, 60000);
 });
 
   window.onload = function() {
     pageFullyLoaded = true;
       if (window.jQuery) {
         let $ = window.jQuery;
-
-        var strLocation =
-        sessionStorage.getItem("location") != null
-          ? sessionStorage.getItem("location")
-          : "";
-
-        var strDate =
-        sessionStorage.getItem("date") != null
-          ? sessionStorage.getItem("date")
-          : "";
 
         $(".todayorderbtn, .preorderbtn").each(function() {
           // Reset any inline styles that might have been applied to indicate disabled state
@@ -104,8 +117,6 @@ document.addEventListener('DOMContentLoaded', function() {
         var newLeft = buttonOffset.left;
 
         // Apply the calculated positions
-        //$("#datepicker").css({ position: "absolute", top: newTop - 310, left: newLeft });
-        //$("#datepicker").css({ display:"none" });
         $("#datepicker").datepicker('hide');
 
         $(".todayorderbtn").click(function(e){
@@ -175,35 +186,8 @@ document.addEventListener('DOMContentLoaded', function() {
             $('.ui-datepicker').addClass('notranslate');
         });
 
-        // Remove the HTML element if the time condition is met
-        if (isTimeBetween()) {
-            //$('.todayorderbtn').remove();
-        }
-
-        $(function() {
+     }
 
 
-        });
-    }
-
-    // Function to get current time in Germany
-    function getCurrentTimeInGermany() {
-        const options = { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hour12: false };
-        const formatter = new Intl.DateTimeFormat([], options);
-        return formatter.format(new Date());
-    }
-
-    // Function to check if current time is between 11:30 AM and 12:00 AM
-    function isTimeBetween() {
-        const currentTime = getCurrentTimeInGermany();
-        const currentHoursMinutes = currentTime.split(':').map(Number); // Convert "HH:MM" to [HH, MM]
-
-        // Convert times to minutes for easier comparison
-        const currentTimeInMinutes = currentHoursMinutes[0] * 60 + currentHoursMinutes[1];
-        const start = 11 * 60 + 30; // 11:30 AM in minutes
-        const end = 11 * 60 + 59; // 11:59 AM in minutes
-
-        return currentTimeInMinutes >= start && currentTimeInMinutes <= end;
-    }
   }
 </script>
