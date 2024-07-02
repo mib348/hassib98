@@ -34,6 +34,7 @@ class UpdateProductMetafields extends Command
             }
         } catch (\Throwable $th) {
             Log::error("Error running job for updating metafield: " . json_encode($th));
+            $this->error("Error running job for updating metafield: " . json_encode($th));
             abort(403, $th);
         }
     }
@@ -41,11 +42,11 @@ class UpdateProductMetafields extends Command
     protected function updateProductMetafield($api, $product)
     {
         // API call to get metafields for a specific product
-        $response = $api->rest('GET', "/admin/api/2024-01/products/{$product['id']}/metafields.json");
+        $response = $api->rest('GET', "/admin/products/{$product['id']}/metafields.json");
         $metafields = $response['body']['metafields'] ?? [];
 
         // Find the `date_and_quantity` metafield
-        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'date_and_quantity');
+        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'json');
         $values = $dateAndQuantityMetafield ? json_decode($dateAndQuantityMetafield['value'], true) : [];
 
         // $available_on_metafield = collect($metafields)->firstWhere('key', 'available_on');
@@ -120,38 +121,59 @@ class UpdateProductMetafields extends Command
 
         $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
 
+        // dd($newValue);
+
 
         if ($dateAndQuantityMetafield) {
             // Metafield exists, update it
             $metafieldId = $dateAndQuantityMetafield['id'];
-            $updateResponse = $api->rest('PUT', "/admin/api/2024-01/products/{$product['id']}/metafields/{$metafieldId}.json", [
+            // $updateResponse = $api->rest('PUT', "/admin/api/2024-01/products/{$product['id']}/metafields/{$metafieldId}.json", [
+            //     'metafield' => [
+            //         'id' => $metafieldId,
+            //         'value' => $newValue,
+            //         'namespace' => 'custom',
+            //         'key' => 'date_and_quantity',
+            //         'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
+            //     ],
+            // ]);
+            $updateResponse = $api->rest('PUT', "/admin/products/{$product['id']}/metafields/{$metafieldId}.json", [
                 'metafield' => [
                     'id' => $metafieldId,
                     'value' => $newValue,
                     'namespace' => 'custom',
-                    'key' => 'date_and_quantity',
-                    'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
+                    'key' => 'json',
+                    'type' => 'json', // Ensure this matches the actual type expected by Shopify
                 ],
             ]);
         } else {
             // Metafield does not exist, create it
-            $updateResponse = $api->rest('POST', "/admin/api/2024-01/products/{$product['id']}/metafields.json", [
+            // $updateResponse = $api->rest('POST', "/admin/api/2024-01/products/{$product['id']}/metafields.json", [
+            //     'metafield' => [
+            //         'namespace' => 'custom',
+            //         'key' => 'date_and_quantity',
+            //         'value' => $newValue,
+            //         'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
+            //     ],
+            // ]);
+            $updateResponse = $api->rest('POST', "/admin/products/{$product['id']}/metafields.json", [
                 'metafield' => [
                     'namespace' => 'custom',
-                    'key' => 'date_and_quantity',
+                    'key' => 'json',
                     'value' => $newValue,
-                    'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
+                    'type' => 'json', // Ensure this matches the actual type expected by Shopify
                 ],
             ]);
         }
 
+        // dd($updateResponse);
+
         // Handle response
         if (isset($updateResponse['body']['metafield'])) {
             Log::info("Metafield updated successfully for product {$product['id']}: " . json_encode($updateResponse['body']['metafield']));
-            echo "Product {$product['id']} metafield date & quantity updated successfully." . PHP_EOL;
+            $this->info("Product {$product['id']} metafield date & quantity updated successfully.") . PHP_EOL;
         } else {
             Log::error("Error updating metafield for product {$product['id']}: " . json_encode($updateResponse['body']));
-            echo "Error updating date & quantity metafield for product {$product['id']}." . PHP_EOL;
+            $this->error("Error updating date & quantity metafield for product {$product['id']}.") . PHP_EOL;
             throw new Exception("Error updating date & quantity metafield for product {$product['id']}", 1);
         }
     }
