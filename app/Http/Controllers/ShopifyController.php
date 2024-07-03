@@ -166,8 +166,10 @@ class ShopifyController extends Controller
                     $value = json_decode($field['value'], true);
 
                     $days = "<ul>";
-                    foreach ($value as $item) {
-                        $days .= '<li>' . $item . '</li>';
+                    if($value){
+                        foreach ($value as $item) {
+                            $days .= '<li>' . $item . '</li>';
+                        }
                     }
                     $days .= "</ul>";
                 }
