@@ -75,7 +75,6 @@ class OrdersController extends Controller
 
     public function getOrdersList(Request $request) {
         $html = "";
-        // $html .= "<table>";
         for ($i = -14; $i <= 7; $i++) {
             $date = date("d.m.Y", strtotime("$i day"));
 
@@ -83,7 +82,6 @@ class OrdersController extends Controller
                 $orders = Orders::where('date', '=', date("Y-m-d", strtotime($date)))->where('location', $request->input('strFilterLocation'))->get()->toArray();
             else
                 $orders = Orders::where('date', '=', date("Y-m-d", strtotime($date)))->get()->toArray();
-            // $orders = Orders::where('date', '>=', Carbon::now()->subDays(15))->get()->toArray();
 
             $html .= "<tr>";
             $html .= "<td>" . $date . "</td>";
@@ -108,31 +106,31 @@ class OrdersController extends Controller
                         $arrFields[] = $metafield['key'];
 
                         if ($metafield['key'] == "wrong_items_removed") {
-                            if (json_decode($metafield['value'], true)[0] > 0) {
+                            $value = json_decode($metafield['value'], true);
+                            if (!empty($value) && $value[0] > 0) {
                                 $arr_wrong_item[$order['order_id']] = $order['number'];
                                 $wrong_item++;
                             }
                         }
-                        // if($metafield['key'] == "right_items_removed"){
-                        //     $right_items_removed = json_decode($metafield['value'], true);
-                        //     if(count($right_items_removed) < $total_items){
-                        //         $arr_took_less[$order['order_id']] = $order['number'];
-                        //         $took_less++;
-                        //     }
-                        // }
 
                         if ($metafield['key'] == "status") {
-                            if (json_decode($metafield['value'], true)[0] == "took-zero") {
-                                $arr_took_zero[$order['order_id']] = $order['number'];
-                                $took_zero++;
+                            $statusValue = json_decode($metafield['value'], true);
+                            if (!empty($statusValue)) {
+                                if ($statusValue[0] == "took-zero") {
+                                    $arr_took_zero[$order['order_id']] = $order['number'];
+                                    $took_zero++;
+                                }
+                                if ($statusValue[0] == "took-less") {
+                                    $arr_took_less[$order['order_id']] = $order['number'];
+                                    $took_less++;
+                                }
+                                if ($statusValue[0] == "fulfilled" || $order['fulfillment_status'] == "fulfilled") {
+                                    $arr_fulfilled[$order['order_id']] = $order['number'];
+                                    $fulfilled++;
+                                }
                             }
-                            if (json_decode($metafield['value'], true)[0] == "took-less") {
-                                $arr_took_zero[$order['order_id']] = $order['number'];
-                                $took_less++;
-                            }
-                            if (json_decode($metafield['value'], true)[0] == "fulfilled" || $order['fulfillment_status'] == "fulfilled") {
-                                $arr_fulfilled[$order['order_id']] = $order['number'];
-                                $fulfilled++;
+                            else{
+                                // dd($order['order_id']);
                             }
                         }
                     }
@@ -153,10 +151,8 @@ class OrdersController extends Controller
             $html .= "</tr>";
         }
 
-        // $html .= "</table>";
-        // echo $html;
-        // dd();
         return $html;
     }
+
 
 }
