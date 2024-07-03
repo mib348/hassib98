@@ -20,33 +20,56 @@ class ImportLocations extends Command
     {
         try {
             $shop = Auth::user(); // Ensure you have a way to authenticate and set the current shop.
-            if(!isset($shop) || !$shop)
+            if (!isset($shop) || !$shop) {
                 $shop = User::find(env('db_shop_id', 1));
+            }
 
-            $response = $shop->api()->graph('{
-                metaobjects(type: "location", first: 50) {
-                    nodes {
-                    handle
-                    type
-                    title: field(key: "location") { value }
+            $metaobjects = [];
+            $hasNextPage = true;
+            $cursor = null;
+
+            while ($hasNextPage) {
+                $query = '{
+                    metaobjects(type: "location", first: 50' . ($cursor ? ', after: "' . $cursor . '"' : '') . ') {
+                        edges {
+                            node {
+                                id
+                                handle
+                                json: field(key: "json") { value }
+                            }
+                        }
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
                     }
+                }';
+
+                $response = $shop->api()->graph($query);
+                $data = $response['body']['data']['metaobjects'] ?? [];
+                $hasNextPage = $data['pageInfo']['hasNextPage'] ?? false;
+                $cursor = $data['pageInfo']['endCursor'] ?? null;
+
+                foreach ($data['edges'] as $edge) {
+                    $metaobjects[] = $edge['node'];
                 }
-                }');
-            $metaobjects = $response['body']['data'] ?? [];
-            if(isset($metaobjects['metaobjects'])){
-                $metaobjects = $metaobjects['metaobjects']['nodes'][0]['title']['value'];
-                $metaobjects = json_decode($metaobjects, true);
-            }
-            else{
-                $metaobjects = [];
             }
 
-            foreach ($metaobjects as $location) {
-                $arr = Locations::updateOrCreate(['name' => $location], [
-                    'name' => $location,
-                ]);
+
+            $i = 0;
+            foreach ($metaobjects as $metaobject) {
+                $locationData = json_decode($metaobject['json']['value'], true);
+
+                foreach ($locationData as $location) {
+                    Locations::updateOrCreate(['name' => $location], [
+                        'name' => $location,
+                    ]);
+                    $i++;
+                }
             }
 
+            Log::info("{$i} locations imported successfully");
+            $this->info("{$i} locations imported successfully");
 
         } catch (\Throwable $th) {
             Log::error("Error running job for importing locations: " . json_encode($th));
@@ -54,4 +77,5 @@ class ImportLocations extends Command
             abort(403, $th);
         }
     }
+
 }
