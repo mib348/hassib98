@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AmountProductsLocationWeekdayController;
 use App\Http\Controllers\ArtisanController;
+use App\Http\Controllers\LocationProductsTableController;
 use App\Http\Controllers\LocationRevenueController;
 use App\Http\Controllers\LocationsTextController;
 use App\Http\Controllers\OperationDaysController;
@@ -69,3 +70,7 @@ Route::resource('amountproductslocationweekday', AmountProductsLocationWeekdayCo
 //Locations Revenue Table
 Route::get('/getLocationsRevenueList', [LocationRevenueController::class, 'getLocationsRevenueList'])->name('getLocationsRevenueList');
 Route::resource('locations_revenue', LocationRevenueController::class);
+
+//Location Products Table
+Route::get('/getLocationsProductsJSON', [LocationProductsTableController::class, 'getLocationsProductsJSON'])->name('getLocationsProductsJSON');
+Route::resource('location_products', LocationProductsTableController::class);

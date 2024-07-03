@@ -4,15 +4,17 @@ namespace App\Console\Commands;
 
 use App\Http\Controllers\ShopifyController;
 use App\Models\AmountProductsLocationWeekday;
+use App\Models\LocationProductsTable;
 use App\Models\User;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class UpdateProductMetafields extends Command
 {
-    protected $signature = 'shopify:update-product-metafields';
+    protected $signature = 'shopify:update-product-metafields {--current}';
     protected $description = 'Updates product metafields with date and quantity for the next 7 days.';
 
 
@@ -28,6 +30,7 @@ class UpdateProductMetafields extends Command
             $api = $shop->api(); // Get the API instance for the shop.
 
             $products = $api->rest('GET', '/admin/products.json')['body']['products'];
+            // $products[] = $api->rest('GET', '/admin/products/8758872310108.json')['body']['product'];
 
             foreach ($products as $product) {
                 $this->updateProductMetafield($api, $product);
@@ -49,7 +52,7 @@ class UpdateProductMetafields extends Command
         $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'json');
         $values = $dateAndQuantityMetafield ? json_decode($dateAndQuantityMetafield['value'], true) : [];
 
-        // $available_on_metafield = collect($metafields)->firstWhere('key', 'available_on');
+        $available_on_metafield = collect($metafields)->firstWhere('key', 'available_on');
         // $available_on_metafield_values = $available_on_metafield ? json_decode($available_on_metafield['value'], true) : [];
 
         $updatedValues = [];
@@ -58,6 +61,16 @@ class UpdateProductMetafields extends Command
         $handler = new ShopifyController();
         $locations = $handler->getLocations();
 
+        $current = $this->option('current');
+
+        // // Your logic here
+        // if ($current) {
+        //     $this->info('Updating current metafields');
+        //     // Logic for updating current metafields
+        // } else {
+        //     $this->info('Updating all metafields');
+        //     // Logic for updating all metafields
+        // }
 
         foreach ($locations as $location) {
             // Initialize the location array if not already set
@@ -73,10 +86,13 @@ class UpdateProductMetafields extends Command
                 if ($dateTimestamp >= $today) {
                     if (isset($updatedValues[$valueLocation])) {
                         // $updatedValues[$valueLocation] = [];
-                        $updatedValues[$valueLocation][$date] = $quantity;
+
+                        if (!$current)
+                            $updatedValues[$valueLocation][$date] = $quantity;
                     }
                 }
             }
+
 
             // Add new dates up to 7 days ahead with default quantity if they don't exist
             for ($i = 0; $i < 7; $i++) {
@@ -123,7 +139,6 @@ class UpdateProductMetafields extends Command
 
         // dd($newValue);
 
-
         if ($dateAndQuantityMetafield) {
             // Metafield exists, update it
             $metafieldId = $dateAndQuantityMetafield['id'];
@@ -165,6 +180,32 @@ class UpdateProductMetafields extends Command
             ]);
         }
 
+        //fetch the array of days on which the product is available
+        $arrDays = $this->fetchAvailableDays($product['id']);
+        $arrDays = json_encode($arrDays);
+        if ($available_on_metafield) {
+            // Metafield exists, update it
+            $metafieldId = $available_on_metafield['id'];
+            $updateResponse = $api->rest('PUT', "/admin/api/2024-01/products/{$product['id']}/metafields/{$metafieldId}.json", [
+                'metafield' => [
+                    'id' => $metafieldId,
+                    'value' => $arrDays,
+                    'namespace' => 'custom',
+                    'key' => 'available_on',
+                    'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
+                ],
+            ]);
+        } else {
+            // Metafield does not exist, create it
+            $updateResponse = $api->rest('POST', "/admin/api/2024-01/products/{$product['id']}/metafields.json", [
+                'metafield' => [
+                    'namespace' => 'custom',
+                    'key' => 'available_on',
+                    'value' => $arrDays,
+                    'type' => 'list.single_line_text_field', // Ensure this matches the actual type expected by Shopify
+                ],
+            ]);
+        }
         // dd($updateResponse);
 
         // Handle response
@@ -188,7 +229,7 @@ class UpdateProductMetafields extends Command
 
         // foreach ($available_on_metafield_values as $available_on_metafield_value){
             $day = date("l", strtotime($date));
-            $arrProduct = AmountProductsLocationWeekday::where('product_id', $nProductId)
+            $arrProduct = LocationProductsTable::where('product_id', $nProductId)
                             ->where('location', $strLocation)
                             ->where('day', $day)
                             ->first();
@@ -202,5 +243,18 @@ class UpdateProductMetafields extends Command
         // }
 
         return 8;
+    }
+
+    public function fetchAvailableDays($nProductId){
+        // $arrDays = LocationProductsTable::select('day')->where('product_id', $nProductId)
+        //                     ->get();
+
+        $arr = [];
+        $arrDays = DB::select("select distinct day from location_products_tables where product_id = {$nProductId}");
+        foreach ($arrDays as $key => $arrDay) {
+            $arr[] = $arrDay->day;
+        }
+
+        return $arr;
     }
 }

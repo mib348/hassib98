@@ -154,7 +154,7 @@ class ShopifyController extends Controller
                     $value = json_decode($field['value'], true);
 
                     // $processedArray = [];
-                    $date_qty = "<ul>";
+                    $date_qty = "<ul class='list-unstyled'>";
                     foreach ($value as $item) {
                         [$location, $date, $qty] = explode(':', $item);
                         $date_qty .= '<li><small>' . $location . '</small><br><b>' . $date . '</b> <span class="badge text-bg-primary">' . $qty . '</span></li>';
@@ -165,7 +165,7 @@ class ShopifyController extends Controller
                 else if (isset($field['key']) && $field['key'] == 'available_on') {
                     $value = json_decode($field['value'], true);
 
-                    $days = "<ul>";
+                    $days = "<ul class='list-unstyled'>";
                     if($value){
                         foreach ($value as $item) {
                             $days .= '<li>' . $item . '</li>';
