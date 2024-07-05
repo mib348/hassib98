@@ -57,15 +57,32 @@ class ImportLocations extends Command
 
 
             $i = 0;
+            // Step 1: Retrieve all existing locations from the database
+            $existingLocations = Locations::all()->pluck('name')->toArray();
+
+            // Step 2: Decode the JSON data to get the list of locations from your $metaobjects
+            $newLocations = [];
             foreach ($metaobjects as $metaobject) {
                 $locationData = json_decode($metaobject['json']['value'], true);
-
-                foreach ($locationData as $location) {
-                    Locations::updateOrCreate(['name' => $location], [
-                        'name' => $location,
-                    ]);
-                    $i++;
+                if (is_array($locationData)) {
+                    foreach ($locationData as $location) {
+                        $newLocations[] = $location;
+                    }
                 }
+            }
+
+            // Step 3: Update or create locations in the database based on the provided list
+            foreach ($newLocations as $location) {
+                Locations::updateOrCreate(['name' => $location], [
+                    'name' => $location,
+                ]);
+                $i++;
+            }
+
+            // Step 4: Delete locations from the database that are not in the new locations list
+            $locationsToDelete = array_diff($existingLocations, $newLocations);
+            if (!empty($locationsToDelete)) {
+                Locations::whereIn('name', $locationsToDelete)->delete();
             }
 
             Log::info("{$i} locations imported successfully");

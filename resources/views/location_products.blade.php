@@ -47,7 +47,7 @@
                                     <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -67,7 +67,7 @@
                                     <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -87,7 +87,7 @@
                                     <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -107,7 +107,7 @@
                                     <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -130,7 +130,7 @@
                                     <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -150,7 +150,7 @@
                                     <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -170,7 +170,7 @@
                                     <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -190,7 +190,7 @@
                                     <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -213,7 +213,7 @@
                                     <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -233,7 +233,7 @@
                                     <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -253,7 +253,7 @@
                                     <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -273,7 +273,7 @@
                                     <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -296,7 +296,7 @@
                                     <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -316,7 +316,7 @@
                                     <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -336,7 +336,7 @@
                                     <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -356,7 +356,7 @@
                                     <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -379,7 +379,7 @@
                                     <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -399,7 +399,7 @@
                                     <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -419,7 +419,7 @@
                                     <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -439,7 +439,7 @@
                                     <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -462,7 +462,7 @@
                                     <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -482,7 +482,7 @@
                                     <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -502,7 +502,7 @@
                                     <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -522,7 +522,7 @@
                                     <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -545,7 +545,7 @@
                                     <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -565,7 +565,7 @@
                                     <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -585,7 +585,7 @@
                                     <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -605,7 +605,7 @@
                                     <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct->product_id }}">{{ $arrProduct->title }}</option>
+                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -633,7 +633,7 @@
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" name="replace_data_cb" id="replace_data_cb">
                             <label class="form-check-label" for="replace_data_cb">
-                                Replace current default quantity
+                                Replace current quantity with remaining - set quantity?
                             </label>
                           </div>
                     </div>

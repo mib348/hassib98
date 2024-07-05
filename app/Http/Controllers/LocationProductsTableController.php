@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Products;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class LocationProductsTableController extends Controller
@@ -16,7 +18,17 @@ class LocationProductsTableController extends Controller
      */
     public function index()
     {
-        $arrProducts = Products::where('status', 'active')->get();
+        // $arrProducts = Products::where('status', 'active')->get();
+        
+        $shop = Auth::user(); // Ensure you have a way to authenticate and set the current shop.
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+        $api = $shop->api(); // Get the API instance for the shop.
+
+        // Fetch products from Shopify API
+        $productsResponse = $api->rest('GET', '/admin/products.json');
+        $arrProducts = (array) $productsResponse['body']['products']['container'] ?? [];
+
         $arrLocations = Locations::all();
         return view('location_products', ['arrProducts' => $arrProducts, 'arrLocations' => $arrLocations]);
     }

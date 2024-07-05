@@ -135,57 +135,75 @@ class ShopifyController extends Controller
     }
 
     public function getProductsList(){
-        $products = Products::all()->toArray();
+        $shop = Auth::user();
+        if(!isset($shop) || !$shop)
+            $shop = User::find(env('db_shop_id', 1));
+
+        // $products = Products::all()->toArray();
+        $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
+        $products = (array) $productsResponse['body']['products'] ?? [];
+        $products = $products['container'];
 
         $html = "";
         foreach ($products as $arr) {
             $date_qty = $days = null;
             // // Get metafields for each product
-            // $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$arr['id']}/metafields.json");
-            // $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
+            $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$arr['id']}/metafields.json");
+            $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
 
-            // if(isset($metafields['container'])){
-            //     $metafields = $metafields['container'];
-            // }
-            $metafields = Metafields::where('product_id', $arr['product_id'])->get()->toArray();
+            if(isset($metafields['container'])){
+                $metafields = $metafields['container'];
+            }
+            // $metafields = Metafields::where('product_id', $arr['product_id'])->get()->toArray();
 
-            foreach ($metafields as $field) {
-                if (isset($field['key']) && $field['key'] == 'json') {
-                    $value = json_decode($field['value'], true);
+            if (isset($metafields)) {
+                foreach ($metafields as $field) {
+                    if (isset($field['key'])) {
+                        if ($field['key'] == 'json') {
+                            $value = json_decode($field['value'], true);
 
-                    // $processedArray = [];
-                    $date_qty = "<ul class='list-unstyled'>";
-                    foreach ($value as $item) {
-                        [$location, $date, $qty] = explode(':', $item);
-                        $date_qty .= '<li><small>' . $location . '</small><br><b>' . $date . '</b> <span class="badge text-bg-primary">' . $qty . '</span></li>';
-                    }
-                    // $processedArray[$date] = $qty;
-                    $date_qty .= "</ul>";
-                }
-                else if (isset($field['key']) && $field['key'] == 'available_on') {
-                    $value = json_decode($field['value'], true);
+                            if (is_array($value)) {
+                                $date_qty = "<ul class='list-unstyled'>";
+                                foreach ($value as $item) {
+                                    [$location, $date, $qty] = explode(':', $item);
+                                    $date_qty .= '<li><small>' . $location . '</small><br><b>' . $date . '</b> <span class="badge text-bg-primary">' . $qty . '</span></li>';
+                                }
+                                $date_qty .= "</ul>";
+                            }
+                            // else {
+                            //     // Handle the case where $value is not an array
+                            //     $date_qty = "Invalid JSON data.";
+                            // }
+                        } else if ($field['key'] == 'available_on') {
+                            $value = json_decode($field['value'], true);
 
-                    $days = "<ul class='list-unstyled'>";
-                    if($value){
-                        foreach ($value as $item) {
-                            $days .= '<li>' . $item . '</li>';
+                            if (is_array($value)) {
+                                $days = "<ul class='list-unstyled'>";
+                                foreach ($value as $item) {
+                                    $days .= '<li>' . $item . '</li>';
+                                }
+                                $days .= "</ul>";
+                            }
+                            // else {
+                            //     // Handle the case where $value is not an array
+                            //     $days = "Invalid JSON data.";
+                            // }
                         }
                     }
-                    $days .= "</ul>";
                 }
             }
 
 
             $image_src = '';
-            if(isset($arr['image_url']))
-            $image_src = $arr['image_url'];
+            if(isset($arr['image']))
+                $image_src = $arr['image']['src'];
 
-        $html .= '<tr data-id="' . $arr['product_id'] .  '">
-                            <td style="width:5%;" class="text-right">' . $arr['product_id'] . '</td>
+        $html .= '<tr data-id="' . $arr['id'] .  '">
+                            <td style="width:5%;" class="text-right">' . $arr['id'] . '</td>
                             <td><img style="width:50px;height:50px;aspect-ratio:3/4;object-fit:cover;" src="' . $image_src . '" />&nbsp;' . $arr['title'] . '</td>
                             <td style="width:15%;" class="text-center">' . $date_qty . '</td>
                             <td style="width:5%;" class="text-center">' . $days . '</td>
-                            <td style="width:5%;" class="text-center"><a href="https://admin.shopify.com/store/dc9ef9/products/' . $arr['product_id'] . '" target="_blank" class="btn btn-sm btn-info text-white">view</a></td>
+                            <td style="width:5%;" class="text-center"><a href="https://admin.shopify.com/store/dc9ef9/products/' . $arr['id'] . '" target="_blank" class="btn btn-sm btn-info text-white">view</a></td>
                             </tr>';
         }
 
