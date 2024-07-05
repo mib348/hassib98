@@ -324,7 +324,8 @@ class FulfillmentController extends Controller
                 'wrong-items-removed.*' => 'string', // Allow array of strings
                 'time-of-pick-up' => 'nullable',
                 'time-of-pick-up.*' => 'string|max:32', // Allow array of strings
-                'door-open-time' => 'nullable|integer',
+                'door-open-time' => 'nullable',
+                'door-open-time.*' => 'integer',
                 'image-before' => 'nullable|string',
                 'image-after' => 'nullable|string',
             ]);
@@ -528,14 +529,39 @@ class FulfillmentController extends Controller
                 ];
             }
 
+            // if (isset($validatedData['door-open-time'])) {
+            //     // $doorOpenTime = date('Y-m-d\TH:i:s', strtotime($validatedData['door-open-time']));
+            //     $doorOpenTime = $validatedData['door-open-time'];
+            //     $metafields[] = [
+            //         'namespace' => 'custom',
+            //         'key' => 'door_open_time',
+            //         'value' => json_encode([$doorOpenTime]),
+            //         'type' => 'list.number_integer'
+            //     ];
+            // }
+
             if (isset($validatedData['door-open-time'])) {
-                // $doorOpenTime = date('Y-m-d\TH:i:s', strtotime($validatedData['door-open-time']));
-                $doorOpenTime = $validatedData['door-open-time'];
+                $doorOpenTimes = $validatedData['door-open-time'];
+
+                // Check if the value is a JSON string and decode it
+                if (is_string($doorOpenTimes) && (strpos($doorOpenTimes, '[') === 0)) {
+                    $doorOpenTimes = json_decode($doorOpenTimes, true);
+                } elseif (!is_array($doorOpenTimes)) {
+                    // If it's not an array, make it an array
+                    $doorOpenTimes = [$doorOpenTimes];
+                }
+
+                // Format the times
+                // $formattedDoorOpenTimes = array_map(function ($time) {
+                //     return date('Y-m-d\TH:i:s', strtotime($time));
+                // }, $doorOpenTimes);
+
+                // Append to metafields
                 $metafields[] = [
                     'namespace' => 'custom',
                     'key' => 'door_open_time',
-                    'value' => json_encode([$doorOpenTime]),
-                    'type' => 'list.number_integer'
+                    'value' => json_encode($doorOpenTimes),
+                    'type' => 'list.number_integer'  // Change to 'list.number_integer' if appropriate
                 ];
             }
 
@@ -602,7 +628,8 @@ class FulfillmentController extends Controller
                 'wrong-items-removed.*' => 'string', // Allow array of strings
                 'time-of-pick-up' => 'nullable',
                 'time-of-pick-up.*' => 'string|max:32', // Allow array of strings
-                'door-open-time' => 'nullable|integer',
+                'door-open-time' => 'nullable',
+                'door-open-time.*' => 'integer',
                 'image-before' => 'nullable|string',
                 'image-after' => 'nullable|string',
             ]);
@@ -786,14 +813,39 @@ class FulfillmentController extends Controller
                 ];
             }
 
+            // if (isset($validatedData['door-open-time'])) {
+            //     // $doorOpenTime = date('Y-m-d\TH:i:s', strtotime($validatedData['door-open-time']));
+            //     $doorOpenTime = $validatedData['door-open-time'];
+            //     $metafields[] = [
+            //         'namespace' => 'custom',
+            //         'key' => 'door_open_time',
+            //         'value' => json_encode([$doorOpenTime]),
+            //         'type' => 'list.number_integer'
+            //     ];
+            // }
+
             if (isset($validatedData['door-open-time'])) {
-                // $doorOpenTime = date('Y-m-d\TH:i:s', strtotime($validatedData['door-open-time']));
-                $doorOpenTime = $validatedData['door-open-time'];
+                $doorOpenTimes = $validatedData['door-open-time'];
+
+                // Check if the value is a JSON string and decode it
+                if (is_string($doorOpenTimes) && (strpos($doorOpenTimes, '[') === 0)) {
+                    $doorOpenTimes = json_decode($doorOpenTimes, true);
+                } elseif (!is_array($doorOpenTimes)) {
+                    // If it's not an array, make it an array
+                    $doorOpenTimes = [$doorOpenTimes];
+                }
+
+                // Format the times
+                // $formattedDoorOpenTimes = array_map(function ($time) {
+                //     return date('Y-m-d\TH:i:s', strtotime($time));
+                // }, $doorOpenTimes);
+
+                // Append to metafields
                 $metafields[] = [
                     'namespace' => 'custom',
                     'key' => 'door_open_time',
-                    'value' => json_encode([$doorOpenTime]),
-                    'type' => 'list.number_integer'
+                    'value' => json_encode($doorOpenTimes),
+                    'type' => 'list.number_integer'  // Change to 'list.number_integer' if appropriate
                 ];
             }
 
