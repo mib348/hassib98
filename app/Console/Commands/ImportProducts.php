@@ -60,7 +60,9 @@ class ImportProducts extends Command
 
     public function importProductMetafields($api, $product) {
         $metafieldsResponse = $api->rest('GET', "/admin/products/{$product['id']}/metafields.json");
-        $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
+        if (isset($metafieldsResponse['body']) && isset($metafieldsResponse['body']['metafields'])) {
+            $metafields = (array) $metafieldsResponse['body']['metafields'];
+        }
 
         if (isset($metafields['container'])) {
             $metafields = $metafields['container'];
@@ -73,29 +75,6 @@ class ImportProducts extends Command
         // Initialize metafieldValues with null
         foreach ($requiredMetafields as $key) {
             $metafieldValues[$key] = null;
-        }
-
-        // Populate existing metafields
-        foreach ($metafields as $field) {
-            if (in_array($field['key'], $requiredMetafields)) {
-                $metafieldValues[$field['key']] = $field['value'];
-            }
-
-            // Update/Create existing metafields
-            Metafields::updateOrCreate(
-                ['product_id' => $product['id'], 'metafield_id' => $field['id']],
-                [
-                    'product_id' => $product['id'],
-                    'metafield_id' => $field['id'],
-                    'key' => $field['key'],
-                    'value' => $field['value'],
-                    'created_at' => $field['created_at'],
-                    'updated_at' => $field['updated_at'],
-                ]
-            );
-
-            Log::info("Metafield {$field['key']} for product: {$product['title']} has been imported successfully\n");
-            $this->info("Metafield {$field['key']} for product: {$product['title']} has been imported successfully") . PHP_EOL;
         }
 
         // Update/Create missing metafields with null values
@@ -112,10 +91,36 @@ class ImportProducts extends Command
                     ]
                 );
 
-                Log::info("Metafield {$key} for product: {$product['title']} was missing and has been set to null\n");
-                $this->info("Metafield {$key} for product: {$product['title']} was missing and has been set to null") . PHP_EOL;
+                // Log::info("Metafield {$key} for product: {$product['title']} was missing and has been set to null\n");
+                // $this->info("Metafield {$key} for product: {$product['title']} was missing and has been set to null") . PHP_EOL;
             }
         }
+
+        // Populate existing metafields
+        if(isset($metafields)){
+            foreach ($metafields as $field) {
+                if (in_array($field['key'], $requiredMetafields)) {
+                    $metafieldValues[$field['key']] = $field['value'];
+                }
+
+                // Update/Create existing metafields
+                Metafields::updateOrCreate(
+                    ['product_id' => $product['id'], 'metafield_id' => $field['id']],
+                    [
+                        'product_id' => $product['id'],
+                        'metafield_id' => $field['id'],
+                        'key' => $field['key'],
+                        'value' => $field['value'],
+                        'created_at' => $field['created_at'],
+                        'updated_at' => $field['updated_at'],
+                    ]
+                );
+
+                Log::info("Metafield {$field['key']} for product: {$product['title']} has been imported successfully\n");
+                $this->info("Metafield {$field['key']} for product: {$product['title']} has been imported successfully") . PHP_EOL;
+            }
+        }
+
 
         echo PHP_EOL;
     }

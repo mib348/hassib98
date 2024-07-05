@@ -131,7 +131,9 @@ class ImportShopifyOrders extends Command
 
     public function importOrdersMetafields($api, $order) {
         $metafieldsResponse = $api->rest('GET', "/admin/orders/{$order['id']}/metafields.json");
-        $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
+        if (isset($metafieldsResponse['body']) && isset($metafieldsResponse['body']['metafields'])) {
+            $metafields = (array) $metafieldsResponse['body']['metafields'];
+        }
 
         if (isset($metafields['container'])) {
             $metafields = $metafields['container'];
@@ -144,30 +146,6 @@ class ImportShopifyOrders extends Command
         // Initialize metafieldValues with null
         foreach ($requiredMetafields as $key) {
             $metafieldValues[$key] = null;
-        }
-
-        // Populate existing metafields
-        foreach ($metafields as $field) {
-            if (in_array($field['key'], $requiredMetafields)) {
-                $metafieldValues[$field['key']] = $field['value'];
-            }
-
-            // Update/Create existing metafields
-            Metafields::updateOrCreate(
-                ['order_id' => $order['id'], 'metafield_id' => $field['id']],
-                [
-                    'order_id' => $order['id'],
-                    'order_number' => $order['order_number'],
-                    'metafield_id' => $field['id'],
-                    'key' => $field['key'],
-                    'value' => $field['value'],
-                    'created_at' => $field['created_at'],
-                    'updated_at' => $field['updated_at'],
-                ]
-            );
-
-            Log::info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully\n");
-            $this->info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully") . PHP_EOL;
         }
 
         // Update/Create missing metafields with null values
@@ -185,10 +163,37 @@ class ImportShopifyOrders extends Command
                     ]
                 );
 
-                Log::info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null\n");
-                $this->info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null") . PHP_EOL;
+                // Log::info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null\n");
+                // $this->info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null") . PHP_EOL;
             }
         }
+
+        // Populate existing metafields
+        if(isset($metafields)){
+            foreach ($metafields as $field) {
+                if (in_array($field['key'], $requiredMetafields)) {
+                    $metafieldValues[$field['key']] = $field['value'];
+                }
+
+                // Update/Create existing metafields
+                Metafields::updateOrCreate(
+                    ['order_id' => $order['id'], 'metafield_id' => $field['id']],
+                    [
+                        'order_id' => $order['id'],
+                        'order_number' => $order['order_number'],
+                        'metafield_id' => $field['id'],
+                        'key' => $field['key'],
+                        'value' => $field['value'],
+                        'created_at' => $field['created_at'],
+                        'updated_at' => $field['updated_at'],
+                    ]
+                );
+
+                Log::info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully\n");
+                $this->info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully") . PHP_EOL;
+            }
+        }
+
 
         echo PHP_EOL;
     }

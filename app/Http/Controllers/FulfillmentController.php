@@ -326,8 +326,10 @@ class FulfillmentController extends Controller
                 'time-of-pick-up.*' => 'string|max:32', // Allow array of strings
                 'door-open-time' => 'nullable',
                 'door-open-time.*' => 'integer',
-                'image-before' => 'nullable|string',
-                'image-after' => 'nullable|string',
+                'image-before' => 'nullable',
+                'image-before.*' => 'string',
+                'image-after' => 'nullable',
+                'image-after.*' => 'string',
             ]);
 
             if ($validator->fails()) {
@@ -630,8 +632,10 @@ class FulfillmentController extends Controller
                 'time-of-pick-up.*' => 'string|max:32', // Allow array of strings
                 'door-open-time' => 'nullable',
                 'door-open-time.*' => 'integer',
-                'image-before' => 'nullable|string',
-                'image-after' => 'nullable|string',
+                'image-before' => 'nullable',
+                'image-before.*' => 'string',
+                'image-after' => 'nullable',
+                'image-after.*' => 'string',
             ]);
 
             if ($validator->fails()) {
