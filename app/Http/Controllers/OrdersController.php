@@ -79,9 +79,12 @@ class OrdersController extends Controller
             $date = date("d.m.Y", strtotime("$i day"));
 
             if (!empty($request->input('strFilterLocation')))
-                $orders = Orders::where('date', '=', date("Y-m-d", strtotime($date)))->where('location', $request->input('strFilterLocation'))->get()->toArray();
+                $orders = Orders::where('date', '=', date("Y-m-d", strtotime("$i day")))->where('location', $request->input('strFilterLocation'))->orderBy('date', 'asc')->get()->toArray();
             else
-                $orders = Orders::where('date', '=', date("Y-m-d", strtotime($date)))->get()->toArray();
+                $orders = Orders::where('date', '=', date("Y-m-d", strtotime($date)))->orderBy('date', 'asc')->get()->toArray();
+                // return $html;
+
+                // dd($request->input('strFilterLocation'));
 
             $html .= "<tr>";
             $html .= "<td>" . $date . "</td>";
@@ -97,7 +100,7 @@ class OrdersController extends Controller
                     $total_items += $line_item['quantity'];
                 }
 
-                if (date("d.m.Y", strtotime($order['date'])) == $date) {
+                if (date("Y-m-d", strtotime($order['date'])) == date("Y-m-d", strtotime("$i day"))) {
                     $arr_totalOrders[$order['order_id']] = $order['number'];
                     $totalOrders++;
 

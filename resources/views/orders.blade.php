@@ -21,17 +21,20 @@
     </div> --}}
     <div class="row">
         <div class="col-md-12">
+            Location
+            <select id="strFilterLocation" name="strFilterLocation" class="form-select">
+                <option value="" selected>--- Select Location ---</option>
+                @foreach($locations as $location)
+                <option value="{{ $location }}">{{ $location }}</option>
+                @endforeach
+            </select>
+            <br>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
                         <tr>
                             <th>
-                                <select id="strFilterLocation" name="strFilterLocation" class="form-select">
-                                    <option value="" selected>--- Select Location ---</option>
-                                    @foreach($locations as $location)
-                                    <option value="{{ $location }}">{{ $location }}</option>
-                                    @endforeach
-                                </select>
+                                Date
                             </th>
                             <th>Orders</th>
                             <th>Fulfilled</th>
@@ -133,12 +136,28 @@
 
     <script type="text/javascript">
     	$(function(){
-    	      window.table = jQuery('.js-dataTable-full').DataTable({
-    	          pageLength: 10,
-    	          lengthMenu: [[5, 10, 20], [5, 10, 20]],
-    	          order:[[0, 'desc']],
-    	          autoWidth: false
-    	      });
+
+            // Custom sorting plugin for date format d.m.Y
+            jQuery.fn.dataTable.ext.type.order['dmy-pre'] = function(d) {
+                // Convert the date format d.m.Y to Ymd for sorting
+                var parts = d.split('.');
+                return parts[2] + parts[1] + parts[0];
+            };
+
+
+            window.table = jQuery('.js-dataTable-full').DataTable({
+                pageLength: 10,
+                lengthMenu: [[5, 10, 20], [5, 10, 20]],
+                order: [[0, 'desc']], // Adjust the default sorting column if necessary
+                autoWidth: false,
+                columnDefs: [
+                    // { orderable: false, targets: 0 }, // Example to make the first column non-orderable
+                    { type: 'dmy', targets: 0 }  // Change 1 to the index of your date column
+                ]
+            });
+
+
+
 
               $(document).on('change', '#strFilterLocation', function(e){
                 LoadList();
