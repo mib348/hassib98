@@ -132,46 +132,55 @@ class OrdersCreateJob implements ShouldQueue
         // Fetch the current metafield for the product
         $metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
 
-        // Check if the response contains metafields
-        if (!isset($metafieldsResponse['body']['metafields']) || !is_array($metafieldsResponse['body']['metafields'])) {
-            Log::error("No metafields found or invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse['body']));
-            throw new Exception("No metafields found or invalid response structure for product ID {$productId}", 1);
+        if (isset($metafieldsResponse['body']['container']['metafields'])) {
+            $metafields = (array) $metafieldsResponse['body']['container']['metafields'];
+        } elseif (isset($metafieldsResponse['body']['metafields']['container'])) {
+            $metafields = (array) $metafieldsResponse['body']['metafields']['container'];
+        } elseif (isset($metafieldsResponse['body']['metafields'])) {
+            $metafields = (array) $metafieldsResponse['body']['metafields'];
+        } else {
+            Log::error("No metafields found or invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse));
+            throw new Exception("No metafields found or invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse), 1);
         }
 
-        $metafields = $metafieldsResponse['body']['metafields'];
-        $metafield = null;
-
-        // Find the specific metafield we want to update
-        foreach ($metafields as $item) {
-            if ($item['namespace'] === $namespace && $item['key'] === $key) {
-                $metafield = $item;
-                break; // Stop the loop once the matching metafield is found
+        if (!empty($metafields)) {
+            $metafield = null;
+            // Find the specific metafield we want to update
+            foreach ($metafields as $item) {
+                if (isset($item['namespace']) && isset($item['key']) && $item['namespace'] === $namespace && $item['key'] === $key) {
+                    $metafield = $item;
+                    break; // Stop the loop once the matching metafield is found
+                }
             }
-        }
 
-        if ($metafield) {
-            // Assume the value is a list of "date:quantity" strings, e.g., "2024-02-12:5"
-            $updatedValues = $this->updateValuesBasedOnOrder($shop, $metafield['value'], $lineItem, $orderData);
+            if ($metafield) {
+                // Assume the value is a list of "date:quantity" strings, e.g., "2024-02-12:5"
+                $updatedValues = $this->updateValuesBasedOnOrder($shop, $metafield['value'], $lineItem, $orderData);
 
-            // Update the metafield with the new values
-            $updateResponse = $shop->api()->rest('PUT', "/admin/products/{$productId}/metafields/{$metafield['id']}.json", [
-                'metafield' => [
-                    'id' => $metafield['id'],
-                    'value' => $updatedValues,
-                    'type' => 'json'
-                ],
-            ]);
+                // Update the metafield with the new values
+                $updateResponse = $shop->api()->rest('PUT', "/admin/products/{$productId}/metafields/{$metafield['id']}.json", [
+                    'metafield' => [
+                        'id' => $metafield['id'],
+                        'value' => $updatedValues,
+                        'type' => 'json'
+                    ],
+                ]);
 
-            if ($updateResponse['errors']) {
-                Log::error("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
-                throw new Exception("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']), 1);
+                if ($updateResponse['errors']) {
+                    Log::error("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+                    throw new Exception("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']), 1);
+                } else {
+                    Log::info("json Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+                }
             } else {
-                Log::info("json Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+                Log::info("No matching metafield found for product ID {$productId} with namespace '{$namespace}' and key '{$key}'");
             }
         } else {
-            Log::info("No matching metafield found for product ID {$productId} with namespace '{$namespace}' and key '{$key}'");
+            Log::info("No metafields found for product ID {$productId}");
         }
     }
+
+
 
 
     protected function updateValuesBasedOnOrder($shop, $values, $lineItem, $orderData)
@@ -181,12 +190,12 @@ class OrdersCreateJob implements ShouldQueue
 
         // Current date in the German timezone for filtering out past dates
         // $today = Carbon::now('Europe/Berlin')->startOfDay();
-		//$values = '["2024-02-15:5","2024-02-16:3","2024-02-17:5"]';
-		$values = json_decode($values, TRUE);
-		//$values = explode(',', $values);
+        //$values = '["2024-02-15:5","2024-02-16:3","2024-02-17:5"]';
+        $values = json_decode($values, TRUE);
+        //$values = explode(',', $values);
         $newQuantity = 0;
 
-		//dd($values);
+        //dd($values);
 
         foreach ($values as $value) {
 
@@ -200,25 +209,31 @@ class OrdersCreateJob implements ShouldQueue
             //     continue;
             // }
 
-			if(isset($lineItem['properties'][2]['value']) && ($lineItem['properties'][2]['value'] == $date) && $location == $lineItem['properties'][1]['value'] && (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) && isset($quantity) && ($lineItem['quantity'] > $quantity) && (isset($orderData['id']) && !empty($orderData['id']))){
-				$note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity} against the metafield value: {$value}";
+            if (
+                isset($lineItem['properties'][2]['value']) &&
+                ($lineItem['properties'][2]['value'] == $date) &&
+                $location == $lineItem['properties'][1]['value'] &&
+                (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) &&
+                isset($quantity) &&
+                ($lineItem['quantity'] > $quantity) &&
+                (isset($orderData['id']) && !empty($orderData['id']))
+            ) {
+                $note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity} against the metafield value: {$value}";
 
-				$updateOrderRequestBody = [
-					'order' => [
-						'id' => $orderData['id'],
-						'note' => $note,
-					],
-				];
+                $updateOrderRequestBody = [
+                    'order' => [
+                        'id' => $orderData['id'],
+                        'note' => $note,
+                    ],
+                ];
 
-				// Send the request to update the order with the note
-				$updateOrderResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/orders/{$orderData['id']}.json", $updateOrderRequestBody);
+                // Send the request to update the order with the note
+                $updateOrderResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/orders/{$orderData['id']}.json", $updateOrderRequestBody);
 
-
-
-				//order cancellation
-				$requestBody = [
+                // Order cancellation
+                $requestBody = [
                     'reason' => 'inventory',
-					'email' => true
+                    'email' => true
                 ];
 
                 // Send the cancel order request
@@ -226,60 +241,60 @@ class OrdersCreateJob implements ShouldQueue
 
                 Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity for {$lineItem['title']} : {$lineItem['quantity']} is greater than available quantity {$quantity} against the metafield value: {$value} " . json_encode($orderData));
 
+                // Get order transactions
+                $arrTransaction = $shop->api()->rest('GET', "/admin/orders/{$orderData['id']}/transactions.json");
+                $arrTransaction = $arrTransaction['body']['container']['transactions'];
+                $arrTransaction = end($arrTransaction);
 
-				//get order transactions
-				$arrTransaction = $shop->api()->rest('GET', "/admin/orders/{$orderData['id']}/transactions.json");
+                $refundAmount = $orderData["total_price"]; // Replace with the actual refund amount
+                $refundReason = 'Der Artikel ' . $lineItem['title'] . ' ist nicht vorrätig'; // Replace with an appropriate reason
 
-				$arrTransaction = $arrTransaction['body']['container']['transactions'];
-				$arrTransaction = end($arrTransaction);
-
-				$refundAmount = $orderData["total_price"]; // Replace with the actual refund amount
-				$refundReason = 'Der Artikel ' . $lineItem['title'] . ' ist nicht vorrätig'; // Replace with an appropriate reason
-
-				// Create the refund
-				$refundResponse = $shop->api()->rest('POST', "/admin/orders/{$orderData['id']}/refunds.json", [
-					'refund' => [
-						'currency' => $orderData["currency"], // Replace with the order currency
-						'shipping' => [
-							'full_refund' => true,
-						],
-						'notify' => true,
-						'note' => $refundReason,
-						'transactions' => [
-							[
-								"parent_id" => $arrTransaction['id'],
-								'kind' => 'refund',
-								'amount' => $refundAmount,
-								"gateway" => $arrTransaction['gateway']
-							],
-						],
-					],
-				]);
+                // Create the refund
+                $refundResponse = $shop->api()->rest('POST', "/admin/orders/{$orderData['id']}/refunds.json", [
+                    'refund' => [
+                        'currency' => $orderData["currency"], // Replace with the order currency
+                        'shipping' => [
+                            'full_refund' => true,
+                        ],
+                        'notify' => true,
+                        'note' => $refundReason,
+                        'transactions' => [
+                            [
+                                "parent_id" => $arrTransaction['id'],
+                                'kind' => 'refund',
+                                'amount' => $refundAmount,
+                                "gateway" => $arrTransaction['gateway']
+                            ],
+                        ],
+                    ],
+                ]);
 
                 Log::info("Amount {$refundAmount} refunded to order {$orderData['id']} {$orderData['order_number']} " . json_encode($refundResponse));
 
-				exit;
-			}
+                exit;
+            }
 
             // Check if the date matches the order date
-            if (isset($lineItem['properties']) && $lineItem['properties'][2]['name'] == 'date' && $date == $lineItem['properties'][2]['value'] && $location == $lineItem['properties'][1]['value']) {
+            if (
+                isset($lineItem['properties'][2]['name']) &&
+                $lineItem['properties'][2]['name'] == 'date' &&
+                $date == $lineItem['properties'][2]['value'] &&
+                isset($lineItem['properties'][1]['value']) &&
+                $location == $lineItem['properties'][1]['value']
+            ) {
                 $orderedQuantity = $lineItem['quantity'] ?? 0;
                 $newQuantity = max(0, $quantity - $orderedQuantity); // Ensure quantity doesn't go negative
                 $value = $location . ":" . $date . ':' . $newQuantity;
             }
 
-            // Add to updated values if quantity is more than 0
-            //if ($newQuantity > 0 || $quantity > 0) {
-                $updatedValues[] = $value;
-            //}
+            // Add to updated values
+            $updatedValues[] = $value;
         }
-
-		//$updatedValues = implode(',', $updatedValues);
-		//dd($updatedValues);
 
         // Return the updated list as a JSON string
         return json_encode($updatedValues);
     }
+
 
     protected function updateOrder($shop, $productId, $lineItem, $orderData)
     {
