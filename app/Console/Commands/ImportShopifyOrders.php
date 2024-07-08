@@ -177,7 +177,7 @@ class ImportShopifyOrders extends Command
 
                 // Update/Create existing metafields
                 Metafields::updateOrCreate(
-                    ['order_id' => $order['id'], 'metafield_id' => $field['id']],
+                    ['order_id' => $order['id'], 'key' => $key],
                     [
                         'order_id' => $order['id'],
                         'order_number' => $order['order_number'],

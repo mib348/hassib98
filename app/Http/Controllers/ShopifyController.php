@@ -636,19 +636,23 @@ class ShopifyController extends Controller
     }
 
     public function getordernumber(Request $request, $order_id){
-        $shop = Auth::user();
-        if(!isset($shop) || !$shop)
-            $shop = User::find(env('db_shop_id', 1));
-
-        $updateResponse = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$order_id}.json");
-
         // dd($updateResponse['body']['order']['order_number']);
+        try {
+            $shop = Auth::user();
+            if(!isset($shop) || !$shop)
+                $shop = User::find(env('db_shop_id', 1));
 
-		if(isset($updateResponse['body']['order']['order_number']))
-			return $updateResponse['body']['order']['order_number'];
-		else{
-            Log::error("Error fetching order number for order id {$order_id}");
-            throw new Exception("Error Processing Request", 1);
+            $updateResponse = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$order_id}.json");
+
+            if(isset($updateResponse['body']['order']['order_number']))
+                return $updateResponse['body']['order']['order_number'];
+            else{
+                Log::error("Error fetching order number for order id {$order_id}");
+                throw new Exception("Error Processing Request: " . json_encode($updateResponse), 1);
+            }
+        } catch (\Throwable $th) {
+            Log::error("Error fetching order number for order id {$order_id}: " . json_encode($th) . " " . json_encode($updateResponse));
+            throw $th;
         }
     }
 
