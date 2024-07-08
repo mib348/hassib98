@@ -131,28 +131,30 @@ class OrdersCreateJob implements ShouldQueue
 
         // Fetch the current metafield for the product
         $metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
-        $metafields = $metafieldsResponse['body']['metafields'] ?? [];
+
+        // Check if the response contains metafields
+        if (!isset($metafieldsResponse['body']['metafields']) || !is_array($metafieldsResponse['body']['metafields'])) {
+            Log::error("No metafields found or invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse['body']));
+            throw new Exception("No metafields found or invalid response structure for product ID {$productId}", 1);
+        }
+
+        $metafields = $metafieldsResponse['body']['metafields'];
+        $metafield = null;
 
         // Find the specific metafield we want to update
-        // $metafield = collect($metafields)->firstWhere('namespace', $namespace)->where('key', $key);
-        $metafield = null;
-        foreach ($metafieldsResponse['body']['metafields'] as $item) {
+        foreach ($metafields as $item) {
             if ($item['namespace'] === $namespace && $item['key'] === $key) {
                 $metafield = $item;
                 break; // Stop the loop once the matching metafield is found
             }
         }
 
-
         if ($metafield) {
             // Assume the value is a list of "date:quantity" strings, e.g., "2024-02-12:5"
-            //$values = explode(',', $metafield['value']);
             $updatedValues = $this->updateValuesBasedOnOrder($shop, $metafield['value'], $lineItem, $orderData);
-			//dd($updatedValues);
 
             // Update the metafield with the new values
-            $updateResponse = "/admin/products/{$productId}/metafields/{$metafield['id']}.json";
-            $updateResponse = $shop->api()->rest('PUT', $updateResponse, [
+            $updateResponse = $shop->api()->rest('PUT', "/admin/products/{$productId}/metafields/{$metafield['id']}.json", [
                 'metafield' => [
                     'id' => $metafield['id'],
                     'value' => $updatedValues,
@@ -162,12 +164,15 @@ class OrdersCreateJob implements ShouldQueue
 
             if ($updateResponse['errors']) {
                 Log::error("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
-                throw new Exception("Failed to json update metafield for product ID {$productId} for order number {$orderData['order_number']}: "  . json_encode($updateResponse['body']), 1);
+                throw new Exception("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']), 1);
             } else {
                 Log::info("json Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
             }
+        } else {
+            Log::info("No matching metafield found for product ID {$productId} with namespace '{$namespace}' and key '{$key}'");
         }
     }
+
 
     protected function updateValuesBasedOnOrder($shop, $values, $lineItem, $orderData)
     {
