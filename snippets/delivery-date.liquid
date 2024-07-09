@@ -35,66 +35,77 @@ document.addEventListener('DOMContentLoaded', function() {
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
     const strLocation = sessionStorage.getItem("location") || "";
     
-      function toggleButton(startTime, endTime) {
-          const now = new Date();
-          const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
-      
-          // Check if daylight saving time is in effect in Germany
-          const daylightSavingTimeInEffect = (now.getMonth() > 2 && now.getMonth() < 10);
-          const timezoneOffset = daylightSavingTimeInEffect ? 2 : 1; // CEST: UTC+2, CET: UTC+1
-      
-          const timeGermany = new Date(utcTime + (3600000 * timezoneOffset));
-          const currentHours = timeGermany.getHours();
-          const currentMinutes = timeGermany.getMinutes();
-      
-          const [startHours, startMinutes] = startTime.split(':').map(Number);
-          let [endHours, endMinutes] = endTime.split(':').map(Number);
-      
-          // Adjust for end time being 00:00 (midnight)
-          if (endHours === 0 && endMinutes === 0) {
-              endHours = 24;
-          }
-      
-          const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-          const startTimeInMinutes = startHours * 60 + startMinutes;
-          const endTimeInMinutes = endHours * 60 + endMinutes;
-      
-          const isWithinTimeSlot = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
-      
-          if (isWithinTimeSlot) {
-              buttonTodayOrder.classList.add('show-button');
-          } else {
-              buttonTodayOrder.classList.remove('show-button');
-          }
-       }
-    
-      if (strLocation !== "") {
-        $.ajax({
-          url: `https://app.sushi.catering/getLocations/${strLocation}`,
-          type: "GET",
-          dataType: "json",
-          success: function(data) {
-            if (data.note)
-              $("#note").html(data.note);
-            if (data.start_time && data.end_time) {
-              toggleButton(data.start_time, data.end_time);
-              setInterval(() => toggleButton(data.start_time, data.end_time), 60000);
-            } else if (data.error) {
-              console.error('Error fetching location time:', data.error);
-            }
-          },
-          error: function(request, status, error) {
-            console.error('Error fetching location time:', error);
-          }
+    function toggleButton(startTime, endTime) {
+        const now = new Date();
+        
+        // Use Intl.DateTimeFormat to get the correct current time in Germany
+        const options = {
+            timeZone: 'Europe/Berlin',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour12: false
+        };
+        
+        const formatter = new Intl.DateTimeFormat([], options);
+        const parts = formatter.formatToParts(now);
+        
+        let dateObj = {};
+        parts.forEach(({ type, value }) => {
+            dateObj[type] = value;
         });
-      } else {
-        // Fallback if no location is set
-        $("#note").html('Auffüllung täglich um 12 Uhr, Abholung bis 24 Uhr');
-        const fallbackStartTime = "12:00";
-        const fallbackEndTime = "23:59";
-        toggleButton(fallbackStartTime, fallbackEndTime);
-        setInterval(() => toggleButton(fallbackStartTime, fallbackEndTime), 60000);
-      }
+        
+        const timeGermany = new Date(`${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}`);
+        
+        const currentHours = timeGermany.getHours();
+        const currentMinutes = timeGermany.getMinutes();
+        
+        const [startHours, startMinutes] = startTime.split(':').map(Number);
+        let [endHours, endMinutes] = endTime.split(':').map(Number);
+        
+        // Adjust for end time being 00:00 (midnight)
+        if (endHours === 0 && endMinutes === 0) {
+            endHours = 24;
+        }
+        
+        const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+        const startTimeInMinutes = startHours * 60 + startMinutes;
+        const endTimeInMinutes = endHours * 60 + endMinutes;
+        
+        const isWithinTimeSlot = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
+        
+        if (isWithinTimeSlot) {
+            buttonTodayOrder.classList.add('show-button');
+        } else {
+            buttonTodayOrder.classList.remove('show-button');
+        }
+    }
+    
+    if (strLocation !== "") {
+        $.ajax({
+            url: `https://app.sushi.catering/getLocations/${strLocation}`,
+            type: "GET",
+            dataType: "json",
+            success: function(data) {
+                if (data.note)
+                    $("#note").html(data.note);
+                if (data.start_time && data.end_time) {
+                    toggleButton(data.start_time, data.end_time);
+                    setInterval(() => toggleButton(data.start_time, data.end_time), 60000);
+                } else if (data.error) {
+                    console.error('Error fetching location time:', data.error);
+                }
+            },
+            error: function(request, status, error) {
+                console.error('Error fetching location time:', error);
+            }
+        });
+    }
+    
+
 });
 
   window.onload = function() {
@@ -111,45 +122,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var button = $(".preorderbtn");
         var buttonOffset = button.offset();
-
+        
         // Calculate new top and left positions
         var newTop = buttonOffset.top + button.outerHeight();
         var newLeft = buttonOffset.left;
-
+        
         // Apply the calculated positions
         $("#datepicker").datepicker('hide');
-
+        
         $(".todayorderbtn").click(function(e){
-          e.preventDefault();
-
-          var href = $(this).attr("href");
-          var today = new Date();
-          var dd = String(today.getDate()).padStart(2, '0');
-          var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
-          var yyyy = today.getFullYear();
-
-          today = dd + '-' + mm + '-' + yyyy;
-
-          sessionStorage.setItem("date", today);
-
-          $.ajax({
-              url:"https://app.sushi.catering/updateSelectedDate/" + today,
-              type:"GET",
-              data:{"uuid":localStorage.getItem("uuid")},
-              cache:false,
-              async:false,
-              dataType:"json",
-              success:function(data){
-                console.log(data);
-                window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
-              },
-              error: function (request, status, error) {
-                  alert('set selected date error: today ');
-                  console.log('set selected date error: today ',  error);
-              }
-          });
-
+            e.preventDefault();
+        
+            var href = $(this).attr("href");
+        
+            // Use Intl.DateTimeFormat to get the correct current date in Germany
+            const options = {
+                timeZone: 'Europe/Berlin',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour12: false
+            };
+        
+            const formatter = new Intl.DateTimeFormat([], options);
+            const parts = formatter.formatToParts(new Date());
+        
+            let dateObj = {};
+            parts.forEach(({ type, value }) => {
+                dateObj[type] = value;
+            });
+        
+            var today = `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
+        
+            sessionStorage.setItem("date", today);
+        
+            $.ajax({
+                url: "https://app.sushi.catering/updateSelectedDate/" + today,
+                type: "GET",
+                data: {"uuid": localStorage.getItem("uuid")},
+                cache: false,
+                async: false,
+                dataType: "json",
+                success: function(data) {
+                    window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
+                },
+                error: function(request, status, error) {
+                    alert('Fehler beim Festlegen des ausgewählten Datums: heute, bitte versuchen Sie es erneut');
+                    console.log('set selected date error: today', error);
+                }
+            });
         });
+        
+
 
         $(".preorderbtn").click(function(e){
             e.preventDefault();

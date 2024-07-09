@@ -97,32 +97,45 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
-// Function to format today's date as yyyy-mm-dd
+// Function to format today's date as dd-mm-yyyy for Germany
 function getFormattedDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  // Month is 0-based, so add 1; ensure it's two digits
-  const month = ("0" + (today.getMonth() + 1)).slice(-2);
-  // Ensure the day is two digits
-  const day = ("0" + today.getDate()).slice(-2);
+    // Use Intl.DateTimeFormat to get the correct current date in Germany
+    const options = {
+        timeZone: 'Europe/Berlin',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour12: false
+    };
 
-  //return `${year}-${month}-${day}`;
-  return `${day}-${month}-${year}`;
+    const formatter = new Intl.DateTimeFormat([], options);
+    const parts = formatter.formatToParts(new Date());
+
+    let dateObj = {};
+    parts.forEach(({ type, value }) => {
+        dateObj[type] = value;
+    });
+
+    return `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
 }
 
-// Check if the session storage 'date' exists and is not null
-if (sessionStorage.getItem("date") !== null) {
-  const storedDate = sessionStorage.getItem("date");
-  const todayDate = getFormattedDate();
-
-  //console.log(todayDate);
-
-  // Compare the stored date with today's date
-  if (new Date(storedDate) < new Date(todayDate)) {
-    // Update to today's date if stored date is less
-    sessionStorage.setItem("date", todayDate);
+if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null)) {
+  // Check if the session storage 'date' exists and is not null
+  if (sessionStorage.getItem("date") !== null) {
+      const storedDate = sessionStorage.getItem("date");
+      const todayDate = getFormattedDate();
+  
+      // Compare the stored date with today's date
+      if (new Date(storedDate.split('-').reverse().join('-')) < new Date(todayDate.split('-').reverse().join('-'))) {
+          // Update to today's date if stored date is less
+          sessionStorage.setItem("date", todayDate);
+      }
+  } else {
+      // If 'date' does not exist in sessionStorage, set it to today's date
+      sessionStorage.setItem("date", getFormattedDate());
   }
 }
+
 
 if (window.jQuery) {
   let $ = window.jQuery;
@@ -228,6 +241,7 @@ else if(window.location.pathname === "/cart"){
 }
 else {
    if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null)) {
+     
     // Parse the query string
     const queryParams = new URLSearchParams(window.location.search);
   
