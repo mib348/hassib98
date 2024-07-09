@@ -87,7 +87,7 @@ class UpdateProductMetafields extends Command
                     if (isset($updatedValues[$valueLocation])) {
                         // $updatedValues[$valueLocation] = [];
 
-                        if (!$current)
+                        // if (!$current)
                             $updatedValues[$valueLocation][$date] = $quantity;
                     }
                 }
@@ -136,8 +136,6 @@ class UpdateProductMetafields extends Command
         });
 
         $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
-
-        // dd($newValue);
 
         if ($dateAndQuantityMetafield) {
             // Metafield exists, update it
@@ -206,16 +204,16 @@ class UpdateProductMetafields extends Command
                 ],
             ]);
         }
-        // dd($updateResponse);
 
         // Handle response
         if (isset($updateResponse['body']['metafield'])) {
             Log::info("Metafield updated successfully for product {$product['id']}: " . json_encode($updateResponse['body']['metafield']));
             $this->info("Product {$product['id']} metafield date & quantity updated successfully.") . PHP_EOL;
         } else {
+            // dd($updateResponse);
             Log::error("Error updating metafield for product {$product['id']}: " . json_encode($updateResponse['body']));
-            $this->error("Error updating date & quantity metafield for product {$product['id']}.") . PHP_EOL;
-            throw new Exception("Error updating date & quantity metafield for product {$product['id']}", 1);
+            $this->error("Error updating date & quantity metafield for product {$product['id']}: " . json_encode($updateResponse['body'])) . PHP_EOL;
+            throw new Exception("Error updating date & quantity metafield for product {$product['id']}: " . json_encode($updateResponse['body']), 1);
         }
     }
 

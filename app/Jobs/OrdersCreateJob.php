@@ -29,6 +29,9 @@ class OrdersCreateJob implements ShouldQueue
      * @var ShopDomain|string
      */
     public $shopDomain;
+    public $failOnTimeout = false;
+    // public $timeout = 120000;
+    public $timeout = 120;
 
     /**
      * The webhook data
@@ -98,10 +101,14 @@ class OrdersCreateJob implements ShouldQueue
             foreach ($lineItems as $item) {
                 $productId = $item['product_id'] ?? null;
                 if ($productId) {
-                    $this->updateProductMetafieldForOrder($shop, $productId, $item, $orderData);
-                    $this->updateOrder($shop, $productId, $item, $orderData);
+                    $responseProduct = $this->updateProductMetafieldForOrder($shop, $productId, $item, $orderData);
+                    if ($responseProduct === false) {
+                        return; // Exit handle method if updateOrder returns false
+                    }
+                    $responseOrder = $this->updateOrder($shop, $productId, $item, $orderData);
                 }
             }
+
 
 			return response()->json(['message' => 'Webhook received successfully'], 200);
         } catch (\Throwable $th) {
@@ -132,15 +139,22 @@ class OrdersCreateJob implements ShouldQueue
         // Fetch the current metafield for the product
         $metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
 
-        if (isset($metafieldsResponse['body']['container']['metafields'])) {
-            $metafields = (array) $metafieldsResponse['body']['container']['metafields'];
-        } elseif (isset($metafieldsResponse['body']['metafields']['container'])) {
-            $metafields = (array) $metafieldsResponse['body']['metafields']['container'];
-        } elseif (isset($metafieldsResponse['body']['metafields'])) {
-            $metafields = (array) $metafieldsResponse['body']['metafields'];
-        } else {
-            Log::error("No metafields found or invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse));
-            throw new Exception("No metafields found or invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse), 1);
+        // if (isset($metafieldsResponse['body']['container']['metafields'])) {
+            // $metafields = (array) $metafieldsResponse['body']['container']['metafields'];
+        // } elseif (isset($metafieldsResponse['body']['metafields']['container'])) {
+        //     $metafields = (array) $metafieldsResponse['body']['metafields']['container'];
+        // } elseif (isset($metafieldsResponse['body']['metafields'])) {
+        //     $metafields = (array) $metafieldsResponse['body']['metafields'];
+        // } else {
+        //     Log::error("No metafields found or invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse));
+        //     throw new Exception("Invalid response structure for product ID {$productId}: " . json_encode($metafieldsResponse), 1);
+        // }
+
+        // $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
+        $metafields = (array) $metafieldsResponse['body']['metafields'] ?? [];
+
+        if(isset($metafields['container'])){
+            $metafields = $metafields['container'];
         }
 
         if (!empty($metafields)) {
@@ -153,31 +167,34 @@ class OrdersCreateJob implements ShouldQueue
                 }
             }
 
-            if ($metafield) {
-                // Assume the value is a list of "date:quantity" strings, e.g., "2024-02-12:5"
-                $updatedValues = $this->updateValuesBasedOnOrder($shop, $metafield['value'], $lineItem, $orderData);
-
-                // Update the metafield with the new values
-                $updateResponse = $shop->api()->rest('PUT', "/admin/products/{$productId}/metafields/{$metafield['id']}.json", [
-                    'metafield' => [
-                        'id' => $metafield['id'],
-                        'value' => $updatedValues,
-                        'type' => 'json'
-                    ],
-                ]);
-
-                if ($updateResponse['errors']) {
-                    Log::error("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
-                    throw new Exception("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']), 1);
-                } else {
-                    Log::info("json Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
-                }
-            } else {
-                Log::info("No matching metafield found for product ID {$productId} with namespace '{$namespace}' and key '{$key}'");
+            // Assume the value is a list of "date:quantity" strings, e.g., "2024-02-12:5"
+            $updatedValues = $this->updateValuesBasedOnOrder($shop, $metafield['value'], $lineItem, $orderData);
+            if ($updatedValues === false) {
+                return false; // Exit handle method if updateOrder returns false
             }
+
+            $updateResponse = $shop->api()->rest('PUT', "/admin/products/{$productId}/metafields/{$metafield['id']}.json", [
+                'metafield' => [
+                    'id' => $metafield['id'],
+                    'value' => $updatedValues,
+                    'namespace' => 'custom',
+                    'key' => 'json',
+                    'type' => 'json', // Ensure this matches the actual type expected by Shopify
+                ],
+            ]);
+
+            if ($updateResponse['errors']) {
+                Log::error("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+                throw new Exception("Failed to update json metafield for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']), 1);
+            } else {
+                Log::info("json Metafield updated successfully for product ID {$productId} for order number {$orderData['order_number']}: " . json_encode($updateResponse['body']));
+            }
+
+            return json_encode($updateResponse['body']);
         } else {
             Log::info("No metafields found for product ID {$productId}");
         }
+
     }
 
 
@@ -188,26 +205,13 @@ class OrdersCreateJob implements ShouldQueue
         // Placeholder for the updated values
         $updatedValues = [];
 
-        // Current date in the German timezone for filtering out past dates
-        // $today = Carbon::now('Europe/Berlin')->startOfDay();
-        //$values = '["2024-02-15:5","2024-02-16:3","2024-02-17:5"]';
-        $values = json_decode($values, TRUE);
-        //$values = explode(',', $values);
+        // Decode the JSON values
+        $values = json_decode($values, true);
         $newQuantity = 0;
 
-        //dd($values);
-
         foreach ($values as $value) {
-
-            // Split the value into date and quantity parts
+            // Split the value into location, date, and quantity parts
             list($location, $date, $quantity) = explode(':', $value);
-
-            // $dateCarbon = Carbon::createFromFormat('d-m-Y', $date . ' 23:59:59', 'Europe/Berlin');
-
-            // // Skip past dates
-            // if ($dateCarbon < $today) {
-            //     continue;
-            // }
 
             if (
                 isset($lineItem['properties'][2]['value']) &&
@@ -218,7 +222,7 @@ class OrdersCreateJob implements ShouldQueue
                 ($lineItem['quantity'] > $quantity) &&
                 (isset($orderData['id']) && !empty($orderData['id']))
             ) {
-                $note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity} against the metafield value: {$value}";
+                $note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity} gegen den Metafeldwert: {$value}";
 
                 $updateOrderRequestBody = [
                     'order' => [
@@ -228,7 +232,7 @@ class OrdersCreateJob implements ShouldQueue
                 ];
 
                 // Send the request to update the order with the note
-                $updateOrderResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/orders/{$orderData['id']}.json", $updateOrderRequestBody);
+                $updateOrderResponse = $shop->api()->rest('PUT', "/admin/orders/{$orderData['id']}.json", $updateOrderRequestBody);
 
                 // Order cancellation
                 $requestBody = [
@@ -242,9 +246,25 @@ class OrdersCreateJob implements ShouldQueue
                 Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled. Reason: Order quantity for {$lineItem['title']} : {$lineItem['quantity']} is greater than available quantity {$quantity} against the metafield value: {$value} " . json_encode($orderData));
 
                 // Get order transactions
-                $arrTransaction = $shop->api()->rest('GET', "/admin/orders/{$orderData['id']}/transactions.json");
-                $arrTransaction = $arrTransaction['body']['container']['transactions'];
+                $arrTransactionResponse = $shop->api()->rest('GET', "/admin/orders/{$orderData['id']}/transactions.json");
+
+                if ($arrTransactionResponse['errors']) {
+                    Log::error("Failed to retrieve transactions for order {$orderData['id']}: " . json_encode($arrTransactionResponse['body']));
+                    continue;
+                }
+
+                $arrTransaction = $arrTransactionResponse['body']['container']['transactions'];
+                if (empty($arrTransaction)) {
+                    Log::error("No transactions found for order {$orderData['id']}: " . json_encode($arrTransactionResponse['body']));
+                    continue;
+                }
+
                 $arrTransaction = end($arrTransaction);
+
+                if (!isset($arrTransaction['id'])) {
+                    Log::error("Transaction ID not found for order {$orderData['id']}: " . json_encode($arrTransactionResponse['body']));
+                    continue;
+                }
 
                 $refundAmount = $orderData["total_price"]; // Replace with the actual refund amount
                 $refundReason = 'Der Artikel ' . $lineItem['title'] . ' ist nicht vorrätig'; // Replace with an appropriate reason
@@ -269,9 +289,10 @@ class OrdersCreateJob implements ShouldQueue
                     ],
                 ]);
 
-                Log::info("Amount {$refundAmount} refunded to order {$orderData['id']} {$orderData['order_number']} " . json_encode($refundResponse));
+                Log::info("Amount {$refundAmount} refunded to order {$orderData['id']} {$orderData['order_number']} " . json_encode($refundResponse['body']));
+                echo "Amount {$refundAmount} refunded to order {$orderData['id']} {$orderData['order_number']} " . json_encode($refundResponse['body']) . PHP_EOL;
 
-                exit;
+                return false;
             }
 
             // Check if the date matches the order date
@@ -294,6 +315,9 @@ class OrdersCreateJob implements ShouldQueue
         // Return the updated list as a JSON string
         return json_encode($updatedValues);
     }
+
+
+
 
 
     protected function updateOrder($shop, $productId, $lineItem, $orderData)
@@ -330,10 +354,10 @@ class OrdersCreateJob implements ShouldQueue
 
 
         $orderId = $orderData['id'];
-        $responseLocation = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderId}/metafields.json", $updatePayloadLocation);
+        $responseLocation = $shop->api()->rest('POST', "/admin/orders/{$orderId}/metafields.json", $updatePayloadLocation);
 
 		// Update pick-up date metafield
-		$responsePickUpDate = $shop->api()->rest('POST', "/admin/api/2024-01/orders/{$orderId}/metafields.json", $updatePayloadPickUpDate);
+		$responsePickUpDate = $shop->api()->rest('POST', "/admin/orders/{$orderId}/metafields.json", $updatePayloadPickUpDate);
 
 
 
@@ -355,6 +379,7 @@ class OrdersCreateJob implements ShouldQueue
 			throw new Exception($orderData['order_number'] . ' Order pickup-date metafield could not be updated: ' . json_encode($responsePickUpDate['body']), 1);
         }
 
+        return json_encode(['location' => $responseLocation['body'], 'pick_up_date' => $responsePickUpDate['body']]);
     }
 
     protected function sendOrderConfirmationEmail($orderData){
@@ -441,6 +466,12 @@ class OrdersCreateJob implements ShouldQueue
         }
 
         return $response;
+    }
+
+    public function failed(\Throwable $exception)
+    {
+        Log::error('Orders Created Job failed: '. json_encode($exception));
+        throw new Exception("Orders Created Job failed: " . json_encode($exception), 1);
     }
 
 }
