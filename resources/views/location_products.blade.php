@@ -2,22 +2,19 @@
 
 @section('styles')
 <style>
+    .save-day{float:right !important;}
+    .loading-icon {
+        display: none;
+        margin-left: 5px; /* Add some spacing */
+    }
+    .loading-icon.show {
+        display: inline-block !important;
+    }
 </style>
 @endsection
 
 @section('content')
 <div class="container-fluid p-2">
-    {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
-    {{-- <div class="row">
-        <div class="col-6">
-            <h5>Orders</h5>
-        </div>
-        <div class="col-6 d-flex flex-row flex-wrap align-items-center justify-content-end mb-3">
-            <div class="d-grid gap-2 d-md-block">
-                <a href="https://admin.shopify.com/store/dc9ef9/apps/sushi-catering-1/products" class="btn btn-primary">Products</a>
-              </div>
-        </div>
-    </div> --}}
     <div class="row">
         <div class="col-md-12">
             <form id="location_products_form">
@@ -41,10 +38,20 @@
                             </tr>
                         </thead>
                         <tbody id="table">
-                            <tr class="Monday">
-                                <td>Monday <input type="hidden" name="day[]" class="day" value="Monday" /></td>
+                            @foreach(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day)
+                            <tr class="{{ $day }}">
                                 <td>
-                                    <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
+                                    {{ $day }}
+                                    <input type="hidden" name="day[]" class="day" value="{{ $day }}" />
+                                    <button type="button" class="btn btn-primary btn-sm save-day float-right" data-day="{{ $day }}">
+                                        Save
+                                        <div class="spinner-border  spinner-border-sm text-danger loading-icon" role="status" data-day="{{ $day }}">
+                                        </div>
+                                    </button>
+                                </td>
+                                @for ($i = 1; $i <= 4; $i++)
+                                <td>
+                                    <select name="nProductId[{{ $day }}][]" class="form-select nProductId" data-product="">
                                         <option value="" selected>--- Select Product ---</option>
                                         @foreach($arrProducts as $arrProduct)
                                         <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
@@ -52,597 +59,22 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <select name="nQuantity[Monday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
+                                    <select name="nQuantity[{{ $day }}][]" class="form-select nQuantity" data-quantity="">
+                                        @for ($j = 1; $j <= 8; $j++)
+                                        <option value="{{ $j }}" {{ $j == 8 ? 'selected' : '' }}>{{ $j }}</option>
+                                        @endfor
                                     </select>
                                 </td>
-                                <td>
-                                    <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Monday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Monday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Monday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Monday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
+                                @endfor
                             </tr>
-                            <tr class="Tuesday">
-                                <td>Tuesday<input type="hidden" name="day[]" class="day" value="Tuesday" /></td>
-                                <td>
-                                    <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Tuesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Tuesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Tuesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Tuesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Tuesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr class="Wednesday">
-                                <td>Wednesday<input type="hidden" name="day[]" class="day" value="Wednesday" /></td>
-                                <td>
-                                    <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Wednesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Wednesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Wednesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Wednesday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Wednesday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr class="Thursday">
-                                <td>Thursday<input type="hidden" name="day[]" class="day" value="Thursday" /></td>
-                                <td>
-                                    <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Thursday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Thursday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Thursday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Thursday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Thursday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr class="Friday">
-                                <td>Friday<input type="hidden" name="day[]" class="day" value="Friday" /></td>
-                                <td>
-                                    <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Friday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Friday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Friday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Friday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Friday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr class="Saturday">
-                                <td>Saturday<input type="hidden" name="day[]" class="day" value="Saturday" /></td>
-                                <td>
-                                    <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Saturday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Saturday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Saturday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Saturday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Saturday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr class="Sunday">
-                                <td>Sunday<input type="hidden" name="day[]" class="day" value="Sunday" /></td>
-                                <td>
-                                    <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Sunday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Sunday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Sunday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nProductId[Sunday][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[Sunday][]" class="form-select nQuantity" data-quantity="">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8" selected="selected">8</option>
-                                    </select>
-                                </td>
-                            </tr>
+                            @endforeach
                         </tbody>
                     </table>
                 </div>
-                <div class="row">
-                    <div class="col-1">
-                        <button type="button" class="btn btn-primary" id="save_btn">Save</button>
-                    </div>
-                    <div class="col-4">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="Y" name="replace_data_cb" id="replace_data_cb">
-                            <label class="form-check-label" for="replace_data_cb">
-                                Replace current quantity with remaining - set quantity?
-                            </label>
-                          </div>
-                    </div>
-                </div>
-            </form>
+                </form>
         </div>
     </div>
 </div>
-
 @endsection
 
 @section('scripts')
@@ -721,33 +153,67 @@
                 LoadList();
               });
 
-              $(document).on('click', '#save_btn', function(e){
-                if($("#strFilterLocation").val() == ''){
+              $('.save-day').on('click', function() {
+                const day = $(this).data('day');
+                const location = $('#strFilterLocation').val();
+
+                if (location === '') {
                     alert('Please Select Location');
-                    return false;
+                    return;
                 }
 
+                $(`.loading-icon[data-day="${day}"]`).addClass('show');
+
+                // Disable the save button while loading
+                $(this).prop('disabled', true);
+
+                const formData = {
+                    _token: '{{ csrf_token() }}',
+                    strFilterLocation: location,
+                    day: [day], // Pass the day as an array
+                    nProductId: {}, // Initialize empty object for product IDs
+                    nQuantity: {}   // Initialize empty object for quantities
+                };
+
+                // Get product IDs and quantities for the specific day
+                $(`#table tr.${day} .nProductId`).each(function(index) {
+                    const productId = $(this).val();
+                    formData.nProductId[day] = formData.nProductId[day] || []; // Initialize array if it doesn't exist
+                    formData.nProductId[day].push(productId);
+                });
+
+                $(`#table tr.${day} .nQuantity`).each(function(index) {
+                    const quantity = $(this).val();
+                    formData.nQuantity[day] = formData.nQuantity[day] || []; // Initialize array if it doesn't exist
+                    formData.nQuantity[day].push(quantity);
+                });
+
                 $.ajax({
-                    url:"{{ route('location_products.store') }}",
-                    async:false,
-                    type:"POST",
-                    // data: {
-                    //     "_token": "{{ csrf_token() }}",
-                    //     "strFilterLocation": $("#strFilterLocation").val(),
-                    //     "strFilterDate": $("#strFilterDate").val(),
-                    //     "location_products_form": $("#location_products_form").serialize()
-                    // },
-                    data: "_token={{ csrf_token() }}&"+$("#location_products_form").serialize(),
-                    cache:false,
-                    dataType:"json",
-                    success:function(data){
-                        alert('Location Products Data Saved Successfully');
+                    url: "{{ route('location_products.store') }}",
+                    type: "POST",
+                    data: formData,
+                    dataType: "json",
+                    success: function(data) {
+                        alert(`Location Products Data for ${day} Saved Successfully`);
+
+                        // Hide the loading icon
+                        $(`.loading-icon[data-day="${day}"]`).removeClass('show');
+
+                        // Re-enable the save button
+                        $(`.save-day[data-day="${day}"]`).prop('disabled', false);
                     },
-                    error: function (request, status, error) {
-                        alert('error saving Location Products Data');
+                    error: function(error) {
+                        console.error(`Error saving Location Products Data for ${day}:`, error);
+                        alert(`Error saving Location Products Data for ${day}`);
+
+                        // Hide the loading icon on error as well
+                        $(`.loading-icon[data-day="${day}"]`).removeClass('show');
+
+                        // Re-enable the save button on error
+                        $(`.save-day[data-day="${day}"]`).prop('disabled', false);
                     }
                 });
-              });
+            });
 
     		//LoadList();
         });

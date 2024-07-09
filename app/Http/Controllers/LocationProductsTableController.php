@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LocationProductsTableController extends Controller
 {
@@ -19,7 +20,7 @@ class LocationProductsTableController extends Controller
     public function index()
     {
         // $arrProducts = Products::where('status', 'active')->get();
-        
+
         $shop = Auth::user(); // Ensure you have a way to authenticate and set the current shop.
         if(!isset($shop) || !$shop)
             $shop = User::find(env('db_shop_id', 1));
@@ -46,39 +47,141 @@ class LocationProductsTableController extends Controller
      */
     public function store(Request $request)
     {
-        foreach ($request->input('day') as $day) {
-            // Clear existing data for the location and day
-            LocationProductsTable::where('location', $request->input('strFilterLocation'))
-                                 ->where('day', $day)
-                                 ->delete();
+        $shop = Auth::user() ?? User::find(env('db_shop_id', 1));
+        $api = $shop->api();
 
-            // Get product IDs and quantities for the day
-            $productIds = $request->input('nProductId')[$day] ?? [];
-            $quantities = $request->input('nQuantity')[$day] ?? [];
+        $location = $request->input('strFilterLocation');
+        $daysToUpdate = $request->input('day', []);
+        $productData = $request->only(['nProductId', 'nQuantity']);
 
-            // Iterate and insert if both product ID and quantity exist
-            for ($i = 0; $i < count($productIds); $i++) {
-                if (!empty($productIds[$i]) && isset($quantities[$i])) {
+        // Track product IDs
+        $productIds = [];
+        foreach ($daysToUpdate as $day) {
+            LocationProductsTable::where('location', $location)
+                                ->where('day', $day)
+                                ->delete();
+
+            $dayProductIds = $productData['nProductId'][$day] ?? [];
+            foreach (array_filter($dayProductIds) as $productId) {
+                $productIds[$productId] = $productId;
+            }
+        }
+
+        // Fetch all metafields in one go
+        $productMetafields = [];
+        foreach ($productIds as $productId) {
+            $response = $api->rest('GET', "/admin/products/{$productId}/metafields.json");
+            $productMetafields[$productId] = $response['body']['metafields'] ?? [];
+        }
+
+        // Process updates
+        foreach ($daysToUpdate as $day) {
+            $dayProductIds = $productData['nProductId'][$day] ?? [];
+            $dayQuantities = $productData['nQuantity'][$day] ?? [];
+
+            foreach (array_filter($dayProductIds) as $index => $productId) {
+                $quantity = $dayQuantities[$index] ?? null;
+                if ($quantity !== null) {
                     LocationProductsTable::create([
-                        'product_id' => $productIds[$i],
-                        "location" => $request->input('strFilterLocation'),
-                        "day" => $day,
-                        "quantity" => $quantities[$i]
+                        'product_id' => $productId,
+                        'location' => $location,
+                        'day' => $day,
+                        'quantity' => $quantity
                     ]);
+
+                    // Pass the fetched metafields to the update method
+                    $this->updateProductMetafield($api, $productId, $location, $day, $productMetafields[$productId]);
                 }
             }
         }
 
-        if(!empty($request->input('replace_data_cb')) && $request->input('replace_data_cb') == 'Y'){
-            Artisan::call('shopify:update-product-metafields', [
-                '--current' => true
-            ]);
-        }else{
-            Artisan::call('shopify:update-product-metafields');
-        }
-        $output = Artisan::output();
+        return response()->json(['message' => 'Location Products Data Saved Successfully']);
+    }
 
-        return response()->json($output);
+    protected function updateProductMetafield($api, $productId, $location, $day, $metafields)
+    {
+        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'json');
+        $updatedValues = $this->prepareMetafieldValue($productId, $location, $day, $metafields);
+
+        $metafieldData = [
+            'namespace' => 'custom',
+            'key' => 'json',
+            'value' => $updatedValues,
+            'type' => 'json',
+        ];
+
+        if ($dateAndQuantityMetafield) {
+            $metafieldData['id'] = $dateAndQuantityMetafield['id'];
+            $updateResponse = $api->rest('PUT', "/admin/products/{$productId}/metafields/{$metafieldData['id']}.json", ['metafield' => $metafieldData]);
+        } else {
+            $updateResponse = $api->rest('POST', "/admin/products/{$productId}/metafields.json", ['metafield' => $metafieldData]);
+        }
+
+        if (isset($updateResponse['body']['metafield'])) {
+            Log::info("Metafield updated for product {$productId}: " . json_encode($updateResponse['body']['metafield']));
+        } else {
+            Log::error("Error updating metafield for product {$productId}: " . json_encode($updateResponse['body']));
+        }
+    }
+
+    protected function prepareMetafieldValue($productId, $location, $day, $metafields)
+    {
+        // Initialize the updated values array
+        $updatedValues = [];
+
+        // Extract existing metafields and parse them
+        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'json');
+        if ($dateAndQuantityMetafield) {
+            $existingValues = json_decode($dateAndQuantityMetafield['value'], true) ?? [];
+
+            foreach ($existingValues as $value) {
+                [$valueLocation, $valueDate, $valueQuantity] = explode(':', $value);
+                if (!isset($updatedValues[$valueLocation])) {
+                    $updatedValues[$valueLocation] = [];
+                }
+                $updatedValues[$valueLocation][$valueDate] = (string)$valueQuantity;
+            }
+        }
+
+        // Update the quantity for the specified day
+        $dbQuantity = LocationProductsTable::where('product_id', $productId)
+                                        ->where('location', $location)
+                                        ->where('day', $day)
+                                        ->value('quantity');
+
+        if ($dbQuantity !== null) {
+            $today = strtotime('today');
+            for ($i = 0; $i < 7; $i++) {
+                $newDate = date('d-m-Y', strtotime("+{$i} days", $today));
+                if (date('l', strtotime($newDate)) === $day) {
+                    if (!isset($updatedValues[$location])) {
+                        $updatedValues[$location] = [];
+                    }
+                    $updatedValues[$location][$newDate] = (string)$dbQuantity;
+                }
+            }
+        }
+
+        // Sort dates within each location
+        foreach ($updatedValues as $location => &$dates) {
+            uksort($dates, function ($a, $b) {
+                $timestampA = strtotime($a);
+                $timestampB = strtotime($b);
+                return $timestampA <=> $timestampB;
+            });
+        }
+
+        // Prepare the value for updating
+        $newValue = [];
+        array_walk($updatedValues, function ($dates, $location) use (&$newValue) {
+            foreach ($dates as $date => $quantity) {
+                $newValue[] = "{$location}:{$date}:{$quantity}";
+            }
+        });
+
+        $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
+
+        return $newValue;
     }
 
     /**
@@ -127,5 +230,4 @@ class LocationProductsTableController extends Controller
 
         return $products;
     }
-
 }
