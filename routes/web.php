@@ -73,4 +73,5 @@ Route::resource('locations_revenue', LocationRevenueController::class);
 
 //Location Products Table
 Route::get('/getLocationsProductsJSON', [LocationProductsTableController::class, 'getLocationsProductsJSON'])->name('getLocationsProductsJSON');
+// Route::post('/location_products/updateDay', [LocationProductsTableController::class, 'updateDay'])->name('location_products.updateDay');
 Route::resource('location_products', LocationProductsTableController::class);

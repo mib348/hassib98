@@ -165,11 +165,18 @@ class ShopifyController extends Controller
                             if (is_array($value)) {
                                 $date_qty = "<ul class='list-unstyled'>";
                                 foreach ($value as $item) {
-                                    [$location, $date, $qty] = explode(':', $item);
-                                    $date_qty .= '<li><small>' . $location . '</small><br><b>' . $date . '</b> <span class="badge text-bg-primary">' . $qty . '</span></li>';
+                                    // Check if $item contains the expected number of colons
+                                    if (substr_count($item, ':') === 2) {
+                                        [$location, $date, $qty] = explode(':', $item);
+                                        $date_qty .= '<li><small>' . htmlspecialchars($location) . '</small><br><b>' . htmlspecialchars($date) . '</b> <span class="badge text-bg-primary">' . htmlspecialchars($qty) . '</span></li>';
+                                    } else {
+                                        // Handle the case where $item doesn't have the expected format
+                                        $date_qty .= '<li>Invalid format for item: ' . htmlspecialchars($item) . '</li>';
+                                    }
                                 }
                                 $date_qty .= "</ul>";
                             }
+
                             // else {
                             //     // Handle the case where $value is not an array
                             //     $date_qty = "Invalid JSON data.";

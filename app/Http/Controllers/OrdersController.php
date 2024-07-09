@@ -75,72 +75,81 @@ class OrdersController extends Controller
 
     public function getOrdersList(Request $request) {
         $html = "";
+
+        // Calculate the date range once
+        $startDate = date("Y-m-d", strtotime("-14 days"));
+        $endDate = date("Y-m-d", strtotime("+7 days"));
+        $dates = [];
         for ($i = -14; $i <= 7; $i++) {
-            $date = date("d.m.Y", strtotime("$i day"));
+            $dates[$i] = date("d.m.Y", strtotime("$i day"));
+        }
 
-            if (!empty($request->input('strFilterLocation')))
-                $orders = Orders::where('date', '=', date("Y-m-d", strtotime("$i day")))->where('location', $request->input('strFilterLocation'))->orderBy('date', 'asc')->get()->toArray();
-            else
-                $orders = Orders::where('date', '=', date("Y-m-d", strtotime($date)))->orderBy('date', 'asc')->get()->toArray();
-                // return $html;
+        // Fetch all orders and related metafields in one go
+        $query = Orders::whereBetween('date', [$startDate, $endDate]);
+        if (!empty($request->input('strFilterLocation'))) {
+            $query->where('location', $request->input('strFilterLocation'));
+        }
+        $orders = $query->orderBy('date', 'asc')->get()->groupBy(function ($order) {
+            return date("Y-m-d", strtotime($order->date));
+        });
 
-                // dd($request->input('strFilterLocation'));
+        $metafields = Metafields::whereIn('order_id', $orders->pluck('order_id'))->get()->groupBy('order_id');
+
+        for ($i = -14; $i <= 7; $i++) {
+            $date = $dates[$i];
+            $ordersForDate = $orders->get(date("Y-m-d", strtotime("$i day")), collect());
 
             $html .= "<tr>";
             $html .= "<td>" . $date . "</td>";
 
             $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = [];
             $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = 0;
-            foreach ($orders as $order) {
-                $total_items = 0;
-                $metafields = Metafields::where('order_id', $order['order_id'])->get()->toArray();
 
-                $line_items = json_decode($order['line_items'], true);
+            foreach ($ordersForDate as $order) {
+                $total_items = 0;
+                $orderMetafields = $metafields->get($order->order_id, collect());
+
+                $line_items = json_decode($order->line_items, true);
                 foreach ($line_items as $line_item) {
                     $total_items += $line_item['quantity'];
                 }
 
-                if (date("Y-m-d", strtotime($order['date'])) == date("Y-m-d", strtotime("$i day"))) {
-                    $arr_totalOrders[$order['order_id']] = $order['number'];
-                    $totalOrders++;
+                $arr_totalOrders[$order->order_id] = $order->number;
+                $totalOrders++;
 
-                    $arrFields = [];
-                    foreach ($metafields as $key => $metafield) {
-                        $arrFields[] = $metafield['key'];
+                $arrFields = [];
+                foreach ($orderMetafields as $metafield) {
+                    $arrFields[] = $metafield->key;
 
-                        if ($metafield['key'] == "wrong_items_removed") {
-                            $value = json_decode($metafield['value'], true);
-                            if (!empty($value) && $value[0] > 0) {
-                                $arr_wrong_item[$order['order_id']] = $order['number'];
-                                $wrong_item++;
-                            }
+                    if ($metafield->key == "wrong_items_removed") {
+                        $value = json_decode($metafield->value, true);
+                        if (!empty($value) && $value[0] > 0) {
+                            $arr_wrong_item[$order->order_id] = $order->number;
+                            $wrong_item++;
                         }
+                    }
 
-                        if ($metafield['key'] == "status") {
-                            $statusValue = json_decode($metafield['value'], true);
-                            if (!empty($statusValue)) {
-                                if ($statusValue[0] == "took-zero") {
-                                    $arr_took_zero[$order['order_id']] = $order['number'];
-                                    $took_zero++;
-                                }
-                                if ($statusValue[0] == "took-less") {
-                                    $arr_took_less[$order['order_id']] = $order['number'];
-                                    $took_less++;
-                                }
-                                if ($statusValue[0] == "fulfilled" || $order['fulfillment_status'] == "fulfilled") {
-                                    $arr_fulfilled[$order['order_id']] = $order['number'];
-                                    $fulfilled++;
-                                }
+                    if ($metafield->key == "status") {
+                        $statusValue = json_decode($metafield->value, true);
+                        if (!empty($statusValue)) {
+                            if ($statusValue[0] == "took-zero") {
+                                $arr_took_zero[$order->order_id] = $order->number;
+                                $took_zero++;
                             }
-                            else{
-                                // dd($order['order_id']);
+                            if ($statusValue[0] == "took-less") {
+                                $arr_took_less[$order->order_id] = $order->number;
+                                $took_less++;
+                            }
+                            if ($statusValue[0] == "fulfilled" || $order->fulfillment_status == "fulfilled") {
+                                $arr_fulfilled[$order->order_id] = $order->number;
+                                $fulfilled++;
                             }
                         }
                     }
-                    if (!in_array('status', $arrFields)) {
-                        $arr_no_status[$order['order_id']] = $order['number'];
-                        $no_status++;
-                    }
+                }
+                if (!in_array('status', $arrFields)) {
+                    $arr_no_status[$order->order_id] = $order->number;
+                    $no_status++;
                 }
             }
 
@@ -156,6 +165,7 @@ class OrdersController extends Controller
 
         return $html;
     }
+
 
 
 }
