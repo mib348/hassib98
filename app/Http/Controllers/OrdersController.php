@@ -89,11 +89,23 @@ class OrdersController extends Controller
         if (!empty($request->input('strFilterLocation'))) {
             $query->where('location', $request->input('strFilterLocation'));
         }
-        $orders = $query->orderBy('date', 'asc')->get()->groupBy(function ($order) {
+        $orders = $query->orderBy('date', 'asc')->get();
+
+        // Ensure orders are fetched
+        if ($orders->isEmpty()) {
+            return "No orders found for the specified date range.";
+        }
+
+        // Flatten the collection and get order IDs
+        $orderIds = $orders->pluck('order_id'); // Assuming 'id' is the primary key in the Orders table
+
+        // Fetch metafields
+        $metafields = Metafields::whereIn('order_id', $orderIds)->get()->groupBy('order_id');
+
+        // Group orders by date
+        $orders = $orders->groupBy(function ($order) {
             return date("Y-m-d", strtotime($order->date));
         });
-
-        $metafields = Metafields::whereIn('order_id', $orders->pluck('order_id'))->get()->groupBy('order_id');
 
         for ($i = -14; $i <= 7; $i++) {
             $date = $dates[$i];
@@ -165,6 +177,7 @@ class OrdersController extends Controller
 
         return $html;
     }
+
 
 
 

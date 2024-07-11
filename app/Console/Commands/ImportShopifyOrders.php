@@ -7,6 +7,7 @@ use App\Models\Orders;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ImportShopifyOrders extends Command
@@ -130,72 +131,125 @@ class ImportShopifyOrders extends Command
     }
 
     public function importOrdersMetafields($api, $order) {
-        $metafieldsResponse = $api->rest('GET', "/admin/orders/{$order['id']}/metafields.json");
-        if (isset($metafieldsResponse['body']) && isset($metafieldsResponse['body']['metafields'])) {
-            $metafields = (array) $metafieldsResponse['body']['metafields'];
-        }
+        try {
+            // Fetch metafields from the API
+            $metafieldsResponse = $api->rest('GET', "/admin/orders/{$order['id']}/metafields.json");
 
-        if (isset($metafields['container'])) {
-            $metafields = $metafields['container'];
-        }
-
-        // List of required metafields
-        $requiredMetafields = ['status', 'pick_up_date', 'location', 'right_items_removed', 'wrong_items_removed', 'time_of_pick_up', 'door_open_time', 'image_before', 'image_after'];
-        $metafieldValues = [];
-
-        // Initialize metafieldValues with null
-        foreach ($requiredMetafields as $key) {
-            $metafieldValues[$key] = null;
-        }
-
-        // Update/Create missing metafields with null values
-        foreach ($requiredMetafields as $key) {
-            if ($metafieldValues[$key] === null) {
-                Metafields::updateOrCreate(
-                    ['order_id' => $order['id'], 'key' => $key],
-                    [
-                        'order_id' => $order['id'],
-                        'order_number' => $order['order_number'],
-                        'key' => $key,
-                        'value' => null,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]
-                );
-
-                // Log::info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null\n");
-                // $this->info("Metafield {$key} for order: {$order['order_number']} was missing and has been set to null") . PHP_EOL;
+            if (isset($metafieldsResponse['body']) && isset($metafieldsResponse['body']['metafields'])) {
+                $metafields = (array) $metafieldsResponse['body']['metafields'];
             }
-        }
 
-        // Populate existing metafields
-        if(isset($metafields)){
-            foreach ($metafields as $field) {
-                if (in_array($field['key'], $requiredMetafields)) {
-                    $metafieldValues[$field['key']] = $field['value'];
+            if (isset($metafields['container'])) {
+                $metafields = $metafields['container'];
+            } else {
+                $metafields = [];
+            }
+
+            // List of required metafields
+            $requiredMetafields = [
+                'status', 'pick_up_date', 'location', 'right_items_removed',
+                'wrong_items_removed', 'time_of_pick_up', 'door_open_time',
+                'image_before', 'image_after'
+            ];
+
+            // Fetch existing metafields for the order
+            $existingMetafields = Metafields::where('order_id', $order['id'])
+                ->whereIn('key', $requiredMetafields)
+                ->get()
+                ->keyBy('key');
+
+            // Initialize metafieldValues with existing values
+            $metafieldValues = [];
+            foreach ($requiredMetafields as $key) {
+                $metafieldData = $existingMetafields->get($key);
+                $metafieldValues[$key] = $metafieldData ? $metafieldData->value : null;
+            }
+
+            // Process metafields from API response
+            if (isset($metafields)) {
+                foreach ($metafields as $field) {
+                    if (in_array($field['key'], $requiredMetafields)) {
+                        $metafieldValues[$field['key']] = $field['value'];
+
+                        // Update/Create existing metafields with actual values
+                        Metafields::updateOrCreate(
+                            ['order_id' => $order['id'], 'key' => $field['key']],
+                            [
+                                'order_id' => $order['id'],
+                                'order_number' => $order['order_number'],
+                                'metafield_id' => $field['id'] ?? null,
+                                'key' => $field['key'],
+                                'value' => $field['value'],
+                                'created_at' => $field['created_at'] ?? now(),
+                                'updated_at' => $field['updated_at'] ?? now(),
+                            ]
+                        );
+
+                        Log::info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully");
+                        $this->info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully");
+                    }
                 }
-
-                // Update/Create existing metafields
-                Metafields::updateOrCreate(
-                    ['order_id' => $order['id'], 'key' => $key],
-                    [
-                        'order_id' => $order['id'],
-                        'order_number' => $order['order_number'],
-                        'metafield_id' => $field['id'],
-                        'key' => $field['key'],
-                        'value' => $field['value'],
-                        'created_at' => $field['created_at'],
-                        'updated_at' => $field['updated_at'],
-                    ]
-                );
-
-                Log::info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully\n");
-                $this->info("Metafield {$field['key']} for order: {$order['order_number']} has been imported successfully") . PHP_EOL;
             }
-        }
 
+            // Ensure records with NULL values are updated if necessary
+            foreach ($requiredMetafields as $key) {
+                if ($metafieldValues[$key] === null) {
+                    // If the key is not found in the API response, ensure it's inserted with a NULL value
+                    Metafields::updateOrCreate(
+                        ['order_id' => $order['id'], 'key' => $key],
+                        [
+                            'order_id' => $order['id'],
+                            'order_number' => $order['order_number'],
+                            'key' => $key,
+                            'value' => null,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]
+                    );
+
+                    Log::info("Metafield {$key} for order: {$order['order_number']} was missing in API response and has been set to null");
+                    $this->info("Metafield {$key} for order: {$order['order_number']} was missing in API response and has been set to null");
+                }
+            }
+
+            /*
+
+            // Clean up obsolete records with NULL values using temporary table approach
+            DB::statement('
+                CREATE TEMPORARY TABLE temp_keep_ids AS
+                SELECT id
+                FROM metafields m1
+                WHERE value IS NOT NULL
+                AND (order_id IS NOT NULL OR order_number IS NOT NULL)
+                AND id = (
+                    SELECT MAX(id)
+                    FROM metafields m2
+                    WHERE m2.order_id = m1.order_id
+                    AND m2.`key` = m1.`key`
+                )
+            ');
+
+            DB::statement('
+                DELETE FROM metafields
+                WHERE id NOT IN (
+                    SELECT id
+                    FROM temp_keep_ids
+                )
+            ');
+
+            DB::statement('DROP TEMPORARY TABLE temp_keep_ids');
+*/
+
+            Log::info("Obsolete records have been cleaned up successfully.");
+            $this->info("Obsolete records have been cleaned up successfully.");
+
+        } catch (\Exception $e) {
+            Log::error("An error occurred: " . $e->getMessage());
+            $this->error("An error occurred: " . $e->getMessage());
+        }
 
         echo PHP_EOL;
     }
+
 
 }
