@@ -157,6 +157,10 @@ class OrdersController extends Controller
                                 $fulfilled++;
                             }
                         }
+                        else{
+                            $arr_no_status[$order->order_id] = $order->number;
+                            $no_status++;
+                        }
                     }
                 }
                 if (!in_array('status', $arrFields)) {
