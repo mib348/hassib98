@@ -1,0 +1,16 @@
+<style>
+  #stationDropdown {
+    background-color: transparent;
+    font-weight: 100;
+    font-family: "Bebas Neue";
+    font-size: 21px;
+    border: 2px solid white;
+    border-radius: 0px;
+    padding-left: 15px;
+    padding-right: 15px;
+…
+    {% for location in locations_array %}}
+    <a class="dropdown-item station" href="/pages/datum">{{ location }}</a>
+    {% endfor %}
+  </div>
+</div>
