@@ -737,4 +737,29 @@ class ShopifyController extends Controller
 
         return $arrLocations;
     }
+
+	public function apiLimit(Request $request)
+    {
+
+        try {
+			$shop = Auth::user();
+            if (!isset($shop) || !$shop) {
+                $shop = User::find(env('db_shop_id', 1));
+            }
+
+            $response = (array) $shop->api()->rest('GET', '/admin/shop.json');
+
+            if ($response['errors']) {
+                Log::error("Error fetching API limit: " . json_encode($response['errors']));
+                return response()->json(['error' => 'Error fetching API limit:' . json_encode($response['errors'])], 500);
+            }
+
+            $callLimitHeader = $response['response']->getHeader('X-Shopify-Shop-Api-Call-Limit');
+
+            return response()->json(['api_limit' => $callLimitHeader]);
+        } catch (\Throwable $th) {
+            Log::error("Error fetching API limit: " . json_encode($th));
+            return response()->json(['error' => 'Error fetching API limit: ' . json_encode($th)], 500);
+        }
+    }
 }

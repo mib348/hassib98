@@ -75,3 +75,6 @@ Route::resource('locations_revenue', LocationRevenueController::class);
 Route::get('/getLocationsProductsJSON', [LocationProductsTableController::class, 'getLocationsProductsJSON'])->name('getLocationsProductsJSON');
 // Route::post('/location_products/updateDay', [LocationProductsTableController::class, 'updateDay'])->name('location_products.updateDay');
 Route::resource('location_products', LocationProductsTableController::class);
+
+//get api limit information
+Route::get('/apiLimit', [ShopifyController::class, 'apiLimit']);
