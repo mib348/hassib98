@@ -50,6 +50,13 @@
                     <textarea id='note' name='note' rows='3' cols='5' class='form-control'></textarea>
                 </div>
                 <br>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="Y" id="location_toggle" name="location_toggle">
+                    <label class="form-check-label" for="location_toggle">
+                        Location Active
+                    </label>
+                </div>
+                <br>
                 <button type="button" class="btn btn-primary" id="save_btn">Save</button>
             </form>
         </div>
@@ -113,7 +120,7 @@
 
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
-            title: 'Locations Text',
+            title: 'Location Time',
             buttons: {
                 primary: productsButton,
                 secondary: [ordersButton, operationdays, location_products, locations_revenue]
@@ -174,10 +181,12 @@
                     if(data || data.length){
                         $("#note").val(data.note);
                         $("#rows").html(data.html);
+                        $("#location_toggle").prop('checked', data.location_toggle === 'Y');
                     }
                     else{
                         $("#note").val('');
                         $("#rows").html('');
+                        $("#location_toggle").prop('checked', false);
                     }
             		// table.clear();
             		// table.rows.add($(data.html)).draw(true);

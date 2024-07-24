@@ -57,6 +57,7 @@ class LocationsTextController extends Controller
         $arrLocation->start_time = $request->input('start_time');
         $arrLocation->end_time = $request->input('end_time');
         $arrLocation->note = $request->input('note');
+        $arrLocation->is_active = $request->has('location_toggle') ? 'Y' : 'N';
         return $arrLocation->save();
     }
 
@@ -67,21 +68,27 @@ class LocationsTextController extends Controller
     {
         //
     }
-
     public function getLocationsTextList(Request $request) {
         $arrLocation = Locations::where('name', $request->input('strFilterLocation'))->first();
 
-        $startTime = substr($arrLocation['start_time'], 0, 5); // HH:MM
-        $endTime = substr($arrLocation['end_time'], 0, 5); // HH:MM
+        if ($arrLocation) {
+            $startTime = substr($arrLocation['start_time'], 0, 5); // HH:MM
+            $endTime = substr($arrLocation['end_time'], 0, 5); // HH:MM
 
-        $html = "";
-        $html .= "<tr>";
-        // $html .= "<td>" . $arrLocation['id'] . "</td>";
-        $html .= "<td>" . $arrLocation['name'] . "</td>";
-        $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime . "' /></td>";
-        $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime . "' /></td>";
-        $html .= "</tr>";
+            $html = "<tr>";
+            $html .= "<td>" . $arrLocation['name'] . "</td>";
+            $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime . "' /></td>";
+            $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime . "' /></td>";
+            $html .= "</tr>";
 
-        return response()->json(['html' => $html, 'note' => $arrLocation['note']] );
+            return response()->json([
+                'html' => $html,
+                'note' => $arrLocation['note'],
+                'location_toggle' => $arrLocation['is_active']
+            ]);
+        } else {
+            return response()->json([]);
+        }
     }
+
 }
