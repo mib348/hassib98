@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
+    const buttonPreOrder = document.querySelector('.preorderbtn');
     const strLocation = sessionStorage.getItem("location") || "";
     
     function toggleButton(startTime, endTime) {
@@ -90,35 +91,41 @@ document.addEventListener('DOMContentLoaded', function() {
             type: "GET",
             dataType: "json",
             success: function(data) {
+                // Handle location_toggle state
+                if (data.is_active === 'Y') {
+                    buttonTodayOrder.classList.add('show-button');
+                    buttonPreOrder.classList.add('show-button');
+                } else {
+                    buttonTodayOrder.classList.remove('show-button');
+                    buttonPreOrder.classList.remove('show-button');
+                }
                 if (data.note)
                     $("#note").html(data.note);
-                if (data.start_time && data.end_time) {
+                if (data.start_time && data.end_time && data.is_active === 'Y') {
                     toggleButton(data.start_time, data.end_time);
                     setInterval(() => toggleButton(data.start_time, data.end_time), 60000);
                 } else if (data.error) {
                     console.error('Error fetching location time:', data.error);
                 }
+
             },
             error: function(request, status, error) {
                 console.error('Error fetching location time:', error);
             }
         });
     }
-    
-
 });
 
-  window.onload = function() {
+window.onload = function() {
     pageFullyLoaded = true;
-      if (window.jQuery) {
+    if (window.jQuery) {
         let $ = window.jQuery;
 
         $(".todayorderbtn, .preorderbtn").each(function() {
-          // Reset any inline styles that might have been applied to indicate disabled state
-          this.style.pointerEvents = '';
-          this.style.opacity = '';
+            // Reset any inline styles that might have been applied to indicate disabled state
+            this.style.pointerEvents = '';
+            this.style.opacity = '';
         });
-
 
         var button = $(".preorderbtn");
         var buttonOffset = button.offset();
@@ -172,8 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
-        
-
 
         $(".preorderbtn").click(function(e){
             e.preventDefault();
@@ -188,20 +193,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     var newUrl = $(".preorderbtn").attr("href");
 
                     $.ajax({
-                    	url:"https://app.sushi.catering/updateSelectedDate/" + dateText,
-                    	type:"GET",
+                        url:"https://app.sushi.catering/updateSelectedDate/" + dateText,
+                        type:"GET",
                         data:{"uuid":localStorage.getItem("uuid")},
-                    	cache:false,
+                        cache:false,
                         async:false,
-                    	dataType:"json",
-                    	success:function(data){
-                          console.log(data);
-                          // Redirect the user to the new URL or handle it as needed
-                          window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
+                        dataType:"json",
+                        success:function(data){
+                            console.log(data);
+                            // Redirect the user to the new URL or handle it as needed
+                            window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
                         },
                         error: function (request, status, error) {
                             alert('set selected date error: preorder ');
-                            console.log('set selected date error: preorder ',  error);
+                            console.log('set selected date error: preorder ', error);
                         }
                     });
 
@@ -211,7 +216,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
      }
-
-
-  }
+}
 </script>

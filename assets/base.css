@@ -3527,4 +3527,10 @@ html, body{overflow-x:hidden !important;}
 .todayorderbtn.show-button {
     display: inline-block !important;
 }
+.preorderbtn {
+    display: none !important;
+}
+.preorderbtn.show-button {
+    display: inline-block !important;
+}
 .cart__dynamic-checkout-buttons{display:none;}
