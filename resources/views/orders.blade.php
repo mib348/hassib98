@@ -42,6 +42,7 @@
                             <th>Took-Less</th>
                             <th>Wrong-Item</th>
                             <th>No Status</th>
+                            <th>Cancelled</th>
                         </tr>
                     </thead>
                     <tbody>

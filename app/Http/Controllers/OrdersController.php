@@ -114,8 +114,8 @@ class OrdersController extends Controller
             $html .= "<tr>";
             $html .= "<td>" . $date . "</td>";
 
-            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = [];
-            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = 0;
+            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = $arr_cancelled = $arr_refunded = [];
+            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = 0;
 
             foreach ($ordersForDate as $order) {
                 $total_items = 0;
@@ -167,6 +167,10 @@ class OrdersController extends Controller
                     $arr_no_status[$order->order_id] = $order->number;
                     $no_status++;
                 }
+                if (!empty($order->cancel_reason) || !empty($order->cancelled_at)) {
+                    $arr_cancelled[$order->order_id] = $order->number;
+                    $cancelled++;
+                }
             }
 
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Total' data-orders='" . json_encode($arr_totalOrders) . "'>" . $totalOrders . "</a></td>";
@@ -175,6 +179,7 @@ class OrdersController extends Controller
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Took-Less' data-orders='" . json_encode($arr_took_less) . "'>" . $took_less . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Wrong-Item' data-orders='" . json_encode($arr_wrong_item) . "'>" . $wrong_item . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='No Status' data-orders='" . json_encode($arr_no_status) . "'>" . $no_status . "</a></td>";
+            $html .= "<td><a class='text-decoration-none order_counter' data-type='Cancelled' data-orders='" . json_encode($arr_cancelled) . "'>" . $cancelled . "</a></td>";
 
             $html .= "</tr>";
         }

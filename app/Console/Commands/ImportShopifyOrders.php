@@ -121,6 +121,7 @@ class ImportShopifyOrders extends Command
                 'line_items' => json_encode($order['line_items']),
                 'created_at' => $order['created_at'],
                 'updated_at' => $order['updated_at'],
+                'cancelled_at' => $order['cancelled_at'],
             ]);
 
             Log::info("Order: {$order['order_number']} has been imported successfully");
