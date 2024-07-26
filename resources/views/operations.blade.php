@@ -61,13 +61,13 @@
         var TitleBar = actions.TitleBar;
         var Redirect = actions.Redirect; // Ensure Redirect is defined
 
-        // Create a button for 'Products'
-        var productsButton = Button.create(app, { label: 'Products' });
-        productsButton.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/products');
-            // Add your logic for when the 'Products' button is clicked
-        });
+        // // Create a button for 'Products'
+        // var productsButton = Button.create(app, { label: 'Products' });
+        // productsButton.subscribe(Button.Action.CLICK, function() {
+        //     var redirect = Redirect.create(app);
+        //     redirect.dispatch(Redirect.Action.APP, '/products');
+        //     // Add your logic for when the 'Products' button is clicked
+        // });
 
         // Create a button for 'Orders'
         var ordersButton = Button.create(app, { label: 'Location Order Overview' });
@@ -105,8 +105,8 @@
         var titleBar = TitleBar.create(app, {
             title: 'Operation Days',
             buttons: {
-                primary: productsButton,
-                secondary: [ordersButton, location_products, locations_revenue, locations_text]
+                primary: ordersButton,
+                secondary: [location_products, locations_revenue, locations_text]
             },
         });
     </script>

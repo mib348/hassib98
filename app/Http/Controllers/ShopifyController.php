@@ -37,12 +37,18 @@ class ShopifyController extends Controller
         Log::info("Shop {$domain}'s object:" . json_encode($shop));
         Log::info("Shop {$domain}'s API object:" . json_encode($shopApi));
 
-        $html = $this->getProductsList();
+        // $html = $this->getProductsList();
 
         // $locations = ShopifyController::getLocations();
 
         // return view('products', ['html' => $html, 'locations' => $locations]);
-        return view('products', ['html' => $html]);
+
+        // Fetch products from Shopify API
+        $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
+        $arrProducts = (array) $productsResponse['body']['products']['container'] ?? [];
+
+        $arrLocations = Locations::all();
+        return view('location_products', ['arrProducts' => $arrProducts, 'arrLocations' => $arrLocations]);
     }
 
     public function getProducts(){
