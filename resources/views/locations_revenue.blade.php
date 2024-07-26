@@ -50,7 +50,7 @@
                     </tbody>
                 </table>
             </div>
-            <button type="button" class="btn btn-primary" id="save_btn">Save</button>
+            {{-- <button type="button" class="btn btn-primary" id="save_btn">Save</button> --}}
             </form>
         </div>
     </div>
@@ -161,7 +161,7 @@
 
         function LoadList(){
         	$.ajax({
-            	url:"{{ route('getLocationsTextList') }}",
+            	url:"{{ route('getLocationsRevenueList') }}",
             	type:"GET",
             	data: {
                     "_token": "{{ csrf_token() }}",
