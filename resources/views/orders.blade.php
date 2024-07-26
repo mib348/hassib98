@@ -43,6 +43,7 @@
                             <th>Wrong-Item</th>
                             <th>No Status</th>
                             <th>Cancelled</th>
+                            <th>Refunded</th>
                         </tr>
                     </thead>
                     <tbody>

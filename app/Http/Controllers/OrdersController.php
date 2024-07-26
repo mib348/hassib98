@@ -171,6 +171,10 @@ class OrdersController extends Controller
                     $arr_cancelled[$order->order_id] = $order->number;
                     $cancelled++;
                 }
+                if ($order->financial_status == "refunded") {
+                    $arr_refunded[$order->order_id] = $order->number;
+                    $refunded++;
+                }
             }
 
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Total' data-orders='" . json_encode($arr_totalOrders) . "'>" . $totalOrders . "</a></td>";
@@ -180,6 +184,7 @@ class OrdersController extends Controller
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Wrong-Item' data-orders='" . json_encode($arr_wrong_item) . "'>" . $wrong_item . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='No Status' data-orders='" . json_encode($arr_no_status) . "'>" . $no_status . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Cancelled' data-orders='" . json_encode($arr_cancelled) . "'>" . $cancelled . "</a></td>";
+            $html .= "<td><a class='text-decoration-none order_counter' data-type='Refunded' data-orders='" . json_encode($arr_refunded) . "'>" . $refunded . "</a></td>";
 
             $html .= "</tr>";
         }
