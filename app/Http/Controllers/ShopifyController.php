@@ -43,12 +43,11 @@ class ShopifyController extends Controller
 
         // return view('products', ['html' => $html, 'locations' => $locations]);
 
-        // Fetch products from Shopify API
-        $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
-        $arrProducts = (array) $productsResponse['body']['products']['container'] ?? [];
+        $locations = ShopifyController::getLocations();
+        $orders = new OrdersController();
+        $html = $orders->getOrdersList(request());
 
-        $arrLocations = Locations::all();
-        return view('location_products', ['arrProducts' => $arrProducts, 'arrLocations' => $arrLocations]);
+        return view('orders', ['html' => $html, 'locations' => $locations]);
     }
 
     public function getProducts(){
