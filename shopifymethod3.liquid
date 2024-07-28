@@ -63,7 +63,8 @@ product
 {% assign defaultProduct = product %}
 {% paginate collections.all.products by 50 %}
     {% for product in collections.all.products %}
-      {% assign productToShow = false %} 
+      {% assign productToShow = false %}
+      {% assign found = false %}
 
 
 
@@ -74,20 +75,21 @@ product
         {% for dateAndQtyVal in dateAndQtyArray %}
           {% assign dateAndQtyVal = dateAndQtyVal | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
           {% assign dateAndQtyValue = dateAndQtyVal | split: ':' %}
-          {% assign dateValue = dateAndQtyValue[1] %} 
-          {% if dateValue == date and location == dateAndQtyValue[0] %} 
-            {% assign qtyValue = dateAndQtyValue[2] %} 
+          {% assign dateValue = dateAndQtyValue[1] %}
+          {% if dateValue == date and location == dateAndQtyValue[0] %}
+            {% assign qtyValue = dateAndQtyValue[2] %}
+            {% assign found = true %}
             {% comment %} {% assign productToShow = true %}  {% endcomment %}
-          {% endif %} 
+          {% endif %}
         {% endfor %}
 
         {% assign dayList = product.metafields.custom.available_on %}
         {% for day in dayList.value %}
-            {% if day == day_name %} 
-                {% assign productToShow = true %} 
+            {% if day == day_name and found == true %}
+                {% assign productToShow = true %}
                 {% comment %} {% assign qtyValue = product.variants[0].inventory_quantity %}  {% endcomment %}
             {% endif %}
-        {% endfor %} 
+        {% endfor %}
 
         {% if productToShow %}
 
@@ -97,7 +99,7 @@ product goes here
 
 
 
-        {% endif %}  
+        {% endif %}
 
     {% endfor %}
 {% endpaginate %}
