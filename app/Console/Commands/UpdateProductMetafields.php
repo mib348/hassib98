@@ -111,8 +111,11 @@ class UpdateProductMetafields extends Command
                     // if($product['id'] == 8742073860444)
                     // dd($product['id'], $defaultQuantity, $quantity, $updatedValues);
 
-                    $newQuantity = max(0, $defaultQuantity - $existingPreOrders); // Ensure quantity doesn't go below 0
-                    $updatedValues[$location][$newDate] = (string)$newQuantity;
+                    // Check if the default quantity is not null (indicating a record was found)
+                    if ($defaultQuantity !== null) {
+                        $newQuantity = max(0, $defaultQuantity - $existingPreOrders); // Ensure quantity doesn't go below 0
+                        $updatedValues[$location][$newDate] = (string)$newQuantity;
+                    }
                 }
             }
         }
@@ -217,30 +220,18 @@ class UpdateProductMetafields extends Command
         }
     }
 
+    public function getProductDefaultQuantity($nProductId, $strLocation, $date) {
+        $day = date("l", strtotime($date));
+        $arrProduct = LocationProductsTable::where('product_id', $nProductId)
+                        ->where('location', $strLocation)
+                        ->where('day', $day)
+                        ->first();
 
-    public function getProductDefaultQuantity($nProductId, $strLocation, $date){
-        // if(is_array($strDay))
-        //     $available_on_metafield_values = $strDay;
-        // else{
-        //     $available_on_metafield_values[0] = $strDay;
-        // }
+        if (isset($arrProduct['quantity'])) {
+            return $arrProduct['quantity'];
+        }
 
-        // foreach ($available_on_metafield_values as $available_on_metafield_value){
-            $day = date("l", strtotime($date));
-            $arrProduct = LocationProductsTable::where('product_id', $nProductId)
-                            ->where('location', $strLocation)
-                            ->where('day', $day)
-                            ->first();
-
-            if(isset($arrProduct['quantity'])){
-                // foreach ($arrProducts as $arrProduct) {
-                    return $defaultQuantity = $arrProduct['quantity'];
-                    // break;
-                // }
-            }
-        // }
-
-        return 8;
+        return null; // Return null if no record is found
     }
 
     public function fetchAvailableDays($nProductId){
