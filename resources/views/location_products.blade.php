@@ -60,7 +60,7 @@
                                 </td>
                                 <td>
                                     <select name="nQuantity[{{ $day }}][]" class="form-select nQuantity" data-quantity="">
-                                        @for ($j = 1; $j <= 8; $j++)
+                                        @for ($j = 0; $j <= 8; $j++)
                                         <option value="{{ $j }}" {{ $j == 8 ? 'selected' : '' }}>{{ $j }}</option>
                                         @endfor
                                     </select>
