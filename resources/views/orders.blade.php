@@ -2,7 +2,7 @@
 
 @section('styles')
 <style>
-    .order_counter{cursor: pointer;}
+    .order_counter, .items_counter{cursor: pointer;}
 </style>
 @endsection
 
@@ -44,6 +44,7 @@
                             <th>No Status</th>
                             <th>Cancelled</th>
                             <th>Refunded</th>
+                            <th>Items Sold</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -59,7 +60,7 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Orders of type: <span id="order_type"></span></h5>
+          <h5 class="modal-title"><span id="order_type"></span></h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body" id="orders_list">
@@ -177,6 +178,21 @@
                     $("#orders_list").html(html); // display the sorted list
                     $("#orders_list_modal").modal('show');
                 });
+
+                $(document).on('click', '.items_counter', function(e) {
+                    var arrOrders = $(this).attr('data-items');
+                    $("#order_type").html($(this).attr('data-type'));
+                    const arrayOrders = JSON.parse(arrOrders);
+                    console.log(arrayOrders);
+                    var html = '<ul>';
+                    $.each(arrayOrders, function(key, value) {
+                        html += '<li><a href="https://admin.shopify.com/store/dc9ef9/products/' + key + '" target="_blank">' + value + '</a></li>';
+                    });
+                    html += '</ul>';
+                    $("#orders_list").html(html); // display the sorted list
+                    $("#orders_list_modal").modal('show');
+                });
+
     		//LoadList();
         });
 
@@ -195,7 +211,9 @@
             		table.rows.add($(data)).draw(true);
 //                 	$(".table tbody").html(data);
                 },
-                error: function (request, status, error) {
+                error: function(request, status, error) {
+                    // var errorMessage = "Error: " + request.status + " " + request.statusText;
+                    alert(request.responseText);
                     console.log('orders fetching error');
                 }
             });

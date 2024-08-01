@@ -93,7 +93,7 @@ class OrdersController extends Controller
 
         // Ensure orders are fetched
         if ($orders->isEmpty()) {
-            return "No orders found for the specified date range.";
+            return response()->json('No orders found for the specified date range.', 404);
         }
 
         // Flatten the collection and get order IDs
@@ -114,17 +114,13 @@ class OrdersController extends Controller
             $html .= "<tr>";
             $html .= "<td>" . $date . "</td>";
 
-            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = $arr_cancelled = $arr_refunded = [];
-            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = 0;
+            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = $arr_cancelled = $arr_refunded = $arr_items = $item_quantities = [];
+            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = 0;
+
 
             foreach ($ordersForDate as $order) {
-                $total_items = 0;
+                $arrLineItems = json_decode($order->line_items, true);
                 $orderMetafields = $metafields->get($order->order_id, collect());
-
-                $line_items = json_decode($order->line_items, true);
-                foreach ($line_items as $line_item) {
-                    $total_items += $line_item['quantity'];
-                }
 
                 $arr_totalOrders[$order->order_id] = $order->number;
                 $totalOrders++;
@@ -175,7 +171,41 @@ class OrdersController extends Controller
                     $arr_refunded[$order->order_id] = $order->number;
                     $refunded++;
                 }
+                if (isset($arrLineItems)) {
+                    foreach ($arrLineItems as $key => $arrLineItem) {
+                        $productId = $arrLineItem['product_id'];
+                        $title = $arrLineItem['title'];
+
+                        $arr_items[] = [
+                            'product_id' => $productId,
+                            'title' => $title
+                        ];
+                    }
+                    $items += count($arrLineItems);
+                }
             }
+
+            // Now count the total quantity for each unique product
+            $item_quantities = [];
+            foreach ($arr_items as $item) {
+                $productId = $item['product_id'];
+                $title = $item['title'];
+
+                if (!isset($item_quantities[$productId])) {
+                    $item_quantities[$productId] = [
+                        'title' => $title,
+                        'quantity' => 0
+                    ];
+                }
+                $item_quantities[$productId]['quantity']++;
+            }
+
+            // Build the final array with the desired format
+            $final_items = [];
+            foreach ($item_quantities as $productId => $data) {
+                $final_items[$productId] = "{$data['title']} <span class='badge text-bg-primary align-text-top'>{$data['quantity']}</span>";
+            }
+
 
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Total' data-orders='" . json_encode($arr_totalOrders) . "'>" . $totalOrders . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Fulfilled' data-orders='" . json_encode($arr_fulfilled) . "'>" . $fulfilled . "</a></td>";
@@ -185,6 +215,7 @@ class OrdersController extends Controller
             $html .= "<td><a class='text-decoration-none order_counter' data-type='No Status' data-orders='" . json_encode($arr_no_status) . "'>" . $no_status . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Cancelled' data-orders='" . json_encode($arr_cancelled) . "'>" . $cancelled . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Refunded' data-orders='" . json_encode($arr_refunded) . "'>" . $refunded . "</a></td>";
+            $html .= "<td><a class='text-decoration-none items_counter' data-type='Items Sold' data-items='" . htmlspecialchars(json_encode($final_items), ENT_QUOTES, 'UTF-8') . "'>" . $items . "</a></td>";
 
             $html .= "</tr>";
         }
