@@ -586,66 +586,93 @@ class ShopifyController extends Controller
         // return json_encode($response);
     }
 
-    public function updateSelectedDate(Request $request, $date){
-        $shop = Auth::user();
-        if(!isset($shop) || !$shop)
-            $shop = User::find(env('db_shop_id', 1));
-
-
-       $currentValue = []; // Default to an empty array if the metafield isn't found
-		$metafieldId = null; // To store the ID of our specific metafield, if found
-
-		// Step 1: Retrieve all metafields and find the correct one
-		$response = $shop->api()->rest('GET', '/admin/api/2024-01/metafields.json', [
-			'namespace' => 'custom',
-			'key' => 'selected_dates'
-		]);
-
-		foreach ($response['body']['container']['metafields'] as $metafield) {
-			if ($metafield['namespace'] == 'custom' && $metafield['key'] == 'selected_dates') {
-				$currentValue = json_decode($metafield['value'], true); // Assuming the value is stored as a JSON string
-				$metafieldId = $metafield['id']; // Capture the metafield ID for later update
-				break; // Exit the loop once we've found our specific metafield
-			}
-		}
-
-		// Proceed only if we found our metafield
-		if ($metafieldId !== null) {
-			$today = new DateTime('now', new DateTimeZone('Europe/Berlin'));
-			$today->setTime(0, 0, 0); // Ignore time part for comparison
-
-
-			// Step 2: Update the value
-			$uuid = $request->input('uuid');
-			// Update the array with the new value, keyed by UUID
-			$currentValue[$uuid] = $date;
-
-			foreach ($currentValue as $uuid => $storedDate) {
-				$entryDate = DateTime::createFromFormat('d-m-Y', $storedDate, new DateTimeZone('Europe/Berlin'));
-				$entryDate->setTime(0, 0, 0); // Ignore time part for comparison
-
-				if ($entryDate < $today) {
-					unset($currentValue[$uuid]); // Remove entries with dates before today
-				}
+    public function updateSelectedDate(Request $request, $date)
+	{
+		try {
+			$shop = Auth::user();
+			if (!isset($shop) || !$shop) {
+				$shop = User::find(env('db_shop_id', 1));
 			}
 
-			// Step 3: Save the updated value back to Shopify
-			$updateResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/metafields/{$metafieldId}.json", [
-				'metafield' => [
-					'id' => $metafieldId,
-					'value' => json_encode($currentValue),
-					'namespace' => 'custom',
-					'key' => 'selected_dates',
-					'type' => 'json',
-				],
+			// Initialize variables
+			$currentValue = []; // Default to an empty array if the metafield isn't found
+			$metafieldId = null; // To store the ID of our specific metafield, if found
+
+			// Step 1: Retrieve all metafields and find the correct one
+			$response = $shop->api()->rest('GET', '/admin/api/2024-01/metafields.json', [
+				'namespace' => 'custom',
+				'key' => 'selected_dates'
 			]);
+
+			// Check if the response is successful and contains the expected data
+			if ($response['status'] === 200) {
+				if (isset($response['body']['metafields'])) {
+					foreach ($response['body']['metafields'] as $metafield) {
+						if ($metafield['namespace'] == 'custom' && $metafield['key'] == 'selected_dates') {
+							$currentValue = json_decode($metafield['value'], true); // Assuming the value is stored as a JSON string
+							$metafieldId = $metafield['id']; // Capture the metafield ID for later update
+							break; // Exit the loop once we've found our specific metafield
+						}
+					}
+				} else {
+					Log::error("No metafields found in response for updating selected date", ['response' => $response]);
+				}
+			} else {
+				Log::error("Failed to retrieve metafields for updating selected date", ['response' => $response]);
+			}
+
+			// Proceed only if we found our metafield
+			if ($metafieldId !== null) {
+				$today = new DateTime('now', new DateTimeZone('Europe/Berlin'));
+				$today->setTime(0, 0, 0); // Ignore time part for comparison
+
+				// Step 2: Update the value
+				$uuid = $request->input('uuid');
+				// Update the array with the new value, keyed by UUID
+				$currentValue[$uuid] = $date;
+
+				foreach ($currentValue as $uuid => $storedDate) {
+					$entryDate = DateTime::createFromFormat('d-m-Y', $storedDate, new DateTimeZone('Europe/Berlin'));
+					$entryDate->setTime(0, 0, 0); // Ignore time part for comparison
+
+					if ($entryDate < $today) {
+						unset($currentValue[$uuid]); // Remove entries with dates before today
+					}
+				}
+
+				// Step 3: Save the updated value back to Shopify
+				$updateResponse = $shop->api()->rest('PUT', "/admin/api/2024-01/metafields/{$metafieldId}.json", [
+					'metafield' => [
+						'id' => $metafieldId,
+						'value' => json_encode($currentValue),
+						'namespace' => 'custom',
+						'key' => 'selected_dates',
+						'type' => 'json',
+					],
+				]);
+
+				// Check if the update was successful
+				if ($updateResponse['status'] !== 200) {
+					Log::error("Failed to update metafield for selected date", ['response' => $updateResponse]);
+					return response()->json(['error' => 'Failed to update selected date'], 500);
+				}
+			} else {
+				Log::error("Metafield not found for updating selected date", ['namespace' => 'custom', 'key' => 'selected_dates']);
+				return response()->json(['error' => 'Metafield not found'], 404);
+			}
+
+			// Return the update response
+			return response()->json($updateResponse['body'], 200);
+
+		} catch (\Throwable $th) {
+			Log::error("Exception occurred while updating selected date", [
+				'exception' => $th,
+				'request_data' => $request->all()
+			]);
+			return response()->json(['error' => 'An error occurred while updating the selected date'], 500);
 		}
+	}
 
-
-
-        echo $json = json_encode($updateResponse['body']);
-        //echo response($json)->header('Content-Type', 'application/json');
-    }
 
     public function getOrderNumber(Request $request, $order_id)
     {
