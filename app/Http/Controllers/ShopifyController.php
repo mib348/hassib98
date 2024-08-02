@@ -647,26 +647,45 @@ class ShopifyController extends Controller
         //echo response($json)->header('Content-Type', 'application/json');
     }
 
-    public function getordernumber(Request $request, $order_id){
-        // dd($updateResponse['body']['order']['order_number']);
+    public function getOrderNumber(Request $request, $order_id)
+    {
         try {
+            // Fetch the authenticated user
             $shop = Auth::user();
-            if(!isset($shop) || !$shop)
-                $shop = User::find(env('db_shop_id', 1));
 
+            // If the user is not authenticated, fallback to a default shop user
+            if (!isset($shop) || !$shop) {
+                $shop = User::find(env('db_shop_id', 1));
+            }
+
+            // Log the order ID being processed
+            // Log::info("Fetching order number for order id {$order_id}");
+
+            // Make the API request to fetch the order details
             $updateResponse = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$order_id}.json");
 
-            if(isset($updateResponse['body']['order']['order_number']))
+            // Check if the response contains the order number
+            if (isset($updateResponse['body']['order']['order_number'])) {
+                // Log success and return the order number
+                // Log::info("Successfully fetched order number for order id {$order_id}");
                 return $updateResponse['body']['order']['order_number'];
-            else{
-                Log::error("Error fetching order number for order id {$order_id}");
+            } else {
+                // Log an error if the order number is not found
+                Log::error("Order number not found in response for order id {$order_id}: " . json_encode($updateResponse));
                 throw new Exception("Error Processing Request: " . json_encode($updateResponse), 1);
             }
         } catch (\Throwable $th) {
-            Log::error("Error fetching order number for order id {$order_id}: " . json_encode($th) . " " . json_encode($updateResponse));
+            // Log the exception with more detailed information
+            Log::error("Exception occurred while fetching order number for order id {$order_id}: " . $th->getMessage(), [
+                'order_id' => $order_id,
+                'exception' => $th,
+                'response' => isset($updateResponse) ? $updateResponse : null
+            ]);
+            // Rethrow the exception to ensure it is not silently caught
             throw $th;
         }
     }
+
 
     public function checkCartProductsQty(Request $request) {
 		$shop = Auth::user();
