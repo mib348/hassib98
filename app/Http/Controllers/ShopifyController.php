@@ -654,22 +654,22 @@ class ShopifyController extends Controller
 				// Check if the update was successful
 				if ($updateResponse['status'] !== 200) {
 					Log::error("Failed to update metafield for selected date", ['response' => $updateResponse]);
-					return response()->json(['error' => 'Failed to update selected date'], 500);
+					return response()->json(['error' => 'Failed to update selected date, Please try again'], 500);
 				}
 			} else {
 				Log::error("Metafield not found for updating selected date", ['namespace' => 'custom', 'key' => 'selected_dates']);
-				return response()->json(['error' => 'Metafield not found'], 404);
+				return response()->json(['error' => 'Metafield not found, Please try again'], 404);
 			}
 
 			// Return the update response
 			return response()->json($updateResponse['body'], 200);
 
 		} catch (\Throwable $th) {
-			Log::error("Exception occurred while updating selected date", [
+			Log::error("Exception occurred while updating selected date, Please try again", [
 				'exception' => $th,
 				'request_data' => $request->all()
 			]);
-			return response()->json(['error' => 'An error occurred while updating the selected date'], 500);
+			return response()->json(['error' => 'An error occurred while updating the selected date, Please try again'], 500);
 		}
 	}
 

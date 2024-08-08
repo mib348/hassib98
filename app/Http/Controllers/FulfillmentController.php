@@ -6,6 +6,7 @@ use App\Models\Fulfillment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class FulfillmentController extends Controller
@@ -55,256 +56,6 @@ class FulfillmentController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function storeOld(Request $request)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'order_id' => 'required|integer',
-                'order' => 'required|integer',
-                'pick-up-date' => 'nullable|string|max:16',
-                'location' => 'nullable|string',
-                'status' => 'nullable|string',
-                'items-bought' => 'nullable|string',
-                'right-items-removed' => 'nullable|string',
-                'wrong-items-removed' => 'nullable|string',
-                'time-of-pick-up' => 'nullable|string|max:32',
-                'door-open-time' => 'nullable|string|max:16',
-                'image-before' => 'nullable|string',
-                'image-after' => 'nullable|string',
-            ]);
-
-            if ($validator->fails()) {
-                $errors = $validator->errors();
-                return $errors->toJson();
-            }
-
-            $validatedData = $validator->validated();
-
-            $validatedData['user_agent'] = $request->header('User-Agent');
-            $validatedData['ip_address'] = $request->ip();
-            $validatedData['request_url'] = $request->fullUrl();
-
-            // Create a new fulfillment record
-            $order = Fulfillment::updateOrCreate(['order_id' => $validatedData['order_id'], 'order' => $validatedData['order']], $validatedData);
-
-            //update order fields
-            $shop = Auth::user();
-            if(!isset($shop) || !$shop)
-                $shop = User::find(env('db_shop_id', 1));
-
-                // $updateMetafields = [
-                //     [
-                        // 'key' => 'location',
-                        // 'value' => $validatedData['location'],
-                        // 'type' => 'single_line_text_field',
-                        // 'namespace' => 'custom'
-                //     ],
-                //     [
-                //         'key' => 'pick_up_date',
-                //         'value' => $validatedData['pick-up-date'],
-                //         'type' => 'date',
-                //         'namespace' => 'custom'
-                //     ],
-                // ];
-
-                // $updateMetafields = [
-                //     'metafield' => [
-                //         'key' => 'location',
-                //         'value' => $validatedData['location'],
-                //         'type' => 'single_line_text_field',
-                //         'namespace' => 'custom'
-                //     ]
-                // ];
-
-                $orderId = $validatedData['order_id'] = 6108106457436;
-
-                // $payload = [
-                //     'order' => [
-                //         'id' => $orderId,
-                //         'metafields' => $updateMetafields
-                //     ]
-                // ];
-
-                // $metafields = $shop->api()->rest('POST', "/admin/orders/{$orderId}/metafields.json", $updateMetafields);
-
-                // $metafields = (array) $metafields['body']['metafields'] ?? [];
-
-                // if(isset($metafields['container'])){
-                //     $metafields = $metafields['container'];
-                // }
-
-                // dd($metafields);
-
-                // if(count($metafields)){
-                //     foreach ($metafields as $field) {
-                //         dd($field);
-                //     }
-                // }
-
-                // $response = $shop->api()->rest('PUT', "/admin/orders/{$orderId}.json", $payload);
-
-                // $mutation = '{
-                //                 order(id: "gid://shopify/Order/6108106457436") {
-                //                     id
-                //                     metafields(first: 100) {
-                //                     edges {
-                //                         node {
-                //                         id
-                //                         namespace
-                //                         key
-                //                         value
-                //                         type
-                //                         description
-                //                         }
-                //                     }
-                //                     }
-                //                 }
-                //                 }';
-
-                // $response = $shop->api()->graph($mutation);
-
-                // dd($response);
-
-                // $mutation = '{
-                //                 mutation {
-                //                 orderUpdate(input: {
-                //                     id: "gid://shopify/Order/6108106457436",
-                //                     metafields: [
-                //                     {
-                //                         namespace: "custom",
-                //                         key: "location",
-                //                         value: "asdasd",
-                //                         type: "single_line_text_field",
-                //                         description: null
-                //                     },
-                //                     {
-                //                         id: "gid://shopify/Metafield/44000323338588",
-                //                         value: "2024-06-27"
-                //                     }
-                //                     ]
-                //                 }) {
-                //                     order {
-                //                     id
-                //                     }
-                //                     userErrors {
-                //                     field
-                //                     message
-                //                     }
-                //                 }
-                //                 }
-                //             }';
-
-                // $response = $shop->api()->graph($mutation);
-                // $accessToken = $shop->getAccessToken();
-                // curl -d "{\"order\":{\"id\":6108106457436,\"metafields\":[{\"key\":\"location\",\"value\":\"your_location_value\",\"type\":\"single_line_text_field\",\"namespace\":\"custom\"},{\"key\":\"pick_up_date\",\"value\":\"2024-06-30\",\"type\":\"date\",\"namespace\":\"custom\"}]}}" -X PUT "https://dc9ef9.myshopify.com/admin/api/2024-04/orders/6108106457436.json" -H "X-Shopify-Access-Token: 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" -H "Content-Type: application/json"
-
-                // dd($metafields);
-
-                if(isset($validatedData['pick-up-date']))
-                $pickUpDate = date('Y-m-d', strtotime($validatedData['pick-up-date']));
-            if(isset($validatedData['time-of-pick-up']))
-            $timeOfPickUp = date('Y-m-d\TH:i:s', strtotime($validatedData['time-of-pick-up']));
-        // $doorOpenTime = date('Y-m-d\TH:i:s', strtotime($validatedData['door-open-time']));
-            if(isset($validatedData['door-open-time']))
-                $doorOpenTime = strtotime($validatedData['door-open-time']);
-
-                $metafields = [
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'location',
-                        'value' => $validatedData['location'],
-                        'type' => 'single_line_text_field'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'pick_up_date',
-                        'value' => $validatedData['pick-up-date'],
-                        'type' => 'date'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'status',
-                        'value' => json_encode([$validatedData['status']]),
-                        'type' => 'list.single_line_text_field'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'items_bought',
-                        'value' => json_encode([$validatedData['items-bought']]),
-                        'type' => 'list.single_line_text_field'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'right_items_removed',
-                        'value' => json_encode([$validatedData['right-items-removed']]),
-                        'type' => 'list.single_line_text_field'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'wrong_items_removed',
-                        'value' => json_encode([$validatedData['wrong-items-removed']]),
-                        'type' => 'list.single_line_text_field'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'time_of_pick_up',
-                        'value' => json_encode([$timeOfPickUp]),
-                        'type' => 'list.date_time'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'door_open_time',
-                        'value' => json_encode([$doorOpenTime]),
-                        'type' => 'list.number_integer'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'image_before',
-                        'value' => json_encode([$validatedData['image-before']]),
-                        'type' => 'list.single_line_text_field'
-                    ],
-                    [
-                        'namespace' => 'custom',
-                        'key' => 'image_after',
-                        'value' => json_encode([$validatedData['image-after']]),
-                        'type' => 'list.single_line_text_field'
-                    ],
-                ];
-
-                // Loop through each metafield and update it
-                foreach ($metafields as $metafield) {
-                    // Skip updating if the value is null
-                    if (is_null($metafield['value'])) {
-                        continue;
-                    }
-
-                    $data = [
-                        'metafield' => [
-                            'namespace' => $metafield['namespace'],
-                            'key' => $metafield['key'],
-                            'value' => $metafield['value'],
-                            'type' => $metafield['type']
-                        ]
-                    ];
-
-                    // Send the request to update the metafield
-                    $response = $shop->api()->rest('POST', "/admin/orders/{$orderId}/metafields.json", $data);
-
-                    // Handle errors
-                    if ($response['errors']) {
-                        return $response;
-                    } else {
-                        // echo "Metafield '{$metafield['namespace']}.{$metafield['key']}' updated successfully for order {$orderId}.<br>";
-                    }
-                }
-
-            return $order;
-        } catch (\Throwable $th) {
-            return $th;
-            // return response()->json($th);
-            // abort(500, response()->json($th));
-        }
-    }
 
     public function store(Request $request)
     {
@@ -584,14 +335,16 @@ class FulfillmentController extends Controller
 
                 // Handle errors
                 if ($response['errors']) {
-                    return response()->json(['error' => 'Failed to update metafield.', 'details' => $response], 500);
+                    Log::error('Fulfillment Store: Failed to update metafield.', ['metafield' => $metafield, 'response' => $response]);
+                    return response()->json(['error' => 'Fulfillment Store: Failed to update metafield.', 'metafield' => $metafield, 'response' => $response], 500);
                 }
             }
 
-            return response()->json(['message' => 'Metafields updated successfully.', 'order' => $order], 200);
+            return response()->json(['message' => 'Fulfillment Store: Metafields updated successfully.', 'order' => $order], 200);
 
         } catch (\Throwable $th) {
-            return response()->json(['error' => 'Internal Server Error.', 'details' => $th->getMessage()], 500);
+            Log::error('Fulfillment update: Internal Server Error.', ['details' => $th]);
+            return response()->json(['error' => 'Fulfillment Store: Internal Server Error.', 'details' => $th], 500);
         }
     }
 
@@ -869,16 +622,20 @@ class FulfillmentController extends Controller
 
                 // Handle errors
                 if ($response['errors']) {
-                    return response()->json(['error' => 'Failed to update metafield.', 'details' => $response['errors']], 500);
+                    Log::error('Fulfillment update: Failed to update metafield.', ['metafield' => $metafield, 'response' => $response]);
+                    return response()->json(['error' => 'Fulfillment update: Failed to update metafield.', 'metafield' => $metafield, 'response' => $response], 500);
                 }
             }
 
-            return response()->json(['message' => 'Fulfillment and metafields updated successfully.', 'order' => $order], 200);
+            return response()->json(['message' => 'Fulfillment update: Fulfillment and metafields updated successfully.', 'order' => $order], 200);
 
         } catch (\Throwable $th) {
-            return response()->json(['error' => 'Internal Server Error.', 'details' => $th->getMessage()], 500);
+            Log::error('Fulfillment update: Internal Server Error.', ['details' => $th]);
+            return response()->json(['error' => 'Fulfillment update: Internal Server Error.', 'details' => $th], 500);
         }
     }
+
+    
 
     /**
      * Remove the specified resource from storage.
