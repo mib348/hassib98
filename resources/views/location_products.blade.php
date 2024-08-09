@@ -104,13 +104,13 @@
             // Add your logic for when the 'Orders' button is clicked
         });
 
-        // Create a button for 'Operation'
-        var operationdays = Button.create(app, { label: 'Operation Days' });
-        operationdays.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/operationdays');
-            // Add your logic for when the 'Operation' button is clicked
-        });
+        // // Create a button for 'Operation'
+        // var operationdays = Button.create(app, { label: 'Operation Days' });
+        // operationdays.subscribe(Button.Action.CLICK, function() {
+        //     var redirect = Redirect.create(app);
+        //     redirect.dispatch(Redirect.Action.APP, '/operationdays');
+        //     // Add your logic for when the 'Operation' button is clicked
+        // });
 
 
         // Create a button for 'Locations Revenue'
@@ -134,7 +134,7 @@
             title: 'Location Products',
             buttons: {
                 primary: ordersButton,
-                secondary: [operationdays, locations_revenue, locations_text]
+                secondary: [locations_revenue, locations_text]
             },
         });
     </script>

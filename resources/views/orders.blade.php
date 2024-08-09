@@ -93,13 +93,13 @@
         //     // Add your logic for when the 'Products' button is clicked
         // });
 
-        // Create a button for 'Operation'
-        var operationdays = Button.create(app, { label: 'Operation Days' });
-        operationdays.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/operationdays');
-            // Add your logic for when the 'Operation' button is clicked
-        });
+        // // Create a button for 'Operation'
+        // var operationdays = Button.create(app, { label: 'Operation Days' });
+        // operationdays.subscribe(Button.Action.CLICK, function() {
+        //     var redirect = Redirect.create(app);
+        //     redirect.dispatch(Redirect.Action.APP, '/operationdays');
+        //     // Add your logic for when the 'Operation' button is clicked
+        // });
 
         // Create a button for 'Location Products'
         var location_products = Button.create(app, { label: 'Location Products' });
@@ -131,8 +131,8 @@
         var titleBar = TitleBar.create(app, {
             title: 'Location Order Overview',
             buttons: {
-                primary: operationdays,
-                secondary: [location_products, locations_revenue, locations_text]
+                primary: location_products,
+                secondary: [locations_revenue, locations_text]
             },
         });
     </script>
