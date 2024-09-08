@@ -78,8 +78,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 element.style.display = 'none';
             });
     
-            // Clear session storage
+            // Clear session storage to avoid adding different dates against the products to the cart.
             sessionStorage.clear();
+            $.ajax({
+              type: "POST",
+              url: window.Shopify.routes.root + "cart/clear.js",
+              dataType: "json",
+              success: function (response) {
+               },
+              error: function (xhr, status, error) {
+                console.log("Cart clear error:", error);
+              },
+            });
     
             // Update the innerHTML of the button elements
             buttonElements.forEach(function(element) {
