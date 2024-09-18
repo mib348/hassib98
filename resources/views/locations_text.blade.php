@@ -50,11 +50,23 @@
                     <textarea id='note' name='note' rows='3' cols='5' class='form-control'></textarea>
                 </div>
                 <br>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" value="Y" id="location_toggle" name="location_toggle">
-                    <label class="form-check-label" for="location_toggle">
-                        Location Active
-                    </label>
+                <div class="row">
+                    <div class="col-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Y" id="location_toggle" name="location_toggle">
+                            <label class="form-check-label" for="location_toggle">
+                                Location Active
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="N" id="accept_only_preorders" name="accept_only_preorders">
+                            <label class="form-check-label" for="accept_only_preorders">
+                                Accept only PreOrders
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <br>
                 <button type="button" class="btn btn-primary" id="save_btn">Save</button>
@@ -182,11 +194,13 @@
                         $("#note").val(data.note);
                         $("#rows").html(data.html);
                         $("#location_toggle").prop('checked', data.location_toggle === 'Y');
+                        $("#accept_only_preorders").prop('checked', data.accept_only_preorders === 'Y');
                     }
                     else{
                         $("#note").val('');
                         $("#rows").html('');
                         $("#location_toggle").prop('checked', false);
+                        $("#accept_only_preorders").prop('checked', false);
                     }
             		// table.clear();
             		// table.rows.add($(data.html)).draw(true);

@@ -56,8 +56,10 @@ class LocationsTextController extends Controller
         $arrLocation = Locations::where('name', $locations_text)->first();
         $arrLocation->start_time = $request->input('start_time');
         $arrLocation->end_time = $request->input('end_time');
+        $arrLocation->sameday_preorder_end_time = $request->input('sameday_preorder_end_time');
         $arrLocation->note = $request->input('note');
         $arrLocation->is_active = $request->has('location_toggle') ? 'Y' : 'N';
+        $arrLocation->accept_only_preorders = $request->has('accept_only_preorders') ? 'Y' : 'N';
         return $arrLocation->save();
     }
 
@@ -74,17 +76,29 @@ class LocationsTextController extends Controller
         if ($arrLocation) {
             $startTime = substr($arrLocation['start_time'], 0, 5); // HH:MM
             $endTime = substr($arrLocation['end_time'], 0, 5); // HH:MM
+            $sameday_preorder_end_time = substr($arrLocation['sameday_preorder_end_time'], 0, 5); // HH:MM
 
             $html = "<tr>";
-            $html .= "<td>" . $arrLocation['name'] . "</td>";
-            $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime . "' /></td>";
-            $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime . "' /></td>";
+                $html .= "<td>" . $arrLocation['name'] . "</td>";
+                $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime . "' /></td>";
+                $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime . "' /></td>";
+            $html .= "</tr>";
+            $html .= '<tr>
+                            <th></th>
+                            <th></th>
+                            <th>Same Day PreOrder End Time</th>
+                        </tr>';
+            $html .= "<tr>";
+                $html .= "<td></td>";
+                $html .= "<td></td>";
+                $html .= "<td><input type='time' id='sameday_preorder_end_time' name='sameday_preorder_end_time' value='" . $sameday_preorder_end_time . "' /></td>";
             $html .= "</tr>";
 
             return response()->json([
                 'html' => $html,
                 'note' => $arrLocation['note'],
-                'location_toggle' => $arrLocation['is_active']
+                'location_toggle' => $arrLocation['is_active'],
+                'accept_only_preorders' => $arrLocation['accept_only_preorders']
             ]);
         } else {
             return response()->json([]);

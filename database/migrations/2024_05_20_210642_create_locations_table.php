@@ -16,8 +16,10 @@ return new class extends Migration
             $table->string('name')->index()->nullable();
             $table->time('start_time')->nullable();
             $table->time('end_time')->nullable();
+            $table->time('sameday_preorder_end_time')->nullable();
             $table->text('note')->nullable();
             $table->varchar('is_active', 1)->default('Y');
+            $table->varchar('accept_only_preorders', 1)->default('Y');
             $table->timestamp('created_at')->useCurrent()->nullable();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->nullable();
         });
