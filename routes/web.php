@@ -8,6 +8,7 @@ use App\Http\Controllers\LocationsTextController;
 use App\Http\Controllers\OperationDaysController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ShopifyController;
+use App\Http\Controllers\KitchenController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,10 @@ use Illuminate\Support\Facades\Route;
 //     $domain = $_SESSION['domain'] = $shop->getDomain()->toNative();
 //     return view('welcome');
 // })->middleware(['verify.shopify'])->name('home');
+
+// Route::domain('{subdomain}' . env('APP_URL'))->group(function () {
+    Route::resource('kitchen', KitchenController::class);
+// });
 
 
 Route::get('/migrate/{type?}', [ArtisanController::class, 'migrate']);
