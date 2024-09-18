@@ -91,23 +91,30 @@ document.addEventListener('DOMContentLoaded', function() {
             type: "GET",
             dataType: "json",
             success: function(data) {
-                // Handle location_toggle state
-                if (data.is_active === 'Y') {
-                    buttonTodayOrder.classList.add('show-button');
-                    buttonPreOrder.classList.add('show-button');
-                } else {
-                    buttonTodayOrder.classList.remove('show-button');
-                    buttonPreOrder.classList.remove('show-button');
-                }
+                // Save the same-day preorder end time
+                window.samedayPreorderEndTime = data.sameday_preorder_end_time;
+                window.accept_only_preorders = data.accept_only_preorders;
+              
                 if (data.note)
                     $("#note").html(data.note);
-                if (data.start_time && data.end_time && data.is_active === 'Y') {
-                    toggleButton(data.start_time, data.end_time);
-                    setInterval(() => toggleButton(data.start_time, data.end_time), 60000);
-                } else if (data.error) {
-                    console.error('Error fetching location time:', data.error);
-                }
+              
+                // Handle location_toggle state
+                if (data.is_active === 'Y') {
+                    //buttonTodayOrder.classList.add('show-button');
+                    buttonPreOrder.classList.add('show-button');
 
+                    if (data.start_time && data.end_time && data.is_active === 'Y' && data.accept_only_preorders === 'N') {
+                        toggleButton(data.start_time, data.end_time);
+                        setInterval(() => toggleButton(data.start_time, data.end_time), 60000);
+                    } else if (data.error) {
+                        console.error('Error fetching location time:', data.error);
+                    }
+                } 
+                else {
+                    buttonTodayOrder.classList.remove('show-button');
+                    buttonPreOrder.classList.remove('show-button');
+                }        
+                
             },
             error: function(request, status, error) {
                 console.error('Error fetching location time:', error);
@@ -174,7 +181,7 @@ window.onload = function() {
                     window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
                 },
                 error: function(request, status, error) {
-                    alert('Fehler beim Festlegen des ausgewählten Datums: heute, bitte versuchen Sie es erneut');
+                    alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
                     console.log('set selected date error: today', error);
                 }
             });
@@ -182,38 +189,74 @@ window.onload = function() {
 
         $(".preorderbtn").click(function(e){
             e.preventDefault();
-
+        
+            if (typeof window.samedayPreorderEndTime === 'undefined' || !window.samedayPreorderEndTime) {
+                console.log('Same-day preorder end time is not set. Please try again later.');
+                //return;
+            }
+        
+            // Get the current date and time in Germany
+            const now = new Date();
+            const options = {
+                timeZone: 'Europe/Berlin',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            };
+            const formatter = new Intl.DateTimeFormat('en-GB', options); // 'en-GB' for 24-hour format
+            const parts = formatter.formatToParts(now);
+        
+            let dateObj = {};
+            parts.forEach(({ type, value }) => {
+                dateObj[type] = value;
+            });
+        
+            const currentHours = parseInt(dateObj.hour, 10);
+            const currentMinutes = parseInt(dateObj.minute, 10);
+        
+            // Parse the same-day preorder end time
+            const [cutoffHours, cutoffMinutes] = window.samedayPreorderEndTime.split(':').map(Number);
+        
+            // Compare current time with cutoff time
+            const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+            const cutoffTimeInMinutes = cutoffHours * 60 + cutoffMinutes;
+        
+            let minDate = 0; // Default to today
+            if (currentTimeInMinutes >= cutoffTimeInMinutes && window.accept_only_preorders === "Y") {
+                minDate = 1; // Set minDate to tomorrow
+            }
+        
+            // Initialize the datepicker with the adjusted minDate
             $("#datepicker").datepicker({
-                minDate: 0,
+                minDate: minDate,
                 maxDate: '+6d',
                 dateFormat: "dd-mm-yy",
                 onSelect: function(dateText, inst) {
                     sessionStorage.setItem("date", dateText);
-
+        
                     var newUrl = $(".preorderbtn").attr("href");
-
+        
                     $.ajax({
-                        url:"https://app.sushi.catering/updateSelectedDate/" + dateText,
-                        type:"GET",
-                        data:{"uuid":localStorage.getItem("uuid")},
-                        cache:false,
-                        async:false,
-                        dataType:"json",
-                        success:function(data){
-                            console.log(data);
-                            // Redirect the user to the new URL or handle it as needed
+                        url: "https://app.sushi.catering/updateSelectedDate/" + dateText,
+                        type: "GET",
+                        data: { "uuid": localStorage.getItem("uuid") },
+                        cache: false,
+                        async: false,
+                        dataType: "json",
+                        success: function(data) {
                             window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
                         },
-                        error: function (request, status, error) {
-                            alert('set selected date error: preorder ');
-                            console.log('set selected date error: preorder ', error);
+                        error: function(request, status, error) {
+                            alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+                            console.log('Set selected date error:', error);
                         }
                     });
-
                 }
             }).datepicker('show');
             $('.ui-datepicker').addClass('notranslate');
         });
+        
+
 
      }
 }
