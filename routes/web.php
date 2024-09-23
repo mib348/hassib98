@@ -30,9 +30,9 @@ use Illuminate\Support\Facades\Route;
 //     return view('welcome');
 // })->middleware(['verify.shopify'])->name('home');
 
-// Route::domain('{subdomain}' . env('APP_URL'))->group(function () {
+Route::domain('{subdomain}.sushi.catering')->group(function () {
     Route::resource('kitchen', KitchenController::class);
-// });
+});
 
 
 Route::get('/migrate/{type?}', [ArtisanController::class, 'migrate']);
