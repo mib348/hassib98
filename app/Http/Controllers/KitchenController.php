@@ -24,6 +24,9 @@ class KitchenController extends Controller
         }
 
         // Generate dates for the next 7 days starting from today
+        $date = date("Y-m-d", strtotime("-2 day"));
+        $day_name = date('l', strtotime($date)); // Get the actual day name (e.g., Monday)
+        $dates[$date] = $day_name;
         for ($i = 0; $i < 7; $i++) {
             $date = date("Y-m-d", strtotime("+$i day"));
             $day_name = date('l', strtotime($date)); // Get the actual day name (e.g., Monday)
@@ -52,7 +55,8 @@ class KitchenController extends Controller
 
                     // Fetch orders for the given date and location
                     $arrOrders = Orders::where('date', $date)
-                        ->where('location', $location_name)
+                        ->where('location', operator: $location_name)
+                        ->whereNull(['cancel_reason', 'cancelled_at'])
                         ->orderBy('id', 'asc')
                         ->get();
 
