@@ -144,7 +144,7 @@
 
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
-            title: 'Location Time',
+            title: 'Location Settings',
             buttons: {
                 primary: ordersButton,
                 secondary: [location_products, locations_revenue]

@@ -131,7 +131,7 @@
         });
 
         // Create a button for 'Locations Text'
-        var locations_text = Button.create(app, { label: 'Location Time' });
+        var locations_text = Button.create(app, { label: 'Location Settings' });
         locations_text.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
             redirect.dispatch(Redirect.Action.APP, '/locations_text');
