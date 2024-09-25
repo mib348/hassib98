@@ -142,12 +142,20 @@
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
+        // Create a button for 'Kitchen'
+        var kitchen = Button.create(app, { label: 'Kitchen' });
+        kitchen.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/kitchen');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
             title: 'Location Settings',
             buttons: {
                 primary: ordersButton,
-                secondary: [location_products, locations_revenue]
+                secondary: [location_products, locations_revenue, kitchen]
             },
         });
     </script>
