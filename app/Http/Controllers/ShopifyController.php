@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\QRCodeMail;
 use App\Models\Locations;
 use App\Models\Metafields;
+use App\Models\PersonalNotepad;
 use App\Models\Products;
 use App\Models\User;
 use Choowx\RasterizeSvg\Svg;
@@ -44,10 +45,11 @@ class ShopifyController extends Controller
         // return view('products', ['html' => $html, 'locations' => $locations]);
 
         $locations = ShopifyController::getLocations();
+        $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_ORDER_OVERVIEW')->first();
         $orders = new OrdersController();
         $html = $orders->getOrdersList(request());
 
-        return view('orders', ['html' => $html, 'locations' => $locations]);
+        return view('orders', ['html' => $html, 'locations' => $locations, 'personal_notepad' => optional($personal_notepad)->note]);
     }
 
     public function getProducts(){
