@@ -15,7 +15,10 @@ class KitchenController extends Controller
     public function index()
     {
         $dates = [];
-        $arrLocations = Locations::orderBy('name', 'ASC')->get();
+        $arrLocations = Locations::where('is_active', 'Y')
+                                    ->where('accept_only_preorders', 'Y')
+                                    ->orderBy('name', 'ASC')
+                                    ->get();
 
         // Check if locations exist before proceeding
         if ($arrLocations->isEmpty()) {
