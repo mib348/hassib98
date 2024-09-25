@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Locations;
+use App\Models\PersonalNotepad;
 use Illuminate\Http\Request;
 
 class LocationsTextController extends Controller
@@ -13,7 +14,8 @@ class LocationsTextController extends Controller
     public function index()
     {
         $arrLocations = Locations::all();
-        return view('locations_text', ['arrLocations' => $arrLocations]);
+        $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_TEXT')->first();
+        return view('locations_text', ['arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
     }
 
     /**

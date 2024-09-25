@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Metafields;
 use App\Models\Orders;
+use App\Models\PersonalNotepad;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -18,11 +19,12 @@ class OrdersController extends Controller
     {
         // $shopifyControl = new ShopifyController();
         $locations = ShopifyController::getLocations();
+        $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_ORDER_OVERVIEW')->first();
         // $locations = json_decode($locations, true);
 
         $html = $this->getOrdersList(request());
 
-        return view('orders', ['html' => $html, 'locations' => $locations]);
+        return view('orders', ['html' => $html, 'locations' => $locations, 'personal_notepad' => optional($personal_notepad)->note]);
     }
 
     /**

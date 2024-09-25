@@ -9,6 +9,7 @@ use App\Http\Controllers\OperationDaysController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\KitchenController;
+use App\Http\Controllers\PersonalNotepadController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -30,9 +31,9 @@ use Illuminate\Support\Facades\Route;
 //     return view('welcome');
 // })->middleware(['verify.shopify'])->name('home');
 
-Route::domain('{subdomain}.sushi.catering')->group(function () {
+//Route::domain('{subdomain}.sushi.catering')->group(function () {
     Route::resource('kitchen', KitchenController::class);
-});
+//});
 
 
 Route::get('/migrate/{type?}', [ArtisanController::class, 'migrate']);
@@ -83,3 +84,6 @@ Route::resource('location_products', LocationProductsTableController::class);
 
 //get api limit information
 Route::get('/apiLimit', [ShopifyController::class, 'apiLimit']);
+
+//personal notepad
+Route::resource('personal_notepad', PersonalNotepadController::class);

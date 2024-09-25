@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LocationProductsTable;
 use App\Models\Locations;
+use App\Models\PersonalNotepad;
 use App\Models\Products;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -31,7 +32,8 @@ class LocationProductsTableController extends Controller
         $arrProducts = (array) $productsResponse['body']['products']['container'] ?? [];
 
         $arrLocations = Locations::all();
-        return view('location_products', ['arrProducts' => $arrProducts, 'arrLocations' => $arrLocations]);
+        $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_PRODUCTS')->first();
+        return view('location_products', ['arrProducts' => $arrProducts, 'arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LocationRevenue;
 use App\Models\Locations;
+use App\Models\PersonalNotepad;
 use Illuminate\Http\Request;
 
 class LocationRevenueController extends Controller
@@ -32,9 +33,10 @@ class LocationRevenueController extends Controller
         }
 
         $arrLocations = Locations::all();
+        $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_REVENUE')->first();
         $html = $this->getLocationsRevenueList(request());
 
-        return view('locations_revenue', ['html' => $html, 'years_months' => $yearsMonths, 'arrLocations' => $arrLocations]);
+        return view('locations_revenue', ['html' => $html, 'years_months' => $yearsMonths, 'arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
     }
 
     /**

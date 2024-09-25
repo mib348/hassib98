@@ -52,6 +52,18 @@
                     </tbody>
                 </table>
             </div>
+            <hr>
+            <form id="personal_notepad_form">
+                <input type="hidden" name="personal_notepad_key" value="LOCATION_ORDER_OVERVIEW">
+                <div class="row">
+                    <div class="col-12">
+                        <label class="label fw-bold font-bold" for="personal_notepad">Personal Notepad
+                            <button type="button" class="btn btn-info btn-sm mb-3" id="personal_notepad_save_btn">Save</button>
+                        </label>
+                        <textarea name="personal_notepad" id="personal_notepad" cols="5" rows="3" class="form-control">{{ $personal_notepad }}</textarea>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -191,6 +203,22 @@
                     html += '</ul>';
                     $("#orders_list").html(html); // display the sorted list
                     $("#orders_list_modal").modal('show');
+                });
+
+                $(document).on('click', '#personal_notepad_save_btn', function(e){
+                    $.ajax({
+                        url:"{{ route('personal_notepad.store') }}",
+                        type:"POST",
+                        data: "_token={{ csrf_token() }}&"+$("#personal_notepad_form").serialize(),
+                        cache:false,
+                        dataType:"json",
+                        success:function(data){
+                            alert('Personal Notepad Saved Successfully');
+                        },
+                        error: function (request, status, error) {
+                            alert('error saving Personal Notepad');
+                        }
+                    });
                 });
 
     		//LoadList();

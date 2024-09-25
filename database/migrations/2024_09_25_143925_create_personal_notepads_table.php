@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('kitchens', function (Blueprint $table) {
+        Schema::create('personal_notepad', function (Blueprint $table) {
             $table->id();
-            $table->timestamps();
+            $table->string('key');
+            $table->longText('note')->nullable();
+            $table->timestamp('created_at')->useCurrent()->nullable();
+            $table->timestamp('updated_at')->useCurrentOnUpdate()->nullable();
         });
     }
 
@@ -22,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('kitchens');
+        Schema::dropIfExists('personal_notepad');
     }
 };
