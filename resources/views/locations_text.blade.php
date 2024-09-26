@@ -67,6 +67,14 @@
                             </label>
                         </div>
                     </div>
+                    <div class="col-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="N" id="no_station" name="no_station">
+                            <label class="form-check-label" for="no_station">
+                                No Station
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <br>
                 <button type="button" class="btn btn-primary" id="save_btn">Save</button>
@@ -231,12 +239,14 @@
                         $("#rows").html(data.html);
                         $("#location_toggle").prop('checked', data.location_toggle === 'Y');
                         $("#accept_only_preorders").prop('checked', data.accept_only_preorders === 'Y');
+                        $("#no_station").prop('checked', data.no_station === 'Y');
                     }
                     else{
                         $("#note").val('');
                         $("#rows").html('');
                         $("#location_toggle").prop('checked', false);
                         $("#accept_only_preorders").prop('checked', false);
+                        $("#no_station").prop('checked', false);
                     }
             		// table.clear();
             		// table.rows.add($(data.html)).draw(true);

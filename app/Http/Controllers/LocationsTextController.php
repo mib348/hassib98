@@ -62,6 +62,7 @@ class LocationsTextController extends Controller
         $arrLocation->note = $request->input('note');
         $arrLocation->is_active = $request->has('location_toggle') ? 'Y' : 'N';
         $arrLocation->accept_only_preorders = $request->has('accept_only_preorders') ? 'Y' : 'N';
+        $arrLocation->no_station = $request->has('no_station') ? 'Y' : 'N';
         return $arrLocation->save();
     }
 
@@ -100,7 +101,8 @@ class LocationsTextController extends Controller
                 'html' => $html,
                 'note' => $arrLocation['note'],
                 'location_toggle' => $arrLocation['is_active'],
-                'accept_only_preorders' => $arrLocation['accept_only_preorders']
+                'accept_only_preorders' => $arrLocation['accept_only_preorders'],
+                'no_station' => $arrLocation['no_station']
             ]);
         } else {
             return response()->json([]);
