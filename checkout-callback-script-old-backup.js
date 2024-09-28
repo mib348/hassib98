@@ -29,31 +29,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = 'https://app.sushi.catering/api/getordernumber/' + Shopify.checkout.order_id;
             const response = await fetch(url);
             const data = await response.json();
-            const order_number = data.order_number.toString();
+            const order_number = data.toString();
             console.log(`The order number is: ${order_number}`);
-            const stationFlag = data.no_station;
-            console.log(`The no_station is: ${stationFlag}`);
 
-            if (stationFlag === 'Y') { 
-                displayStationInstructions(true); // No QR code, show alternate text 
-            }
-            else{
-                const mobileQuery = window.matchMedia("(max-width: 480px)");
-                const orderContent = getContent(mobileQuery);
-                Shopify.Checkout.OrderStatus.addContentBox(orderContent);
-    
-                new QRCode(document.getElementById("order-qr-code"), {
-                    text: order_number,
-                    width: mobileQuery.matches ? 350 : 180, // Adjust width based on screen size
-                    height: mobileQuery.matches ? 350 : 180, // Adjust height based on screen size
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
-                });
-    
-                toggleVisibility(true);
-            }
+            const mobileQuery = window.matchMedia("(max-width: 480px)");
+            const orderContent = getContent(mobileQuery);
+            Shopify.Checkout.OrderStatus.addContentBox(orderContent);
 
+            new QRCode(document.getElementById("order-qr-code"), {
+                text: order_number,
+                width: mobileQuery.matches ? 350 : 180, // Adjust width based on screen size
+                height: mobileQuery.matches ? 350 : 180, // Adjust height based on screen size
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            toggleVisibility(true);
         } catch (error) {
             console.error(error);
             toggleVisibility(false);
@@ -92,18 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         }
-    }
-
-    function displayStationInstructions(showQrCode) {
-        const contentBox = document.createElement('div');
-        contentBox.style.display = 'block';
-        contentBox.innerHTML = `
-            <p>
-                test test test
-            </p>
-        `;
-        Shopify.Checkout.OrderStatus.addContentBox(contentBox);
-        toggleVisibility(showQrCode);
     }
 
     function toggleVisibility(show) {
