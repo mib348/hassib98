@@ -687,6 +687,7 @@ class ShopifyController extends Controller
                 $shop = User::find(env('db_shop_id', 1));
             }
 
+
             // Log the order ID being processed
             // Log::info("Fetching order number for order id {$order_id}");
 
@@ -697,7 +698,9 @@ class ShopifyController extends Controller
             if (isset($updateResponse['body']['order']['order_number'])) {
                 // Log success and return the order number
                 // Log::info("Successfully fetched order number for order id {$order_id}");
-                return $updateResponse['body']['order']['order_number'];
+                $location = $updateResponse['body']['order']['line_items'][0]['properties'][1]['value'];
+                $arrLocation = Locations::where('name', $location)->first();
+                return ['order_number' => $updateResponse['body']['order']['order_number'], 'no_station' => $arrLocation->no_station];
             } else {
                 // Log an error if the order number is not found
                 Log::error("Order number not found in response for order id {$order_id}: " . json_encode($updateResponse));
