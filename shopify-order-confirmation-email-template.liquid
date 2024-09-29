@@ -1,8 +1,21 @@
+{% assign no_station = false %}
+{% for line in subtotal_line_items %}
+{%- for prop in line.properties -%}
+  {%- if prop.first == "no_station" -%}
+    {% assign no_station = prop.last %}
+  {%- endif -%}
+{%- endfor -%}
+{%- endfor -%}
+
 {% capture email_title %}
   {% if has_pending_payment %}
     Vielen Dank für deine Bestellung!
   {% else %}
-    Vielen Dank für deinen Einkauf!
+    Vielen Dank für deinen Einkauf!     
+      
+      {% if no_station == "Y"  %}
+      {% else %}
+          
     <br>
     <br>
 <style>
@@ -19,8 +32,12 @@
        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{order_name | remove: '#'}}" style="max-width:100%;height:auto;"/>
      </div>
 <p>Dein QR-Code wird nicht angezeigt? Dann klicke den Button "Bestellung ansehen" und dein QR-Code lädt nochmal im Browser.</p>
-  {% endif %}
+    {% endif %}
+
+{% endif %}
+    
 {% endcapture %}
+
 {% capture email_body %}
   {% if has_pending_payment %}
     {% if buyer_action_required %}
@@ -272,13 +289,13 @@
           {% endif %}
 
           {%- for prop in line.properties -%}
-              {%- if forloop.index == 1 -%}
-                {%- continue -%}
+              {%- if forloop.index == 1 or forloop.index == 5 -%}
+                  {%- continue -%}
               {%- endif -%}
-          <div>                     
-              <span>{{ prop.first }}: </span>
-              <span> {{ prop.last }}  </span>
-          <div>  
+              <div>
+                  <span>{{ prop.first }}: </span>
+                  <span>{{ prop.last }}</span>
+              <div>
           {%- endfor -%}
 
           {% for group in line.groups %}
