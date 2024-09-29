@@ -1,12 +1,12 @@
 {
   "sections": {
-    "pagefly-home": {
-      "type": "pagefly-home",
+    "pf-a80a78de": {
+      "type": "pf-a80a78de",
       "settings": {
       }
     }
   },
   "order": [
-    "pagefly-home"
+    "pf-a80a78de"
   ]
 }
