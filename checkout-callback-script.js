@@ -1,5 +1,6 @@
 <style>
 .product__description span:nth-child(3) { display: none !important; }
+.product__description span:nth-child(7) { display: none !important; }
 .content-box, .step__footer__continue-btn, #loadingMessage { display: none; }
 
 @media (max-width: 480px) {
