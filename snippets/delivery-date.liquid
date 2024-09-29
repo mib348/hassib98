@@ -94,6 +94,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Save the same-day preorder end time
                 window.samedayPreorderEndTime = data.sameday_preorder_end_time;
                 window.accept_only_preorders = data.accept_only_preorders;
+
+                sessionStorage.setItem("no_station", data.no_station);
               
                 if (data.note)
                     $("#note").html(data.note);
@@ -178,7 +180,7 @@ window.onload = function() {
                 async: false,
                 dataType: "json",
                 success: function(data) {
-                    window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
+                    window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid");
                 },
                 error: function(request, status, error) {
                     alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
@@ -244,7 +246,7 @@ window.onload = function() {
                         async: false,
                         dataType: "json",
                         success: function(data) {
-                            window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
+                            window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid");
                         },
                         error: function(request, status, error) {
                             alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
