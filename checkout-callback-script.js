@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
         contentBox.style.display = 'block';
         contentBox.innerHTML = `
             <p>
-                test test test
+                test test test. Lieferung bis zur Theke.
             </p>
         `;
         Shopify.Checkout.OrderStatus.addContentBox(contentBox);
