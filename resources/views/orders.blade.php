@@ -52,7 +52,9 @@
                     </tbody>
                 </table>
             </div>
-            <hr>
+            <br>
+            <p>test test</p>
+            {{-- <hr>
             <form id="personal_notepad_form">
                 <input type="hidden" name="personal_notepad_key" value="LOCATION_ORDER_OVERVIEW">
                 <div class="row">
@@ -63,7 +65,7 @@
                         <textarea name="personal_notepad" id="personal_notepad" cols="5" rows="3" class="form-control">{{ $personal_notepad }}</textarea>
                     </div>
                 </div>
-            </form>
+            </form> --}}
         </div>
     </div>
 </div>
