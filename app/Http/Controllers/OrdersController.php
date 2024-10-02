@@ -173,25 +173,34 @@ class OrdersController extends Controller
                     $arr_refunded[$order->order_id] = $order->number;
                     $refunded++;
                 }
-                if (isset($arrLineItems)) {
-                    foreach ($arrLineItems as $key => $arrLineItem) {
-                        $productId = $arrLineItem['product_id'];
-                        $title = $arrLineItem['title'];
 
-                        $arr_items[] = [
-                            'product_id' => $productId,
-                            'title' => $title
-                        ];
+                if (empty($order->cancel_reason) && empty($order->cancelled_at)) {
+                    if (isset($arrLineItems)) {
+                        foreach ($arrLineItems as $key => $arrLineItem) {
+                            $productId = $arrLineItem['product_id'];
+                            $title = $arrLineItem['title'];
+
+                            $arr_items[] = [
+                                'product_id' => $productId,
+                                'order_number' => $order->number,
+                                'quantity' => $arrLineItem['quantity'],
+                                'location' => $arrLineItem['properties'][1]['value'],
+                                'date' => $arrLineItem['properties'][2]['value'],
+                                'title' => $title
+                            ];
+                        }
+                        // $items += count($arrLineItems);
                     }
-                    $items += count($arrLineItems);
                 }
             }
 
             // Now count the total quantity for each unique product
             $item_quantities = [];
+            $order_html = "<ol>";
             foreach ($arr_items as $item) {
                 $productId = $item['product_id'];
                 $title = $item['title'];
+                $order_html .= "<li>" . json_encode($item) . "</li>";
 
                 if (!isset($item_quantities[$productId])) {
                     $item_quantities[$productId] = [
@@ -199,8 +208,10 @@ class OrdersController extends Controller
                         'quantity' => 0
                     ];
                 }
-                $item_quantities[$productId]['quantity']++;
+                $item_quantities[$productId]['quantity'] += $item['quantity'];
+                $items += $item['quantity'];
             }
+            $order_html .= "</ol>";
 
             // Build the final array with the desired format
             $final_items = [];
