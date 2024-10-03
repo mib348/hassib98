@@ -80,7 +80,13 @@
                 <button type="button" class="btn btn-primary" id="save_btn">Save</button>
             </form>
             <br>
-            <p>test test</p>
+            @php
+                $variables = include resource_path('views/includes/notepad.php');
+                extract($variables);
+            @endphp
+
+            <p>{!! nl2br(e($location_settings_text)) !!}</p>
+
             {{-- <hr>
             <form id="personal_notepad_form">
                 <input type="hidden" name="personal_notepad_key" value="LOCATION_TEXT">
