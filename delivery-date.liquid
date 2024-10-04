@@ -93,9 +93,12 @@ document.addEventListener('DOMContentLoaded', function() {
             success: function(data) {
                 // Save the same-day preorder end time
                 window.samedayPreorderEndTime = data.sameday_preorder_end_time;
+                window.additionalInventoryPreorderEndTime = data.additional_inventory_end_time;
+                window.b_additional_inventory = data.additional_inventory;
                 window.accept_only_preorders = data.accept_only_preorders;
 
                 sessionStorage.setItem("no_station", data.no_station);
+                sessionStorage.setItem("b_additional_inventory", data.additional_inventory);
               
                 if (data.note)
                     $("#note").html(data.note);
@@ -192,10 +195,15 @@ window.onload = function() {
         $(".preorderbtn").click(function(e){
             e.preventDefault();
         
-            if (typeof window.samedayPreorderEndTime === 'undefined' || !window.samedayPreorderEndTime) {
+            if (window.accept_only_preorders === "Y" && (typeof window.samedayPreorderEndTime === 'undefined' || !window.samedayPreorderEndTime)) {
                 console.log('Same-day preorder end time is not set. Please try again later.');
                 //return;
             }
+            if (window.b_additional_inventory == "Y" && (typeof window.additionalInventoryPreorderEndTime === 'undefined' || !window.additionalInventoryPreorderEndTime)) {
+                  console.log('Additional Inventory end time is not set. Please try again later.');
+                  //return;
+            }
+          
         
             // Get the current date and time in Germany
             const now = new Date();
@@ -217,16 +225,24 @@ window.onload = function() {
             const currentMinutes = parseInt(dateObj.minute, 10);
         
             // Parse the same-day preorder end time
-            const [cutoffHours, cutoffMinutes] = window.samedayPreorderEndTime.split(':').map(Number);
+            const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
+            const [cutoffHours_Additionalnventory, cutoffMinutes_Additionalnventory] = window.additionalInventoryPreorderEndTime.split(':').map(Number);
         
             // Compare current time with cutoff time
             const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-            const cutoffTimeInMinutes = cutoffHours * 60 + cutoffMinutes;
+            const cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
+            const cutoffTimeInMinutes_Additionalnventory = cutoffHours_Additionalnventory * 60 + cutoffMinutes_Additionalnventory;
         
             let minDate = 0; // Default to today
-            if (currentTimeInMinutes >= cutoffTimeInMinutes && window.accept_only_preorders === "Y") {
+            sessionStorage.setItem("additional_inventory_time", "N");
+            if (currentTimeInMinutes >= cutoffTimeInMinutes_Additionalnventory && window.b_additional_inventory === "Y") {
+                minDate = 1; // Set minDate to tomorrow
+                sessionStorage.setItem("additional_inventory_time", "Y");
+            }
+            else if (currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime && window.accept_only_preorders === "Y" && window.b_additional_inventory != "Y") {
                 minDate = 1; // Set minDate to tomorrow
             }
+
         
             // Initialize the datepicker with the adjusted minDate
             $("#datepicker").datepicker({
@@ -246,7 +262,10 @@ window.onload = function() {
                         async: false,
                         dataType: "json",
                         success: function(data) {
-                            window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid");
+                            if(sessionStorage.getItem("additional_inventory_time") == "Y")
+                              window.location.href = newUrl + "?location=Additional Inventory&no_station=" + sessionStorage.getItem("no_station") + "&b_additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
+                            else
+                              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&no_station=" + sessionStorage.getItem("no_station") + "&b_additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
                         },
                         error: function(request, status, error) {
                             alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
