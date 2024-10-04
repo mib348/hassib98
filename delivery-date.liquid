@@ -262,10 +262,7 @@ window.onload = function() {
                         async: false,
                         dataType: "json",
                         success: function(data) {
-                            if(sessionStorage.getItem("additional_inventory_time") == "Y")
-                              window.location.href = newUrl + "?location=Additional Inventory&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
-                            else
-                              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&no_station=" + sessionStorage.getItem("no_station") + "&b_additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
+                              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
                         },
                         error: function(request, status, error) {
                             alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
