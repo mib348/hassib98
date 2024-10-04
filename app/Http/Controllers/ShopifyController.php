@@ -764,8 +764,13 @@ class ShopifyController extends Controller
 					// Split the value into date and quantity
 					$parts = explode(':', $value);
 
-					// Check if the date part matches today's date
-					if ($parts[0] == $product['properties']['location'] && $parts[1] === $product['properties']['date']) {
+					// Check if the date part matches today's date for additional inventory order
+                    if($product['properties']['additional_inventory'] == "Y" && $parts[0] == "Additional Inventory" && $parts[1] === $product['properties']['date']) {
+                        // If the date matches, set the matching quantity
+						$matchingQty = $parts[2];
+						break; // Break out of the loop since we found the matching quantity
+                    }
+					else if ($parts[0] == $product['properties']['location'] && $parts[1] === $product['properties']['date']) {
 						// If the date matches, set the matching quantity
 						$matchingQty = $parts[2];
 						break; // Break out of the loop since we found the matching quantity
