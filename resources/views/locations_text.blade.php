@@ -3,6 +3,7 @@
 @section('styles')
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/css/bootstrap-timepicker.min.css" rel="stylesheet">
 <style>
+    #save_btn {display: none;}
 </style>
 @endsection
 
@@ -72,6 +73,14 @@
                             <input class="form-check-input" type="checkbox" value="N" id="no_station" name="no_station">
                             <label class="form-check-label" for="no_station">
                                 No Station
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="N" id="additional_inventory" name="additional_inventory">
+                            <label class="form-check-label" for="additional_inventory">
+                                Additional Inventory
                             </label>
                         </div>
                     </div>
@@ -187,6 +196,13 @@
     	    //   });
 
               $(document).on('change', '#strFilterLocation', function(e){
+                if($(this).val() == ""){
+                    $("#save_btn").hide();
+                }
+                else{
+                    $("#save_btn").show();
+                }
+
                 LoadList();
               });
 
@@ -248,6 +264,7 @@
                         $("#location_toggle").prop('checked', data.location_toggle === 'Y');
                         $("#accept_only_preorders").prop('checked', data.accept_only_preorders === 'Y');
                         $("#no_station").prop('checked', data.no_station === 'Y');
+                        $("#additional_inventory").prop('checked', data.additional_inventory === 'Y');
                     }
                     else{
                         $("#note").val('');
@@ -255,6 +272,7 @@
                         $("#location_toggle").prop('checked', false);
                         $("#accept_only_preorders").prop('checked', false);
                         $("#no_station").prop('checked', false);
+                        $("#additional_inventory").prop('checked', false);
                     }
             		// table.clear();
             		// table.rows.add($(data.html)).draw(true);

@@ -17,10 +17,12 @@ return new class extends Migration
             $table->time('start_time')->nullable();
             $table->time('end_time')->nullable();
             $table->time('sameday_preorder_end_time')->nullable();
+            $table->time('additional_inventory_end_time')->nullable();
             $table->text('note')->nullable();
             $table->varchar('is_active', 1)->default('Y');
             $table->varchar('accept_only_preorders', 1)->default('N');
             $table->varchar('no_station', 1)->default('N');
+            $table->varchar('additional_inventory', 1)->default('N');
             $table->timestamp('created_at')->useCurrent()->nullable();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->nullable();
         });
