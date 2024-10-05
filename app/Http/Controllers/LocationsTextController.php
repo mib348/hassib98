@@ -59,7 +59,8 @@ class LocationsTextController extends Controller
         $arrLocation->start_time = $request->input('start_time');
         $arrLocation->end_time = $request->input('end_time');
         $arrLocation->sameday_preorder_end_time = $request->input('sameday_preorder_end_time');
-        $arrLocation->additional_inventory_end_time = $request->input('additional_inventory_end_time');
+        $arrLocation->first_additional_inventory_end_time = $request->input('first_additional_inventory_end_time');
+        $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
         $arrLocation->note = $request->input('note');
         $arrLocation->is_active = $request->has('location_toggle') ? 'Y' : 'N';
         $arrLocation->accept_only_preorders = $request->has('accept_only_preorders') ? 'Y' : 'N';
