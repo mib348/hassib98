@@ -17,7 +17,8 @@ return new class extends Migration
             $table->time('start_time')->nullable();
             $table->time('end_time')->nullable();
             $table->time('sameday_preorder_end_time')->nullable();
-            $table->time('additional_inventory_end_time')->nullable();
+            $table->time('first_additional_inventory_end_time')->nullable();
+            $table->time('second_additional_inventory_end_time')->nullable();
             $table->text('note')->nullable();
             $table->varchar('is_active', 1)->default('Y');
             $table->varchar('accept_only_preorders', 1)->default('N');

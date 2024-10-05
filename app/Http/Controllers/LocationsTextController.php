@@ -102,12 +102,22 @@ class LocationsTextController extends Controller
             $html .= '<tr>
                             <th></th>
                             <th></th>
-                            <th>Additional Inventory End Time</th>
+                            <th>First Additional Inventory End Time</th>
                         </tr>';
             $html .= "<tr>";
                 $html .= "<td></td>";
                 $html .= "<td></td>";
-                $html .= "<td><input type='time' id='additional_inventory_end_time' name='additional_inventory_end_time' value='" . $additional_inventory_end_time . "' /></td>";
+                $html .= "<td><input type='time' id='first_additional_inventory_end_time' name='first_additional_inventory_end_time' value='" . $additional_inventory_end_time . "' /></td>";
+            $html .= "</tr>";
+            $html .= '<tr>
+                            <th></th>
+                            <th></th>
+                            <th>Second Additional Inventory End Time</th>
+                        </tr>';
+            $html .= "<tr>";
+                $html .= "<td></td>";
+                $html .= "<td></td>";
+                $html .= "<td><input type='time' id='second_additional_inventory_end_time' name='second_additional_inventory_end_time' value='" . $additional_inventory_end_time . "' /></td>";
             $html .= "</tr>";
 
             return response()->json([
