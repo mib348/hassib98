@@ -93,7 +93,8 @@ document.addEventListener('DOMContentLoaded', function() {
             success: function(data) {
                 // Save the same-day preorder end time
                 window.samedayPreorderEndTime = data.sameday_preorder_end_time;
-                window.additionalInventoryPreorderEndTime = data.additional_inventory_end_time;
+                window.firstAdditionalInventoryPreorderEndTime = data.first_additional_inventory_end_time;
+                window.additionalInventoryPreorderEndTime = data.second_additional_inventory_end_time;
                 window.b_additional_inventory = data.additional_inventory;
                 window.accept_only_preorders = data.accept_only_preorders;
 
