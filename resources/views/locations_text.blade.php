@@ -86,6 +86,18 @@
                     </div>
                 </div>
                 <br>
+                <div class="row">
+                    <div class="col-12">
+                        <label class="label fw-bold font-bold" for="location_order">Order</label>
+                        <select name="location_order" id="location_order" class="form-control">
+                            <option value="">--- Select ---</option>
+                            @foreach($arrLocations as $location)
+                            <option value="{{ ($loop->index + 1) }}">{{ ($loop->index + 1) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <br>
                 <button type="button" class="btn btn-primary" id="save_btn">Save</button>
             </form>
             <br>
@@ -260,6 +272,7 @@
             	success:function(data){
                     if(data || data.length){
                         $("#note").val(data.note);
+                        $("#location_order").val(data.location_order);
                         $("#rows").html(data.html);
                         $("#location_toggle").prop('checked', data.location_toggle === 'Y');
                         $("#accept_only_preorders").prop('checked', data.accept_only_preorders === 'Y');
@@ -268,6 +281,7 @@
                     }
                     else{
                         $("#note").val('');
+                        $("#location_order").val('');
                         $("#rows").html('');
                         $("#location_toggle").prop('checked', false);
                         $("#accept_only_preorders").prop('checked', false);

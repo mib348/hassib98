@@ -66,6 +66,7 @@ class LocationsTextController extends Controller
         $arrLocation->accept_only_preorders = $request->has('accept_only_preorders') ? 'Y' : 'N';
         $arrLocation->no_station = $request->has('no_station') ? 'Y' : 'N';
         $arrLocation->additional_inventory = $request->has('additional_inventory') ? 'Y' : 'N';
+        $arrLocation->location_order = $request->input('location_order');
         return $arrLocation->save();
     }
 
@@ -127,7 +128,8 @@ class LocationsTextController extends Controller
                 'location_toggle' => $arrLocation['is_active'],
                 'accept_only_preorders' => $arrLocation['accept_only_preorders'],
                 'no_station' => $arrLocation['no_station'],
-                'additional_inventory' => $arrLocation['additional_inventory']
+                'additional_inventory' => $arrLocation['additional_inventory'],
+                'location_order' => $arrLocation['location_order']
             ]);
         } else {
             return response()->json([]);
