@@ -92,7 +92,7 @@ product
             {% assign found = true %}
             {% comment %} {% assign productToShow = true %}  {% endcomment %}
           {% else %}
-            {% if additional_inventory == "N" and dateValue == date and location == dateAndQtyValue[0] %}
+            {% if dateValue == date and location == dateAndQtyValue[0] %}
               {% assign qtyValue = dateAndQtyValue[2] %}
               {% assign found = true %}
               {% comment %} {% assign productToShow = true %}  {% endcomment %}
