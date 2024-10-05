@@ -70,11 +70,19 @@ product
 
 
 {% assign defaultProduct = product %}
+{% assign additional_inventory_ready = "N" %}
+
+{% if additional_inventory == "Y" and additional_inventory_time == "Y" %}
+  {% assign comparedLocation = "Additional Inventory" %}
+  {% assign additional_inventory_ready = "Y" %}
+{% else %}
+  {% assign comparedLocation = location %}
+{% endif %}
+
 {% paginate collections.all.products by 50 %}
     {% for product in collections.all.products %}
       {% assign productToShow = false %}
       {% assign found = false %}
-      {% assign additional_inventory_ready = "N" %}
 
 
 
@@ -86,18 +94,13 @@ product
           {% assign dateAndQtyVal = dateAndQtyVal | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
           {% assign dateAndQtyValue = dateAndQtyVal | split: ':' %}
           {% assign dateValue = dateAndQtyValue[1] %}
-          {% if additional_inventory == "Y" and additional_inventory_time == "Y" and dateValue == date and dateAndQtyValue[0] == "Additional Inventory" %}
-            {% assign additional_inventory_ready = "Y" %}
+
+          {% if dateValue == date and comparedLocation == dateAndQtyValue[0] %}
             {% assign qtyValue = dateAndQtyValue[2] %}
             {% assign found = true %}
             {% comment %} {% assign productToShow = true %}  {% endcomment %}
-          {% else %}
-            {% if dateValue == date and location == dateAndQtyValue[0] %}
-              {% assign qtyValue = dateAndQtyValue[2] %}
-              {% assign found = true %}
-              {% comment %} {% assign productToShow = true %}  {% endcomment %}
-            {% endif %}
           {% endif %}
+          
         {% endfor %}
 
         {% assign dayList = product.metafields.custom.available_on %}
