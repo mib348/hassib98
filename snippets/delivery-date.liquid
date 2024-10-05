@@ -222,25 +222,30 @@ window.onload = function() {
                 dateObj[type] = value;
             });
         
-            const currentHours = parseInt(dateObj.hour, 10);
-            const currentMinutes = parseInt(dateObj.minute, 10);
-        
-            // Parse the same-day preorder end time
-            const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
-            const [cutoffHours_Additionalnventory, cutoffMinutes_Additionalnventory] = window.additionalInventoryPreorderEndTime.split(':').map(Number);
-        
-            // Compare current time with cutoff time
-            const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-            const cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
-            const cutoffTimeInMinutes_Additionalnventory = cutoffHours_Additionalnventory * 60 + cutoffMinutes_Additionalnventory;
-        
             let minDate = 0; // Default to today
             sessionStorage.setItem("additional_inventory_time", "N");
-            if (currentTimeInMinutes >= cutoffTimeInMinutes_Additionalnventory && window.b_additional_inventory === "Y") {
+          
+            const currentHours = parseInt(dateObj.hour, 10);
+            const currentMinutes = parseInt(dateObj.minute, 10);
+            const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+        
+            // Parse the same-day preorder end time
+            if(window.samedayPreorderEndTime){
+              const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
+              window.cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
+            }
+          
+            // Compare current time with cutoff time
+            if(window.additionalInventoryPreorderEndTime){
+              const [cutoffHours_Additionalnventory, cutoffMinutes_Additionalnventory] = window.additionalInventoryPreorderEndTime.split(':').map(Number);
+              window.cutoffTimeInMinutes_Additionalnventory = cutoffHours_Additionalnventory * 60 + cutoffMinutes_Additionalnventory;
+            }
+          
+            if (window.additionalInventoryPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_Additionalnventory && window.b_additional_inventory === "Y") {
                 minDate = 1; // Set minDate to tomorrow
                 sessionStorage.setItem("additional_inventory_time", "Y");
             }
-            else if (currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime && window.accept_only_preorders === "Y" && window.b_additional_inventory != "Y") {
+            else if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime && window.accept_only_preorders === "Y") {
                 minDate = 1; // Set minDate to tomorrow
             }
 
