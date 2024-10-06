@@ -242,14 +242,12 @@ window.onload = function() {
             }
           
             if (window.additionalInventoryPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_Additionalnventory && window.b_additional_inventory === "Y") {
-                minDate = 1; // Set minDate to tomorrow
-                sessionStorage.setItem("additional_inventory_time", "Y");
+                minDate = 1; // Set minDate to tomorrow                
             }
-            else if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime && window.accept_only_preorders === "Y") {
+            else if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime && window.accept_only_preorders === "Y" && window.b_additional_inventory === "N") {
                 minDate = 1; // Set minDate to tomorrow
             }
 
-        
             // Initialize the datepicker with the adjusted minDate
             $("#datepicker").datepicker({
                 minDate: minDate,
@@ -257,6 +255,21 @@ window.onload = function() {
                 dateFormat: "dd-mm-yy",
                 onSelect: function(dateText, inst) {
                     sessionStorage.setItem("date", dateText);
+                
+                    // Get today's date and format it as 'yyyy-mm-dd'
+                    var today = new Date();
+
+                    var todayDateStr = ('0' + today.getDate()).slice(-2) + '-' +
+                                         ('0' + (today.getMonth() + 1)).slice(-2) + '-' +
+                                         today.getFullYear();
+                
+                    if (
+                      currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime &&
+                      window.b_additional_inventory === "Y" &&
+                      dateText === todayDateStr
+                    ) {
+                      sessionStorage.setItem("additional_inventory_time", "Y");
+                    }
         
                     var newUrl = $(".preorderbtn").attr("href");
         
