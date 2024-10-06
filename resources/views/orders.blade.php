@@ -25,6 +25,9 @@
             <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                 <option value="" selected>--- Select Location ---</option>
                 @foreach($locations as $location)
+                @if($location == "Additional Inventory")
+                    @continue;
+                @endif
                 <option value="{{ $location }}">{{ $location }}</option>
                 @endforeach
             </select>
