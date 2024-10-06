@@ -28,7 +28,7 @@ class ImportDriversOrders extends Command
             $api = $shop->api(); // Get the API instance for the shop.
 
             $now = Carbon::now();
-            $twoMinutesAgo = $now->copy()->subMinutes(2);
+            $twoMinutesAgo = $now->copy()->subMinutes(5);
 
             $createdAtMin = $twoMinutesAgo->toIso8601String();
             $createdAtMax = $now->toIso8601String();
