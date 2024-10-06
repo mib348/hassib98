@@ -13,7 +13,7 @@ class LocationsTextController extends Controller
      */
     public function index()
     {
-        $arrLocations = Locations::all();
+        $arrLocations = Locations::whereNot('name', 'Additional Inventory')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_TEXT')->first();
         return view('locations_text', ['arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
     }
@@ -84,7 +84,8 @@ class LocationsTextController extends Controller
             $startTime = substr($arrLocation['start_time'], 0, 5); // HH:MM
             $endTime = substr($arrLocation['end_time'], 0, 5); // HH:MM
             $sameday_preorder_end_time = substr($arrLocation['sameday_preorder_end_time'], 0, 5); // HH:MM
-            $additional_inventory_end_time = substr($arrLocation['additional_inventory_end_time'], 0, 5); // HH:MM
+            $first_additional_inventory_end_time = substr($arrLocation['first_additional_inventory_end_time'], 0, 5); // HH:MM
+            $second_additional_inventory_end_time = substr($arrLocation['second_additional_inventory_end_time'], 0, 5); // HH:MM
 
             $html = "<tr>";
                 $html .= "<td>" . $arrLocation['name'] . "</td>";
@@ -109,7 +110,7 @@ class LocationsTextController extends Controller
             $html .= "<tr>";
                 $html .= "<td></td>";
                 $html .= "<td></td>";
-                $html .= "<td><input type='time' id='first_additional_inventory_end_time' name='first_additional_inventory_end_time' value='" . $additional_inventory_end_time . "' /></td>";
+                $html .= "<td><input type='time' id='first_additional_inventory_end_time' name='first_additional_inventory_end_time' value='" . $first_additional_inventory_end_time . "' /></td>";
             $html .= "</tr>";
             $html .= '<tr>
                             <th></th>
@@ -119,7 +120,7 @@ class LocationsTextController extends Controller
             $html .= "<tr>";
                 $html .= "<td></td>";
                 $html .= "<td></td>";
-                $html .= "<td><input type='time' id='second_additional_inventory_end_time' name='second_additional_inventory_end_time' value='" . $additional_inventory_end_time . "' /></td>";
+                $html .= "<td><input type='time' id='second_additional_inventory_end_time' name='second_additional_inventory_end_time' value='" . $second_additional_inventory_end_time . "' /></td>";
             $html .= "</tr>";
 
             return response()->json([
