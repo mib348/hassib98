@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (strLocation !== "") {
         $.ajax({
-            url: `https://app.sushi.catering/getLocations/${strLocation}`,
+            url: `https://dev.sushi.catering/getLocations/${strLocation}`,
             type: "GET",
             dataType: "json",
             success: function(data) {
@@ -177,7 +177,7 @@ window.onload = function() {
             sessionStorage.setItem("date", today);
         
             $.ajax({
-                url: "https://app.sushi.catering/updateSelectedDate/" + today,
+                url: "https://dev.sushi.catering/updateSelectedDate/" + today,
                 type: "GET",
                 data: {"uuid": localStorage.getItem("uuid")},
                 cache: false,
@@ -274,7 +274,7 @@ window.onload = function() {
                     var newUrl = $(".preorderbtn").attr("href");
         
                     $.ajax({
-                        url: "https://app.sushi.catering/updateSelectedDate/" + dateText,
+                        url: "https://dev.sushi.catering/updateSelectedDate/" + dateText,
                         type: "GET",
                         data: { "uuid": localStorage.getItem("uuid") },
                         cache: false,

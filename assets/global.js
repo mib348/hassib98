@@ -167,7 +167,7 @@ if (window.location.pathname === "/pages/bestellen") {
     window.location.replace("/pages/datum");
   } else {
     $.ajax({
-          url:"https://app.sushi.catering/updateSelectedDate/" + sessionStorage.getItem("date"),
+          url:"https://dev.sushi.catering/updateSelectedDate/" + sessionStorage.getItem("date"),
           type:"GET",
           data:{"uuid":localStorage.getItem("uuid")},
           cache:false,
@@ -407,7 +407,7 @@ else {
                   //check product available quantity
                   $.ajax({
                         type: "POST",
-                        url: "https://app.sushi.catering/api/checkCartProductsQty",
+                        url: "https://dev.sushi.catering/api/checkCartProductsQty",
                         async: false,
                         cache: false,
                         data: {
