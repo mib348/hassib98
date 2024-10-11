@@ -9,15 +9,12 @@
  */
 {
   "sections": {
-    "main": {
-      "type": "main-page",
-      "settings": {
-        "padding_top": 28,
-        "padding_bottom": 28
-      }
+    "pf-1d3bb84b": {
+      "type": "pf-1d3bb84b",
+      "settings": {}
     }
   },
   "order": [
-    "main"
+    "pf-1d3bb84b"
   ]
 }
