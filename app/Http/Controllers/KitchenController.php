@@ -16,8 +16,7 @@ class KitchenController extends Controller
     {
         $dates = [];
         $arrLocations = Locations::where('is_active', operator: 'Y')
-                                    ->where('accept_only_preorders', 'Y')
-                                    ->where('immediate_inventory', 'N')
+                                    ->whereNot('name', operator: 'Additional Inventory')
                                     ->orderBy('name', 'ASC')
                                     ->get();
 
@@ -66,6 +65,13 @@ class KitchenController extends Controller
                         foreach ($arrOrders as $arrOrder) {
                             if ($arrOrder && !empty($arrOrder->line_items)) {
                                 $arrLineItems = json_decode($arrOrder->line_items, true);
+
+                                //do not show immediate orders
+                                if(isset($arrLineItems[0]['properties'][6])){
+									if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
+										continue;
+									}
+								}
 
                                 foreach ($arrLineItems as $arrLineItem) {
                                     $product_name = $arrLineItem['name'];
