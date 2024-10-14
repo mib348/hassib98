@@ -33,7 +33,8 @@ class UpdateProductMetafields extends Command
             // $products[] = $api->rest('GET', '/admin/products/8758872310108.json')['body']['product'];
 
             foreach ($products as $product) {
-                $this->updateProductMetafield($api, $product);
+                $this->updateProductMetafield($api, 'immediate', $product);
+                $this->updateProductMetafield($api, 'preorder', $product);
             }
         } catch (\Throwable $th) {
             Log::error("Error running job for updating metafield: " . json_encode($th));
@@ -42,14 +43,16 @@ class UpdateProductMetafields extends Command
         }
     }
 
-    protected function updateProductMetafield($api, $product)
+    protected function updateProductMetafield($api, $inventoryType, $product)
     {
+        $metafieldKey = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
+
         // API call to get metafields for a specific product
         $response = $api->rest('GET', "/admin/products/{$product['id']}/metafields.json");
         $metafields = $response['body']['metafields'] ?? [];
 
         // Find the `date_and_quantity` metafield
-        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', 'json');
+        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', $metafieldKey);
         $values = $dateAndQuantityMetafield ? json_decode($dateAndQuantityMetafield['value'], true) : [];
 
         $available_on_metafield = collect($metafields)->firstWhere('key', 'available_on');
@@ -107,7 +110,7 @@ class UpdateProductMetafields extends Command
                         }
                     }
 
-                    $defaultQuantity = $this->getProductDefaultQuantity($product['id'], $location, $newDate);
+                    $defaultQuantity = $this->getProductDefaultQuantity($product['id'], $location, $newDate, $inventoryType);
                     // if($product['id'] == 8742073860444)
                     // dd($product['id'], $defaultQuantity, $quantity, $updatedValues);
 
@@ -157,7 +160,7 @@ class UpdateProductMetafields extends Command
                     'id' => $metafieldId,
                     'value' => $newValue,
                     'namespace' => 'custom',
-                    'key' => 'json',
+                    'key' => $metafieldKey,
                     'type' => 'json', // Ensure this matches the actual type expected by Shopify
                 ],
             ]);
@@ -174,7 +177,7 @@ class UpdateProductMetafields extends Command
             $updateResponse = $api->rest('POST', "/admin/products/{$product['id']}/metafields.json", [
                 'metafield' => [
                     'namespace' => 'custom',
-                    'key' => 'json',
+                    'key' => $metafieldKey,
                     'value' => $newValue,
                     'type' => 'json', // Ensure this matches the actual type expected by Shopify
                 ],
@@ -220,11 +223,12 @@ class UpdateProductMetafields extends Command
         }
     }
 
-    public function getProductDefaultQuantity($nProductId, $strLocation, $date) {
+    public function getProductDefaultQuantity($nProductId, $strLocation, $date, $inventoryType) {
         $day = date("l", strtotime($date));
         $arrProduct = LocationProductsTable::where('product_id', $nProductId)
                         ->where('location', $strLocation)
                         ->where('day', $day)
+                        ->where('inventory_type', $inventoryType)
                         ->first();
 
         if (isset($arrProduct['quantity'])) {
