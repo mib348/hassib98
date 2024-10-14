@@ -84,6 +84,14 @@
                             </label>
                         </div>
                     </div>
+                    <div class="col-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="N" id="immediate_inventory" name="immediate_inventory">
+                            <label class="form-check-label" for="immediate_inventory">
+                                Immediate Inventory
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <br>
                 <div class="row">
@@ -278,6 +286,7 @@
                         $("#accept_only_preorders").prop('checked', data.accept_only_preorders === 'Y');
                         $("#no_station").prop('checked', data.no_station === 'Y');
                         $("#additional_inventory").prop('checked', data.additional_inventory === 'Y');
+                        $("#immediate_inventory").prop('checked', data.immediate_inventory === 'Y');
                     }
                     else{
                         $("#note").val('');
@@ -287,6 +296,7 @@
                         $("#accept_only_preorders").prop('checked', false);
                         $("#no_station").prop('checked', false);
                         $("#additional_inventory").prop('checked', false);
+                        $("#immediate_inventory").prop('checked', false);
                     }
             		// table.clear();
             		// table.rows.add($(data.html)).draw(true);

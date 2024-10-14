@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('location')->index()->nullable();
             $table->string('day')->index()->nullable();
             $table->integer('quantity')->nullable();
+            $table->enum('inventory_type', ['immediate', 'preorder'])->default('immediate');
             $table->timestamp('created_at')->useCurrent()->nullable();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->nullable();
         });

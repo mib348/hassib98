@@ -17,80 +17,49 @@
 <div class="container-fluid p-2">
     <div class="row">
         <div class="col-md-12">
-            <form id="location_products_form">
+            <!-- Location Dropdown -->
+            <div class="form-group">
+                <h5 for="strFilterLocation">Location</h5>
+                <select id="strFilterLocation" name="strFilterLocation" class="form-select">
+                    <option value="" selected>--- Select Location ---</option>
+                    @foreach($arrLocations as $location)
+                    <option value="{{ $location->name }}">{{ $location->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <br>
+            <!-- Preorders Table -->
+            <h5>PreOrder Inventory</h5>
+            <form id="location_products_form_preorder">
+                <input type="hidden" name="inventory_type" value="preorder">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
-                        <thead>
-                            <tr>
-                                <th>
-                                    Location
-                                    <select id="strFilterLocation" name="strFilterLocation" class="form-select">
-                                        <option value="" selected>--- Select Location ---</option>
-                                        @foreach($arrLocations as $location)
-                                        <option value="{{ $location->name }}">{{ $location->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </th>
-                                <th colspan="2">Product 1</th>
-                                <th colspan="2">Product 2</th>
-                                <th colspan="2">Product 3</th>
-                                <th colspan="2">Product 4</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table">
-                            @foreach(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day)
-                            <tr class="{{ $day }}">
-                                <td>
-                                    {{ $day }}
-                                    <input type="hidden" name="day[]" class="day" value="{{ $day }}" />
-                                    <button type="button" class="btn btn-primary btn-sm save-day float-right" data-day="{{ $day }}">
-                                        Save
-                                        <div class="spinner-border  spinner-border-sm text-danger loading-icon" role="status" data-day="{{ $day }}">
-                                        </div>
-                                    </button>
-                                </td>
-                                @for ($i = 1; $i <= 4; $i++)
-                                <td>
-                                    <select name="nProductId[{{ $day }}][]" class="form-select nProductId" data-product="">
-                                        <option value="" selected>--- Select Product ---</option>
-                                        @foreach($arrProducts as $arrProduct)
-                                        <option value="{{ $arrProduct['id'] }}">{{ $arrProduct['title'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="nQuantity[{{ $day }}][]" class="form-select nQuantity" data-quantity="">
-                                        @for ($j = 0; $j <= 8; $j++)
-                                        <option value="{{ $j }}" {{ $j == 8 ? 'selected' : '' }}>{{ $j }}</option>
-                                        @endfor
-                                    </select>
-                                </td>
-                                @endfor
-                            </tr>
-                            @endforeach
-                        </tbody>
+                    <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full" data-inventory-type="preorder">
+                        @include('partials.location_products_table', ['inventoryType' => 'preorder', 'arrProducts' => $arrProducts])
                     </table>
                 </div>
-                </form>
-                <br>
-                @php
-                    $variables = include resource_path('views/includes/notepad.php');
-                    extract($variables);
-                @endphp
+            </form>
 
-                <p>{!! nl2br(e($location_products_text)) !!}</p>
-                {{-- <hr>
-                <form id="personal_notepad_form">
-                    <input type="hidden" name="personal_notepad_key" value="LOCATION_PRODUCTS">
-                    <div class="row">
-                        <div class="col-12">
-                            <label class="label fw-bold font-bold" for="personal_notepad">Personal Notepad
-                                <button type="button" class="btn btn-info btn-sm mb-3" id="personal_notepad_save_btn">Save</button>
-                            </label>
-                            <textarea name="personal_notepad" id="personal_notepad" cols="5" rows="3" class="form-control">{{ $personal_notepad }}</textarea>
-                        </div>
-                    </div>
-                </form> --}}
+
+            <!-- Immediate Orders Table -->
+            <h5>Immediate Inventory</h5>
+            <form id="location_products_form_immediate">
+                <input type="hidden" name="inventory_type" value="immediate">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full" data-inventory-type="immediate">
+                        @include('partials.location_products_table', ['inventoryType' => 'immediate', 'arrProducts' => $arrProducts])
+                    </table>
+                </div>
+            </form>
+
+
+            <br>
+            @php
+                $variables = include resource_path('views/includes/notepad.php');
+                extract($variables);
+            @endphp
+
+            <p>{!! nl2br(e($location_products_text)) !!}</p>
         </div>
     </div>
 </div>
@@ -99,8 +68,7 @@
 @section('scripts')
     @parent
 
-
-    <script>
+    <script type="text/javascript">
         // Assuming 'app' is already initialized and available
         // var actions = window['app-bridge'].actions;
         var Button = actions.Button;
@@ -165,32 +133,24 @@
                 secondary: [locations_revenue, locations_text, kitchen]
             },
         });
-    </script>
 
-    <script type="text/javascript">
-    	$(function(){
-    	    //   window.table = jQuery('.js-dataTable-full').DataTable({
-    	    //       pageLength: 10,
-    	    //       lengthMenu: [[5, 10, 20], [5, 10, 20]],
-    	    //       order:[[0, 'desc']],
-            //       columnDefs: [{ orderable: false, targets: 0 }, { orderable: false, targets: 1 }],
-    	    //       autoWidth: false
-    	    //   });
+        $(function(){
+            $(document).on('change', '#strFilterLocation', function(e){
+                LoadList(); // Load data for both inventory types
+            });
 
-              $(document).on('change', '#strFilterLocation', function(e){
-                LoadList();
-              });
-
-              $('.save-day').on('click', function() {
+            // Save button handler
+            $(document).on('click', '.save-day', function() {
                 const day = $(this).data('day');
                 const location = $('#strFilterLocation').val();
+                const inventoryType = $(this).closest('table').data('inventory-type');
 
                 if (location === '') {
                     alert('Please Select Location');
                     return;
                 }
 
-                $(`.loading-icon[data-day="${day}"]`).addClass('show');
+                $(`.loading-icon[data-day="${day}"][data-inventory-type="${inventoryType}"]`).addClass('show');
 
                 // Disable the save button while loading
                 $(this).prop('disabled', true);
@@ -198,21 +158,22 @@
                 const formData = {
                     _token: '{{ csrf_token() }}',
                     strFilterLocation: location,
-                    day: [day], // Pass the day as an array
-                    nProductId: {}, // Initialize empty object for product IDs
-                    nQuantity: {}   // Initialize empty object for quantities
+                    day: [day],
+                    inventory_type: inventoryType,
+                    nProductId: {},
+                    nQuantity: {}
                 };
 
                 // Get product IDs and quantities for the specific day
-                $(`#table tr.${day} .nProductId`).each(function(index) {
+                $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nProductId`).each(function(index) {
                     const productId = $(this).val();
-                    formData.nProductId[day] = formData.nProductId[day] || []; // Initialize array if it doesn't exist
+                    formData.nProductId[day] = formData.nProductId[day] || [];
                     formData.nProductId[day].push(productId);
                 });
 
-                $(`#table tr.${day} .nQuantity`).each(function(index) {
+                $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nQuantity`).each(function(index) {
                     const quantity = $(this).val();
-                    formData.nQuantity[day] = formData.nQuantity[day] || []; // Initialize array if it doesn't exist
+                    formData.nQuantity[day] = formData.nQuantity[day] || [];
                     formData.nQuantity[day].push(quantity);
                 });
 
@@ -222,96 +183,92 @@
                     data: formData,
                     dataType: "json",
                     success: function(data) {
-                        alert(`Location Products Data for ${day} Saved Successfully`);
+                        alert(`${inventoryType.charAt(0).toUpperCase() + inventoryType.slice(1)} Data for ${day} Saved Successfully`);
 
                         // Hide the loading icon
-                        $(`.loading-icon[data-day="${day}"]`).removeClass('show');
+                        $(`.loading-icon[data-day="${day}"][data-inventory-type="${inventoryType}"]`).removeClass('show');
 
                         // Re-enable the save button
-                        $(`.save-day[data-day="${day}"]`).prop('disabled', false);
+                        $(`.save-day[data-day="${day}"][data-inventory-type="${inventoryType}"]`).prop('disabled', false);
                     },
                     error: function(error) {
-                        console.error(`Error saving Location Products Data for ${day}:`, error);
-                        alert(`Error saving Location Products Data for ${day}`);
+                        console.error(`Error saving ${inventoryType} Data for ${day}:`, error);
+                        alert(`Error saving ${inventoryType} Data for ${day}`);
 
                         // Hide the loading icon on error as well
-                        $(`.loading-icon[data-day="${day}"]`).removeClass('show');
+                        $(`.loading-icon[data-day="${day}"][data-inventory-type="${inventoryType}"]`).removeClass('show');
 
                         // Re-enable the save button on error
-                        $(`.save-day[data-day="${day}"]`).prop('disabled', false);
+                        $(`.save-day[data-day="${day}"][data-inventory-type="${inventoryType}"]`).prop('disabled', false);
                     }
                 });
             });
 
-            $(document).on('click', '#personal_notepad_save_btn', function(e){
+            function LoadList(){
+                const location = $('#strFilterLocation').val();
+
                 $.ajax({
-                    url:"{{ route('personal_notepad.store') }}",
-                    type:"POST",
-                    data: "_token={{ csrf_token() }}&"+$("#personal_notepad_form").serialize(),
+                    url: "{{ route('getLocationsProductsJSON') }}",
+                    type: "GET",
+                    data: {
+                        "_token": "{{ csrf_token() }}",
+                        "strFilterLocation": location,
+                        "inventory_type": "both" // Request data for both inventory types
+                    },
                     cache:false,
                     dataType:"json",
-                    success:function(data){
-                        alert('Personal Notepad Saved Successfully');
+                    success:function(response){
+                        // Clear existing selections in both tables
+                        $(`table[data-inventory-type="immediate"] select.nProductId`).val('');
+                        $(`table[data-inventory-type="immediate"] select.nQuantity`).val(8);
+                        $(`table[data-inventory-type="preorder"] select.nProductId`).val('');
+                        $(`table[data-inventory-type="preorder"] select.nQuantity`).val(8);
+
+                        // Process data for both inventory types
+                        if (response.data) {
+                            if (response.data.immediate) {
+                                populateTable(response.data.immediate, 'immediate');
+                            }
+                            if (response.data.preorder) {
+                                populateTable(response.data.preorder, 'preorder');
+                            }
+                        }
                     },
                     error: function (request, status, error) {
-                        alert('error saving Personal Notepad');
+                        console.error('Error fetching data:', error);
+                        alert("An error occurred while loading data.");
                     }
                 });
-            });
+            }
 
-    		//LoadList();
-        });
+            function populateTable(dataArray, inventoryType){
+                // Group data by day
+                const dataByDay = dataArray.reduce((acc, item) => {
+                    acc[item.day] = acc[item.day] || [];
+                    acc[item.day].push(item);
+                    return acc;
+                }, {});
 
-        function LoadList(){
-            $.ajax({
-                url:"{{ route('getLocationsProductsJSON') }}",
-                type:"GET",
-                data: {
-                    "_token": "{{ csrf_token() }}",
-                    "strFilterLocation": $("#strFilterLocation").val(),
-                },
-                cache:false,
-                dataType:"json",
-                success:function(data){
-                    // Clear existing selections
-                    $("#table select.nProductId").val('');
-                    $("#table select.nQuantity").val(8);
+                for (const day in dataByDay) {
+                    const dayData = dataByDay[day];
+                    let productIndex = 0;
 
-                    if(data && data.length > 0){
-                        // Group data by day for easier access
-                        const dataByDay = data.reduce((acc, item) => {
-                            acc[item.day] = acc[item.day] || [];
-                            acc[item.day].push(item);
-                            return acc;
-                        }, {});
+                    dayData.forEach(item => {
+                        // Find the correct product dropdown
+                        const productSelect = $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nProductId`).eq(productIndex);
+                        const quantitySelect = $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nQuantity`).eq(productIndex);
 
-                        for (const day in dataByDay) {
-                            const dayData = dataByDay[day];
-                            let productIndex = 0;
+                        // Set selected values
+                        productSelect.val(item.product_id);
+                        quantitySelect.val(item.quantity);
 
-                            dayData.forEach(item => {
-                                // Find the correct product dropdown
-                                const productSelect = $("#table tr." + day + " .nProductId").eq(productIndex);
-                                const quantitySelect = $("#table tr." + day + " .nQuantity").eq(productIndex);
-
-                                // Set selected values
-                                productSelect.val(item.product_id);
-                                quantitySelect.val(item.quantity);
-
-                                productIndex++;
-                            });
-                        }
-                    } else {
-                        // Handle case where no data is returned
-                        // You might want to display a message to the user.
-                    }
-                },
-                error: function (request, status, error) {
-                    console.error('Error fetching Location Products Data:', error);
-                    // Display a user-friendly error message
-                    alert("An error occurred while loading product data.");
+                        productIndex++;
+                    });
                 }
-            });
-        }
+            }
+
+            // Load data for both inventory types initially
+            LoadList();
+        });
     </script>
 @endsection
