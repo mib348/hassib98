@@ -15,8 +15,9 @@ class KitchenController extends Controller
     public function index()
     {
         $dates = [];
-        $arrLocations = Locations::where('is_active', 'Y')
+        $arrLocations = Locations::where('is_active', operator: 'Y')
                                     ->where('accept_only_preorders', 'Y')
+                                    ->where('immediate_inventory', 'N')
                                     ->orderBy('name', 'ASC')
                                     ->get();
 
@@ -55,10 +56,10 @@ class KitchenController extends Controller
 
                     // Fetch orders for the given date and location
                     $arrOrders = Orders::where('date', $date)
-                        ->where('location', operator: $location_name)
-                        ->whereNull(['cancel_reason', 'cancelled_at'])
-                        ->orderBy('id', 'asc')
-                        ->get();
+                                ->where('location', operator: $location_name)
+                                ->whereNull(['cancel_reason', 'cancelled_at'])
+                                ->orderBy('id', 'asc')
+                                ->get();
 
                     // Process orders if any
                     if (!$arrOrders->isEmpty()) {
