@@ -104,6 +104,21 @@ class LocationProductsTableController extends Controller
             $this->updateAvailableOnMetafield($api, $productId);
         }
 
+        // Remove the location and day info from all other products' metafields
+        $allProductsResponse = $api->rest('GET', "/admin/products.json");
+        $allProducts = $allProductsResponse['body']['products'] ?? [];
+
+        foreach ($allProducts as $product) {
+            $productId = $product['id'];
+            if (!isset($productIds[$productId])) {
+                $response = $api->rest('GET', "/admin/products/{$productId}/metafields.json");
+                $metafields = $response['body']['metafields'] ?? [];
+                $this->removeProductMetafield($api, $productId, $location, $daysToUpdate, $metafields, $inventoryType);
+
+                $this->updateAvailableOnMetafield($api, $productId);
+            }
+        }
+
         return response()->json(['message' => 'Location Products Data Saved Successfully']);
     }
 
@@ -133,6 +148,62 @@ class LocationProductsTableController extends Controller
             Log::info("Metafield updated for product {$productId}: " . json_encode($updateResponse['body']['metafield']));
         } else {
             Log::error("Error updating metafield for product {$productId}: " . json_encode($updateResponse['body']));
+        }
+    }
+
+    protected function removeProductMetafield($api, $productId, $location, $daysToUpdate, $metafields, $inventoryType)
+    {
+        $metafieldKey = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
+
+        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', $metafieldKey);
+        if ($dateAndQuantityMetafield) {
+            $existingValues = json_decode($dateAndQuantityMetafield['value'], true) ?? [];
+            $updatedValues = [];
+
+            foreach ($existingValues as $value) {
+                [$valueLocation, $valueDate, $valueQuantity] = explode(':', $value);
+                if ($valueLocation !== $location || !in_array(date('l', strtotime($valueDate)), $daysToUpdate)) {
+                    if (!isset($updatedValues[$valueLocation])) {
+                        $updatedValues[$valueLocation] = [];
+                    }
+                    $updatedValues[$valueLocation][$valueDate] = (string)$valueQuantity;
+                }
+            }
+
+            // Sort dates within each location
+            foreach ($updatedValues as $location => &$dates) {
+                uksort($dates, function ($a, $b) {
+                    $timestampA = strtotime($a);
+                    $timestampB = strtotime($b);
+                    return $timestampA <=> $timestampB;
+                });
+            }
+
+            // Prepare the value for updating
+            $newValue = [];
+            array_walk($updatedValues, function ($dates, $location) use (&$newValue) {
+                foreach ($dates as $date => $quantity) {
+                    $newValue[] = "{$location}:{$date}:{$quantity}";
+                }
+            });
+
+            $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
+
+            $metafieldData = [
+                'namespace' => 'custom',
+                'key' => $metafieldKey,
+                'value' => $newValue,
+                'type' => 'json',
+            ];
+
+            $metafieldData['id'] = $dateAndQuantityMetafield['id'];
+            $updateResponse = $api->rest('PUT', "/admin/products/{$productId}/metafields/{$metafieldData['id']}.json", ['metafield' => $metafieldData]);
+
+            if (isset($updateResponse['body']['metafield'])) {
+                Log::info("Metafield updated for product {$productId}: " . json_encode($updateResponse['body']['metafield']));
+            } else {
+                Log::error("Error updating metafield for product {$productId}: " . json_encode($updateResponse['body']));
+            }
         }
     }
 
