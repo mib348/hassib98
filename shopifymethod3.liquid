@@ -90,7 +90,7 @@ product
     
     {% if immediate_inventory == "Y" %}
       {% assign customMetafield = product.metafields.custom.json %}
-      {% else %}
+    {% else %}
       {% assign customMetafield = product.metafields.custom.preorder_inventory %}
     {% endif %}
     
