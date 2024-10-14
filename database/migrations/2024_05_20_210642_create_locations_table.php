@@ -24,6 +24,7 @@ return new class extends Migration
             $table->varchar('accept_only_preorders', 1)->default('N');
             $table->varchar('no_station', 1)->default('N');
             $table->varchar('additional_inventory', 1)->default('N');
+            $table->varchar('immediate_inventory', 1)->default('N');
             $table->integer('location_order')->nullable();
             $table->timestamp('created_at')->useCurrent()->nullable();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->nullable();
