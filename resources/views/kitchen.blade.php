@@ -97,5 +97,8 @@
 @section('scripts')
     @parent
     <script>
+        setInterval(function() {
+            window.location.reload();
+        }, 60000); // 1 minute in milliseconds
     </script>
 @endsection
