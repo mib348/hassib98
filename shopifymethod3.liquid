@@ -36,6 +36,9 @@ top
         {% if key_and_value[0] == 'additional_inventory_time' %}
           {% assign additional_inventory_time = key_and_value[1] %}
         {% endif %}
+        {% if key_and_value[0] == 'immediate_inventory' %}
+          {% assign immediate_inventory = key_and_value[1] %}
+        {% endif %}
         {% if key_and_value[0] == 'uuid' %}
           {% assign uuid = key_and_value[1] %}
         {% endif %}
@@ -79,14 +82,20 @@ product
   {% assign comparedLocation = location %}
 {% endif %}
 
+
 {% paginate collections.all.products by 50 %}
-    {% for product in collections.all.products %}
-      {% assign productToShow = false %}
-      {% assign found = false %}
+  {% for product in collections.all.products %}
+    {% assign productToShow = false %}
+    {% assign found = false %}
+    
+    {% if immediate_inventory == "Y" %}
+      {% assign customMetafield = product.metafields.custom.json %}
+      {% else %}
+      {% assign customMetafield = product.metafields.custom.preorder_inventory %}
+    {% endif %}
+    
 
-
-
-        {% assign dateAndQtyJSON = product.metafields.custom.json %}
+        {% assign dateAndQtyJSON = customMetafield %}
         {% assign dateAndQtyJSON = dateAndQtyJSON | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
         {% assign dateAndQtyArray = dateAndQtyJSON | split: ',' %}
         
@@ -146,4 +155,4 @@ remove data-variants-continue ---------- max {{ qtyValue }}
 
 before endpaginate button
 
-<input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ day_name }}"><input type="hidden" name="properties[no_station]" value="{{ no_station }}"><input type="hidden" name="properties[additional_inventory]" value="{{ additional_inventory_ready }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ day_name }}">
+<input type="hidden" name="properties[location]" value="{{ location }}"><input type="hidden" name="properties[date]" value="{{ date }}"><input type="hidden" name="properties[day]" value="{{ day_name }}"><input type="hidden" name="properties[no_station]" value="{{ no_station }}"><input type="hidden" name="properties[additional_inventory]" value="{{ additional_inventory_ready }}"><input type="hidden" name="properties[immediate_inventory]" value="{{ immediate_inventory }}"><input type="hidden" name="order_date" value="{{ date }}"><input type="hidden" name="location" value="{{ location }}"><input type="hidden" name="day" value="{{ day_name }}">
