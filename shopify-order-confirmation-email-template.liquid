@@ -289,13 +289,12 @@
           {% endif %}
 
           {%- for prop in line.properties -%}
-              {%- if forloop.index == 1 or forloop.index == 5 or forloop.index == 6 -%}
-                  {%- continue -%}
-              {%- endif -%}
+              {%- if forloop.index == 2 or forloop.index == 3 or forloop.index == 4 -%}
               <div>
                   <span>{{ prop.first }}: </span>
                   <span>{{ prop.last }}</span>
               <div>
+              {%- endif -%}
           {%- endfor -%}
 
           {% for group in line.groups %}

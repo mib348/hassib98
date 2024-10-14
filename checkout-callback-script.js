@@ -1,7 +1,7 @@
 <style>
-.product__description span:nth-child(3) { display: none !important; }
-.product__description span:nth-child(7) { display: none !important; }
-.product__description span:nth-child(8) { display: none !important; }
+.product__description__property:not(:nth-child(4)):not(:nth-child(5)):not(:nth-child(6)) {
+    display: none !important;
+}
 .content-box, .step__footer__continue-btn, #loadingMessage { display: none; }
 
 @media (max-width: 480px) {

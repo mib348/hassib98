@@ -36,14 +36,13 @@
   {% endif %}
 
   {%- for prop in line.properties -%}
-      {%- if forloop.index == 1 -%}
-        {%- continue -%}
-      {%- endif -%}
-  <div>                     
-      <span>{{ prop.first }}: </span>
-      <span> {{ prop.last }}  </span>
-  <div>  
-  {%- endfor -%}
+    {%- if forloop.index == 2 or forloop.index == 3 or forloop.index == 4 -%}
+    <div>
+        <span>{{ prop.first }}: </span>
+        <span>{{ prop.last }}</span>
+    <div>
+    {%- endif -%}
+{%- endfor -%}
 
   {% for group in line.groups %}
     <span class="order-list__item-variant">Teil von: {{ group.display_title }}</span><br/>
