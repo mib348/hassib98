@@ -132,8 +132,10 @@ class OrdersCreateJob implements ShouldQueue
     protected function updateProductMetafieldForOrder($shop, $productId, $lineItem, $orderData)
     {
         // Define the metafield details
+        $inventoryType = ($lineItem['properties'][6]['value'] == "Y") ? 'immediate' : 'preorder';
+        $key = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
+
         $namespace = 'custom';
-        $key = 'json';
         $metafieldEndpoint = "/admin/products/{$productId}/metafields.json";
 
         // Fetch the current metafield for the product
@@ -178,7 +180,7 @@ class OrdersCreateJob implements ShouldQueue
                     'id' => $metafield['id'],
                     'value' => $updatedValues,
                     'namespace' => 'custom',
-                    'key' => 'json',
+                    'key' => $key,
                     'type' => 'json', // Ensure this matches the actual type expected by Shopify
                 ],
             ]);
