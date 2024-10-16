@@ -7,9 +7,11 @@
   }
 </style>
 
+
 {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
 
+<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="50px" width="50px" class="loading_icon" />
 <div id="datepicker"></div>
 <br>
 <br>
@@ -89,6 +91,8 @@ document.addEventListener('DOMContentLoaded', function() {
         $.ajax({
             url: `https://dev.sushi.catering/getLocations/${strLocation}`,
             type: "GET",
+            cache:false,
+            async:false,
             dataType: "json",
             success: function(data) {
                 // Save the same-day preorder end time
@@ -149,12 +153,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else if (data.error) {
                         console.error('Error fetching location time:', data.error);
                     }
+
+                     // **Set the badge count**
+                    // Assuming 'data.quantity' contains the count value
+                    if (data.total_available_items > 0) {
+                      $('#badge-counter')
+                        .text(data.total_available_items)
+                        .removeClass('text-bg-danger')
+                        .addClass('text-bg-success')
+                        .css('display', 'inline-block');
+                    } 
+                    else if (data.total_available_items < 1) {
+                      $('#badge-counter')
+                        .text(0)
+                        .removeClass('text-bg-success')
+                        .addClass('text-bg-danger')
+                        .css('display', 'inline-block');
+                    } 
+                    else {
+                      $('#badge-counter').css('display', 'none');
+                    }
                 } 
                 else {
                     buttonTodayOrder.classList.remove('show-button');
                     buttonPreOrder.classList.remove('show-button');
                 }        
                 
+                $(".loading_icon").hide();
             },
             error: function(request, status, error) {
                 console.error('Error fetching location time:', error);
@@ -167,6 +192,8 @@ window.onload = function() {
     pageFullyLoaded = true;
     if (window.jQuery) {
         let $ = window.jQuery;
+
+        const randomNum = Math.random();
 
         $(".todayorderbtn, .preorderbtn").each(function() {
             // Reset any inline styles that might have been applied to indicate disabled state
@@ -218,7 +245,7 @@ window.onload = function() {
                 async: false,
                 dataType: "json",
                 success: function(data) {
-                    window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid");
+                    window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
                 },
                 error: function(request, status, error) {
                     alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
@@ -315,7 +342,7 @@ window.onload = function() {
                         async: false,
                         dataType: "json",
                         success: function(data) {
-                              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
+                              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
                         },
                         error: function(request, status, error) {
                             alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
