@@ -793,10 +793,7 @@ class ShopifyController extends Controller
             // If the parameter is passed, select all fields for the specified location
             $arrLocations = Locations::where('name', $location)->first();
 
-            $nQty = 0;
-            $shop = Auth::user();
-            if(!isset($shop) || !$shop)
-                $shop = User::find(env('db_shop_id', 1));
+            $shop = User::find(env('db_shop_id', 1));
             // Get all products
             $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
             $products = $productsResponse['body']['products'] ?? [];
