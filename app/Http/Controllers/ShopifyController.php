@@ -792,6 +792,35 @@ class ShopifyController extends Controller
         if ($location) {
             // If the parameter is passed, select all fields for the specified location
             $arrLocations = Locations::where('name', $location)->first();
+
+            $nQty = 0;
+            $shop = Auth::user();
+            if(!isset($shop) || !$shop)
+                $shop = User::find(env('db_shop_id', 1));
+            // Get all products
+            $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
+            $products = $productsResponse['body']['products'] ?? [];
+
+            foreach ($products as $product) {
+                // Get metafields for each product
+                $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$product['id']}/metafields.json");
+                $metafields = $metafieldsResponse['body']['metafields'] ?? [];
+
+                foreach ($metafields as $field) {
+                    if (isset($field['key']) && $field['key'] == 'json') {
+                        $value = json_decode($field['value'], true);
+
+                        foreach ($value as $item) {
+                            [$location, $date, $qty] = explode(':', $item);
+
+                            if($location == $arrLocations->name && $date == date('d-m-Y'))
+                                $nQty += $qty;
+                        }
+                    }
+                }
+            }
+
+            $arrLocations->total_available_items = $nQty;
         } else {
             // If the parameter is not passed, select only the 'name' field for all locations
             $arrLocations = Locations::select('name')->orderBy('id', 'asc')->get()->toArray();
