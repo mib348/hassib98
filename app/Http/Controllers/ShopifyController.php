@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\QRCodeMail;
+use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Metafields;
 use App\Models\PersonalNotepad;
@@ -792,32 +793,37 @@ class ShopifyController extends Controller
         if ($location) {
             // If the parameter is passed, select all fields for the specified location
             $arrLocations = Locations::where('name', $location)->first();
-
             $nQty = 0;
-            $shop = User::find(env('db_shop_id', 1));
-            // Get all products
-            $productsResponse = $shop->api()->rest('GET', '/admin/products.json');
-            $products = $productsResponse['body']['products'] ?? [];
 
-            foreach ($products as $product) {
-                // Get metafields for each product
-                $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$product['id']}/metafields.json");
-                $metafields = $metafieldsResponse['body']['metafields'] ?? [];
+            if($arrLocations->immediate_inventory == "Y"){
+                $immediateProducts = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
+                                                            ->where('products.status', 'active')
+                                                            ->where('location_products_tables.location', $arrLocations->name)
+                                                            ->where('inventory_type', 'immediate')
+                                                            ->where('day', date('l'))
+                                                            ->get();
 
-                foreach ($metafields as $field) {
-                    if (isset($field['key']) && $field['key'] == 'json') {
-                        $value = json_decode($field['value'], true);
+                $shop = User::find(env('db_shop_id', 1));
 
-                        foreach ($value as $item) {
-                            [$location, $date, $qty] = explode(':', $item);
+                foreach ($immediateProducts as $product) {
+                    // Get metafields for each product
+                    $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$product['product_id']}/metafields.json", ['namespace'=>'custom', 'key'=>'json']);
+                    $metafields = $metafieldsResponse['body']['metafields'] ?? [];
 
-                            if($location == $arrLocations->name && $date == date('d-m-Y'))
-                                $nQty += $qty;
+                    foreach ($metafields as $field) {
+                        if (isset($field['key']) && $field['key'] == 'json') {
+                            $value = json_decode($field['value'], true);
+
+                            foreach ($value as $item) {
+                                [$location, $date, $qty] = explode(':', $item);
+
+                                if($location == $arrLocations->name && $date == date('d-m-Y'))
+                                    $nQty += $qty;
+                            }
                         }
                     }
                 }
             }
-
             $arrLocations->total_available_items = $nQty;
         } else {
             // If the parameter is not passed, select only the 'name' field for all locations
