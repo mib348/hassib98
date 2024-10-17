@@ -82,8 +82,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (isWithinTimeSlot) {
             buttonTodayOrder.classList.add('show-button');
+            $('#badge-counter').css('display', 'inline-block');
         } else {
             buttonTodayOrder.classList.remove('show-button');
+            $('#badge-counter').css('display', 'none');
         }
     }
     
@@ -134,11 +136,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
                   window.cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
                   if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime) {
-                      minDate = 1;
+                      minDate = 1;                       
                   }
                 }
-
-              
+                             
                 if (data.note)
                     $("#note").html(data.note);
               
@@ -147,34 +148,40 @@ document.addEventListener('DOMContentLoaded', function() {
                     //buttonTodayOrder.classList.add('show-button');
                     buttonPreOrder.classList.add('show-button');
 
+                    //today order button aka immediate order button aka instant order button
                     if (data.start_time && data.end_time && data.is_active === 'Y' && data.accept_only_preorders === 'N' && data.immediate_inventory == "Y" && minDate == 1) {
                         toggleButton(data.start_time, data.end_time);
-                        setInterval(() => toggleButton(data.start_time, data.end_time), 60000);
+                        setInterval(() => toggleButton(data.start_time, data.end_time), 60000);                     
+
+                          //handling of quantity counter badge for immediate button
+                          if(data.immediate_inventory == "Y"){
+                             // **Set the badge count**
+                            // Assuming 'data.quantity' contains the count value
+                            if (data.total_available_items > 0) {
+                              $('#badge-counter')
+                                .text(data.total_available_items)
+                                .removeClass('text-bg-danger')
+                                .addClass('text-bg-success')
+                                .css('display', 'inline-block');
+                            } 
+                            else if (data.total_available_items < 1) {
+                              $('#badge-counter')
+                                .text(0)
+                                .removeClass('text-bg-success')
+                                .addClass('text-bg-danger')
+                                .css('display', 'inline-block');
+                            } 
+                            else {
+                              $('#badge-counter').css('display', 'none');
+                            }
+                          }
                     } else if (data.error) {
                         console.error('Error fetching location time:', data.error);
                     }
 
-                     // **Set the badge count**
-                    // Assuming 'data.quantity' contains the count value
-                    if (data.total_available_items > 0) {
-                      $('#badge-counter')
-                        .text(data.total_available_items)
-                        .removeClass('text-bg-danger')
-                        .addClass('text-bg-success')
-                        .css('display', 'inline-block');
-                    } 
-                    else if (data.total_available_items < 1) {
-                      $('#badge-counter')
-                        .text(0)
-                        .removeClass('text-bg-success')
-                        .addClass('text-bg-danger')
-                        .css('display', 'inline-block');
-                    } 
-                    else {
-                      $('#badge-counter').css('display', 'none');
-                    }
                 } 
                 else {
+                    $('#badge-counter').css('display', 'none');
                     buttonTodayOrder.classList.remove('show-button');
                     buttonPreOrder.classList.remove('show-button');
                 }        
@@ -256,6 +263,14 @@ window.onload = function() {
 
         $(".preorderbtn").click(function(e){
             e.preventDefault();
+
+            // Get the offset of the button
+            const buttonOffset = $(this).offset();
+            const buttonHeight = $(this).outerHeight();
+            
+            // Calculate the new top and left positions for the datepicker
+            const newTop = buttonOffset.top + buttonHeight;
+            const newLeft = buttonOffset.left + 150;
         
             if (window.accept_only_preorders === "Y" && (typeof window.samedayPreorderEndTime === 'undefined' || !window.samedayPreorderEndTime)) {
                 console.log('Same-day preorder end time is not set. Please try again later.');
@@ -351,6 +366,13 @@ window.onload = function() {
                     });
                 }
             }).datepicker('show');
+
+            // Set the position of the datepicker dynamically
+            $(".ui-datepicker").css({
+                "left": newLeft + "px",
+                "position": "absolute",
+                "z-index": "1000"
+            }).addClass('notranslate');
             $('.ui-datepicker').addClass('notranslate');
         });
         
