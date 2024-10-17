@@ -11,7 +11,7 @@
 {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
 
-<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="50px" width="50px" class="loading_icon" />
+
 <div id="datepicker"></div>
 <br>
 <br>
@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
     const buttonPreOrder = document.querySelector('.preorderbtn');
     const strLocation = sessionStorage.getItem("location") || "";
+
+    $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
     
     function toggleButton(startTime, endTime) {
         const now = new Date();
@@ -93,8 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
         $.ajax({
             url: `https://dev.sushi.catering/getLocations/${strLocation}`,
             type: "GET",
-            cache:false,
-            async:false,
+            cache:true,
             dataType: "json",
             success: function(data) {
                 // Save the same-day preorder end time
@@ -156,27 +157,38 @@ document.addEventListener('DOMContentLoaded', function() {
                           //handling of quantity counter badge for immediate button
                           if(data.immediate_inventory == "Y"){
                              // **Set the badge count**
-                            // Assuming 'data.quantity' contains the count value
-                            if (data.total_available_items > 0) {
-                              $('#badge-counter')
-                                .text(data.total_available_items)
-                                .removeClass('text-bg-danger')
-                                .addClass('text-bg-success')
-                                .css('display', 'inline-block');
-                            } 
-                            else if (data.total_available_items < 1) {
-                              $('#badge-counter')
-                                .text(0)
-                                .removeClass('text-bg-success')
-                                .addClass('text-bg-danger')
-                                .css('display', 'inline-block');
-                            } 
-                            else {
-                              $('#badge-counter').css('display', 'none');
-                            }
+                             $.ajax({
+                                  url: `https://dev.sushi.catering/getImmediateInventoryByLocation/${strLocation}`,
+                                  type: "GET",
+                                  cache:true,
+                                  dataType: "json",
+                                  success: function(nQty) {
+                                            // Assuming 'data.quantity' contains the count value
+                                            if (nQty > 0) {
+                                              $('#badge-counter')
+                                                .html(nQty)
+                                                .removeClass('text-bg-danger')
+                                                .addClass('text-bg-success')
+                                                .css('display', 'inline-block');
+                                            } 
+                                            else if (nQty < 1) {
+                                              $('#badge-counter')
+                                                .html(0)
+                                                .removeClass('text-bg-success')
+                                                .addClass('text-bg-danger')
+                                                .css('display', 'inline-block');
+                                            } 
+                                            else {
+                                              $('#badge-counter').css('display', 'none');
+                                            }
+                                  },
+                                  error: function(request, status, error) {
+                                      console.error('Error fetching Immediate Inventory Quantity:', error);
+                                  }
+                             });
                           }
                     } else if (data.error) {
-                        console.error('Error fetching location time:', data.error);
+                        console.error('Error fetching location Settings:', data.error);
                     }
 
                 } 
@@ -186,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     buttonPreOrder.classList.remove('show-button');
                 }        
                 
-                $(".loading_icon").hide();
+                //$(".loading_icon").hide();
             },
             error: function(request, status, error) {
                 console.error('Error fetching location time:', error);
