@@ -788,43 +788,45 @@ class ShopifyController extends Controller
 		return json_encode($arr);
 	}
 
+    static public function getImmediateInventoryByLocation($location = null) {
+        $nQty = 0;
+
+        $immediateProducts = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
+                                                            ->where('products.status', 'active')
+                                                            ->where('location_products_tables.location', $location)
+                                                            ->where('inventory_type', 'immediate')
+                                                            ->where('day', date('l'))
+                                                            ->get();
+
+                                                            $shop = User::find(env('db_shop_id', 1));
+
+        foreach ($immediateProducts as $product) {
+            // Get metafields for each product
+            $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$product['product_id']}/metafields.json", ['namespace'=>'custom', 'key'=>'json']);
+            $metafields = $metafieldsResponse['body']['metafields'] ?? [];
+
+            foreach ($metafields as $field) {
+                if (isset($field['key']) && $field['key'] == 'json') {
+                    $value = json_decode($field['value'], true);
+
+                    foreach ($value as $item) {
+                        [$productLocation, $date, $qty] = explode(':', $item);
+
+                        if($productLocation == $location && $date == date('d-m-Y'))
+                            $nQty += $qty;
+                    }
+                }
+            }
+        }
+
+        return $nQty;
+    }
+
     static public function getLocations($location = null) {
         // Check if the optional parameter is passed
         if ($location) {
             // If the parameter is passed, select all fields for the specified location
             $arrLocations = Locations::where('name', $location)->first();
-            $nQty = 0;
-
-            if($arrLocations->immediate_inventory == "Y"){
-                $immediateProducts = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
-                                                            ->where('products.status', 'active')
-                                                            ->where('location_products_tables.location', $arrLocations->name)
-                                                            ->where('inventory_type', 'immediate')
-                                                            ->where('day', date('l'))
-                                                            ->get();
-
-                $shop = User::find(env('db_shop_id', 1));
-
-                foreach ($immediateProducts as $product) {
-                    // Get metafields for each product
-                    $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$product['product_id']}/metafields.json", ['namespace'=>'custom', 'key'=>'json']);
-                    $metafields = $metafieldsResponse['body']['metafields'] ?? [];
-
-                    foreach ($metafields as $field) {
-                        if (isset($field['key']) && $field['key'] == 'json') {
-                            $value = json_decode($field['value'], true);
-
-                            foreach ($value as $item) {
-                                [$location, $date, $qty] = explode(':', $item);
-
-                                if($location == $arrLocations->name && $date == date('d-m-Y'))
-                                    $nQty += $qty;
-                            }
-                        }
-                    }
-                }
-            }
-            $arrLocations->total_available_items = $nQty;
         } else {
             // If the parameter is not passed, select only the 'name' field for all locations
             $arrLocations = Locations::select('name')->orderBy('id', 'asc')->get()->toArray();

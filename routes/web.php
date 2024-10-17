@@ -89,3 +89,6 @@ Route::get('/apiLimit', [ShopifyController::class, 'apiLimit']);
 
 //personal notepad
 Route::resource('personal_notepad', PersonalNotepadController::class);
+
+
+Route::get('/getImmediateInventoryByLocation/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocation'])->name('getImmediateInventoryByLocation');
