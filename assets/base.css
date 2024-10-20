@@ -3542,3 +3542,21 @@ html, body{overflow-x:hidden !important;}
     display: inline-block !important;
 }
 .cart__dynamic-checkout-buttons{display:none;}
+#badge-counter {
+    display: none;
+    padding:10px 20px;
+    vertical-align:bottom;
+}
+/* Success Badge (Green) */
+.text-bg-success {
+  background-color: #008000 !important; /* Bootstrap's success color */
+  border-color: #008000 !important; /* Bootstrap's success color */
+  padding:12px 20px !important;
+}
+
+/* Danger Badge (Red) */
+.text-bg-danger {
+  background-color: #FF0000 !important; /* Bootstrap's danger color */
+  border-color: #FF0000 !important; /* Bootstrap's danger color */
+  padding:12px 20px !important;
+}
