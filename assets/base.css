@@ -3539,13 +3539,13 @@ html, body{overflow-x:hidden !important;}
 .preorderbtn {
     display: none !important;
 }
-#badge-counter {
-    display: none;
-}
 .preorderbtn.show-button {
     display: inline-block !important;
 }
 .cart__dynamic-checkout-buttons{display:none;}
+#badge-counter {
+    display: none;
+}
 /* Success Badge (Green) */
 .text-bg-success {
   background-color: #008000 !important; /* Bootstrap's success color */
