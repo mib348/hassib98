@@ -748,7 +748,10 @@ class ShopifyController extends Controller
 			$metafieldEndpoint = "/admin/products/{$product['product_id']}/metafields.json";
 
 			// Fetch the current metafield for the product
-			$metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint);
+			$metafieldsResponse = $shop->api()->rest('GET', $metafieldEndpoint, [
+				'namespace' => $namespace,
+				'key' => $key
+			]);
 			$metafields = $metafieldsResponse['body']['metafields'] ?? [];
 
 			// Find the specific metafield we want to update
