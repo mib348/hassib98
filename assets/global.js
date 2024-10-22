@@ -192,6 +192,43 @@ else if(window.location.pathname === "/cart"){
       dataType: "json",
       success: function (response) {
         removePastDateProducts(response);
+
+          let items = response.items;
+
+          $.ajax({
+              type: "POST",
+              url: "https://dev.sushi.catering/api/checkOrderInventory",
+              async: false,
+              cache: false,
+              data: {
+                  items: JSON.stringify(response.items)
+              },
+              dataType: "json",
+              success: function(response) {
+                  //window.location.href = "/checkout";
+                  if(response == 1){
+                      alert('Du kannst nur noch eine Sofortbestellung tätigen.');
+                      sessionStorage.clear();
+                      $(".location_bar").remove();
+                  
+                      $.ajax({
+                        type: "POST",
+                        url: window.Shopify.routes.root + "cart/clear.js",
+                        dataType: "json",
+                        success: function (response) {
+                          window.location.href = "/pages/bestellen";
+                         },
+                        error: function (xhr, status, error) {
+                          alert("Cart clear error:");
+                          console.log("Cart clear error:", error);
+                        },
+                      });
+                  }
+              },
+              error: function() {
+                  console.log('Cart Check order Inventory api error');
+              }
+          });
       },
       error:function(){        
       }
@@ -400,6 +437,8 @@ else {
             //   alert("Um zur Kasse zu gehen, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen.");
             //   b_allowed = false;
             // }
+
+            
 
     // console.log(b_allowed);
               if (b_allowed){
