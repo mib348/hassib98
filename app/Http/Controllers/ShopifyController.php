@@ -725,6 +725,23 @@ class ShopifyController extends Controller
     }
 
 
+    public function checkOrderInventory(Request $request) {
+        $bExpired = 0;
+        $orderData = json_decode($request->input('items'), true);
+        $location = $orderData[0]['properties']['location'];
+        $immediate_inventory = $orderData[0]['properties']['immediate_inventory'];
+
+        if(!empty($location) && $immediate_inventory == "N") {
+            $arrLocation = Locations::where('name', $location)->first();
+
+            if($arrLocation->immediate_inventory == "Y" && date("Y-m-d H:i:s") > date('Y-m-d H:i:s', strtotime($arrLocation->sameday_preorder_end_time))){
+                return $bExpired = 1;
+            }
+        }
+
+		return $bExpired;
+    }
+
     public function checkCartProductsQty(Request $request) {
 		$shop = Auth::user();
 		if (!isset($shop) || !$shop)
