@@ -110,7 +110,7 @@
                     </div>
                 </div>
             </form>
-
+            <br>
 
             <!-- Immediate Orders Table -->
             <h5>Immediate Inventory</h5>
@@ -431,10 +431,51 @@
                     const dayData = dataByDay[day];
                     let productIndex = 0;
 
+                    // Get the row for the current day
+                    const $row = $(`table[data-inventory-type="${inventoryType}"] tr.${day}`);
+                    const $currentButtonTd = $row.find('td.action-column');
+
+                    // For 'preorder' inventory type, dynamically add cells if needed
+                    if (inventoryType === 'preorder') {
+                        let currentProductCells = $row.find('td.product-cell').length;
+                        const productCount = dayData.length;
+
+                        // Add cells if necessary
+                        while (currentProductCells < productCount) {
+                            // Clone existing product and quantity cells
+                            let $lastProductTd = $row.find('td.product-cell').last();
+                            let $lastQuantityTd = $row.find('td.quantity-cell').last();
+
+                            let newProductTd = $lastProductTd.clone(true, true);
+                            let newQuantityTd = $lastQuantityTd.clone(true, true);
+
+                            // Reset the cloned select values
+                            newProductTd.find('select').val('');
+                            newQuantityTd.find('select.nQuantity').val(8);
+
+                            // Update the name attributes
+                            newProductTd.find('select').attr('name', 'nProductId[' + day + '][]');
+                            newQuantityTd.find('select.nQuantity').attr('name', 'nQuantity[' + day + '][]');
+
+                            // Insert the cloned cells before the 'Add Product' button cell
+                            newProductTd.insertBefore($currentButtonTd);
+                            newQuantityTd.insertBefore($currentButtonTd);
+
+                            currentProductCells++;
+                        }
+                    }
+
+                    // Now populate the cells with data
                     dayData.forEach(item => {
-                        // Find the correct product dropdown
-                        const productSelect = $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nProductId`).eq(productIndex);
-                        const quantitySelect = $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nQuantity`).eq(productIndex);
+                        // For 'immediate' inventory type, limit to 4 products
+                        if (inventoryType === 'immediate' && productIndex >= 4) {
+                            // Skip extra products
+                            return;
+                        }
+
+                        // Find the correct product and quantity selects
+                        const productSelect = $row.find('.nProductId').eq(productIndex);
+                        const quantitySelect = $row.find('.nQuantity').eq(productIndex);
 
                         // Set selected values
                         productSelect.val(item.product_id);
@@ -443,7 +484,13 @@
                         productIndex++;
                     });
                 }
+
+                // For 'preorder' inventory type, update headers
+                if (inventoryType === 'preorder') {
+                    updateHeaders($(`table[data-inventory-type="${inventoryType}"]`));
+                }
             }
+
 
             // Load data for both inventory types initially
             LoadList();
