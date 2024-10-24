@@ -206,7 +206,7 @@ else if(window.location.pathname === "/cart"){
               dataType: "json",
               success: function(response) {
                   //window.location.href = "/checkout";
-                  if(response == 1){
+                  if(response.sameday_preorder_time_expired == 1){
                       alert('Du kannst nur noch eine Sofortbestellung tätigen.');
                       sessionStorage.clear();
                       $(".location_bar").remove();
