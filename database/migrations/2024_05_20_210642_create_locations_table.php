@@ -20,11 +20,11 @@ return new class extends Migration
             $table->time('first_additional_inventory_end_time')->nullable();
             $table->time('second_additional_inventory_end_time')->nullable();
             $table->text('note')->nullable();
-            $table->varchar('is_active', 1)->default('Y');
-            $table->varchar('accept_only_preorders', 1)->default('N');
-            $table->varchar('no_station', 1)->default('N');
-            $table->varchar('additional_inventory', 1)->default('N');
-            $table->varchar('immediate_inventory', 1)->default('N');
+            $table->string('is_active', 1)->default('Y');
+            $table->string('accept_only_preorders', 1)->default('N');
+            $table->string('no_station', 1)->default('N');
+            $table->string('additional_inventory', 1)->default('N');
+            $table->string('immediate_inventory', 1)->default('N');
             $table->integer('location_order')->nullable();
             $table->timestamp('created_at')->useCurrent()->nullable();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->nullable();
