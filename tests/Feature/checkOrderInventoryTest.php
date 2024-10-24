@@ -1,30 +1,98 @@
 <?php
-
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
+use App\Models\Locations; // Ensure the correct model namespace
 
 class checkOrderInventoryTest extends TestCase
 {
+    use RefreshDatabase, WithFaker;
+
     /**
-     * A basic feature test example.
+     * Test the checkOrderInventory API endpoint
      */
-    public function test_checkOrderInventory_api(): void
+    public function test_check_order_inventory_sameday_preorder_time_expired()
     {
+        // Arrange: Create a mock location record for the test
+        $location = Locations::factory()->create([
+            'name' => 'Asklepios Altona',                // Location as in the order
+            'immediate_inventory' => 'Y',                // Ensure 'immediate_inventory' is 'Y'
+            'sameday_preorder_end_time' => now()->subMinutes(30), // Set time 30 minutes in the past
+        ]);
+
         // Example order items being posted to the API
-        $items = '[{"id":42210627452998,"properties":{"max_quantity":"8","location":"Asklepios Altona","date":"25-10-2024","day":"Friday","no_station":"N","additional_inventory":"N","immediate_inventory":"N"},"quantity":1,"variant_id":42210627452998,"key":"42210627452998:fec0f8313f3c56d0060b3006319d9f52","title":"Bento Berlin","price":95,"original_price":95,"presentment_price":0.95,"discounted_price":95,"line_price":95,"original_line_price":95,"total_discount":0,"discounts":[],"sku":null,"grams":0,"vendor":"sushi.catering","taxable":true,"product_id":7711522652230,"product_has_only_default_variant":true,"gift_card":false,"final_price":95,"final_line_price":95,"url":"/products/bento-berlin?variant=42210627452998","featured_image":{"aspect_ratio":1,"alt":"Bento Berlin","height":500,"url":"https://cdn.shopify.com/s/files/1/0588/9179/6550/files/Bento-Berlin.png?v=1728482752","width":500},"image":"https://cdn.shopify.com/s/files/1/0588/9179/6550/files/Bento-Berlin.png?v=1728482752","handle":"bento-berlin","requires_shipping":false,"product_type":"","product_title":"Bento Berlin","product_description":"6x California Gurke Frischkäse Sesam | 6x Maki Avocado","variant_title":null,"variant_options":["Default Title"],"options_with_values":[{"name":"Title","value":"Default Title"}],"line_level_discount_allocations":[],"line_level_total_discount":0,"quantity_rule":{"min":1,"max":null,"increment":1},"has_components":false}]';
+        $items = json_encode([
+            [
+                'id' => 42210627452998,
+                'properties' => [
+                    'max_quantity' => '8',
+                    'location' => $location->name,      // Matching location in DB
+                    'date' => now()->format('d-m-Y'),   // Today's date
+                    'day' => 'Friday',
+                    'no_station' => 'N',
+                    'additional_inventory' => 'N',
+                    'immediate_inventory' => 'N',       // immediate_inventory is 'N' in order
+                ],
+                'quantity' => 1,
+                'variant_id' => 42210627452998,
+                'price' => 95,
+            ]
+        ]);
 
-        // Send the request to your API endpoint
-        $response = $this->post('https://dev.sushi.catering/api/checkOrderInventory', ['items' => $items]);
+        // Act: Send the POST request to the API endpoint
+        $response = $this->postJson(route('checkOrderInventory'), [
+            'items' => $items,
+        ]);
 
-        // Assert that the status code is 200
-        $response->assertStatus(200);
+        // Assert: Check if the API responds with 'sameday_preorder_time_expired' = 1 (true)
+        $response->assertStatus(200)
+                 ->assertJson([
+                     'sameday_preorder_time_expired' => 1
+                 ]);
+    }
 
-        // Check if the response contains a boolean (0 or 1)
-        $response->assertJson(fn ($json) =>
-            $json->where('sameday_preorder_time_expired', fn($value) => is_bool($value) || $value === 0 || $value === 1)
-        );
+    /**
+     * Test the checkOrderInventory API when immediate_inventory is 'N' and no expiry
+     */
+    public function test_check_order_inventory_sameday_preorder_time_not_expired()
+    {
+        // Arrange: Create a mock location record for the test
+        $location = Locations::factory()->create([
+            'name' => 'Asklepios Altona',                // Location as in the order
+            'immediate_inventory' => 'Y',                // Ensure 'immediate_inventory' is 'Y'
+            'sameday_preorder_end_time' => now()->addMinutes(30), // Set time 30 minutes in the future
+        ]);
+
+        // Example order items being posted to the API
+        $items = json_encode([
+            [
+                'id' => 42210627452998,
+                'properties' => [
+                    'max_quantity' => '8',
+                    'location' => $location->name,      // Matching location in DB
+                    'date' => now()->format('d-m-Y'),   // Today's date
+                    'day' => 'Friday',
+                    'no_station' => 'N',
+                    'additional_inventory' => 'N',
+                    'immediate_inventory' => 'N',       // immediate_inventory is 'N' in order
+                ],
+                'quantity' => 1,
+                'variant_id' => 42210627452998,
+                'price' => 95,
+            ]
+        ]);
+
+        // Act: Send the POST request to the API endpoint
+        $response = $this->postJson(route('checkOrderInventory'), [
+            'items' => $items,
+        ]);
+
+        // Assert: Check if the API responds with 'sameday_preorder_time_expired' = 0 (false)
+        $response->assertStatus(200)
+                 ->assertJson([
+                     'sameday_preorder_time_expired' => 0
+                 ]);
     }
 }
