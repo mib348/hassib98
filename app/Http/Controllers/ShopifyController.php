@@ -9,6 +9,7 @@ use App\Models\Metafields;
 use App\Models\PersonalNotepad;
 use App\Models\Products;
 use App\Models\User;
+use Carbon\Carbon;
 use Choowx\RasterizeSvg\Svg;
 use DateTime;
 use DateTimeZone;
@@ -726,27 +727,31 @@ class ShopifyController extends Controller
 
 
     public function checkOrderInventory(Request $request)
-	{
-		$bExpired = 0;
-		$orderData = json_decode($request->input('items'), true);
-		$location = $orderData[0]['properties']['location'];
-		$immediate_inventory = $orderData[0]['properties']['immediate_inventory'];
+    {
+        $bExpired = 0;
+        $orderData = json_decode($request->input('items'), true);
+        $location = $orderData[0]['properties']['location'];
+        $immediate_inventory = $orderData[0]['properties']['immediate_inventory'];
 
-		if (!empty($location) && $immediate_inventory == "N") {
-			$arrLocation = Locations::where('name', $location)->first();
+        if (!empty($location) && $immediate_inventory == "N") {
+            $arrLocation = Locations::where('name', $location)->first();
 
-			if (
-				$arrLocation->immediate_inventory == "Y" &&
-				date("Y-m-d") == date("Y-m-d", strtotime($orderData[0]['properties']['date'])) &&
-				date("Y-m-d H:i:s") > date('Y-m-d H:i:s', strtotime($arrLocation->sameday_preorder_end_time))
-			) {
-				$bExpired = 1;
-			}
-		}
+            $now = Carbon::now('Europe/Berlin');
+            $propertyDate = Carbon::parse($orderData[0]['properties']['date'], 'Europe/Berlin');
+            $preorderEndTime = Carbon::parse($arrLocation->sameday_preorder_end_time, 'Europe/Berlin');
 
-		// Return a JSON response with the boolean value
-		return response()->json(['sameday_preorder_time_expired' => $bExpired], 200);
-	}
+            if (
+                $arrLocation->immediate_inventory == "Y" &&
+                $now->toDateString() == $propertyDate->toDateString() &&
+                $now->greaterThan($preorderEndTime)
+            ) {
+                $bExpired = 1;
+            }
+        }
+
+        // Return a JSON response with the boolean value
+        return response()->json(['sameday_preorder_time_expired' => $bExpired], 200);
+    }
 
     public function checkCartProductsQty(Request $request) {
 		$shop = Auth::user();
