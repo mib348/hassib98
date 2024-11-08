@@ -58,7 +58,8 @@ class DriverAdditionalController extends Controller
                     foreach ($arrOrders as $arrOrder) {
                         if ($arrOrder && !empty($arrOrder->line_items)) {
                             $arrLineItems = json_decode($arrOrder->line_items, true);
-                            $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->created_at));
+                            // $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->created_at));
+                            $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->date));
 
                             if($order_created_datetime <= $sameday_preorder_end_time){
                                 foreach ($arrLineItems as $arrLineItem) {

@@ -58,13 +58,17 @@ class DriverController extends Controller
                     foreach ($arrOrders as $arrOrder) {
                         if ($arrOrder && !empty($arrOrder->line_items)) {
                             $arrLineItems = json_decode($arrOrder->line_items, true);
-                            $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->created_at));
+                            // $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->created_at));
+                            $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->date));
 
-                            if($order_created_datetime <= $sameday_preorder_end_time){
-                                foreach ($arrLineItems as $arrLineItem) {
-                                    $product_name = $arrLineItem['name'];
-                                    $quantity = $arrLineItem['quantity'];
+                            foreach ($arrLineItems as $arrLineItem) {
+                                $product_name = $arrLineItem['name'];
+                                $quantity = $arrLineItem['quantity'];
+                                $is_immediate_inventory_order = ($arrLineItem['properties'][6]['name'] == 'immediate_inventory') ? $arrLineItem['properties'][6]['value'] : "";
 
+                                // dd($is_immediate_inventory_order, $arrLineItem['properties'][6], $order_created_datetime, $sameday_preorder_end_time, $immediate_inventory_end_time);
+
+                                if($order_created_datetime <= $sameday_preorder_end_time && $is_immediate_inventory_order != "Y"){
                                     // Initialize product data if not already set
                                     if (!isset($arrData[$location_name]['preorder_slot']['products'][$product_name])) {
                                         $arrData[$location_name]['preorder_slot']['products'][$product_name] = 0;
@@ -73,9 +77,7 @@ class DriverController extends Controller
                                     // Accumulate quantity
                                     $arrData[$location_name]['preorder_slot']['products'][$product_name] += $quantity;
                                 }
-                            }
-                            else if($order_created_datetime >= $sameday_preorder_end_time && $order_created_datetime <= $immediate_inventory_end_time){
-                                foreach ($arrLineItems as $arrLineItem) {
+                                else if($order_created_datetime >= $sameday_preorder_end_time && $order_created_datetime <= $immediate_inventory_end_time && $is_immediate_inventory_order === "Y"){
                                     $product_name = $arrLineItem['name'];
                                     $quantity = $arrLineItem['quantity'];
 
