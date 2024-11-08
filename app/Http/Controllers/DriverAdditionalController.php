@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Locations;
 use App\Models\Orders;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class DriverAdditionalController extends Controller
@@ -37,16 +38,16 @@ class DriverAdditionalController extends Controller
                 $arrData[$location_name]['sameday_preorder_slot']['products'] = [];
                 $arrData[$location_name]['additional_inventory_slot']['products'] = [];
 
-                $sameday_preorder_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->sameday_preorder_end_time));
-                $first_additional_inventory_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->first_additional_inventory_end_time));
-                $second_additional_inventory_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->second_additional_inventory_end_time));
+                $sameday_preorder_end_time = Carbon::parse($arrLocation->sameday_preorder_end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
+                $first_additional_inventory_end_time = Carbon::parse($arrLocation->first_additional_inventory_end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
+                $second_additional_inventory_end_time = Carbon::parse($arrLocation->second_additional_inventory_end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
 
                 // Initialize location_data here
                 if (!isset($arrData[$location_name]['location_data'])) {
                     $arrData[$location_name]['location_data'] = $arrLocation;
                 }
 
-                $arrOrders = Orders::where('date', date('Y-m-d'))
+                $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
                                     ->where('location', operator: $location_name)
                                     ->whereNull(['cancel_reason', 'cancelled_at'])
                                     ->orderBy('id', 'asc')
@@ -59,7 +60,7 @@ class DriverAdditionalController extends Controller
                         if ($arrOrder && !empty($arrOrder->line_items)) {
                             $arrLineItems = json_decode($arrOrder->line_items, true);
                             // $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->created_at));
-                            $order_created_datetime = date("Y-m-d H:i:s", strtotime($arrOrder->date));
+                            $order_created_datetime = Carbon::parse($arrOrder->date, 'Europe/Berlin')->format("Y-m-d H:i:s");
 
                             if($order_created_datetime <= $sameday_preorder_end_time){
                                 foreach ($arrLineItems as $arrLineItem) {
