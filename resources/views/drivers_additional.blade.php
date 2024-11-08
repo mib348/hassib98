@@ -27,7 +27,7 @@
 <div class="container-full p-2">
     <div class="row">
         <div class="col-12 col-sm-6">
-            <h5>Sushi Catering PreOrders (& Immediate)</h5>
+            <h5>Sushi Catering PreOrders (Additional)</h5>
         </div>
     </div>
     <div class="row">
@@ -45,49 +45,6 @@
 
                         <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse @if($loop->first) show @endif" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
                             <div class="accordion-body">
-
-                                <h6>IMMEDIATE ORDER {{ date("h:i A", strtotime($arrProducts['location_data']['sameday_preorder_end_time'])) . " - " . date("h:i A", strtotime($arrProducts['location_data']['end_time'])) }}</h6>
-                                <div class="row">
-                                    @php
-                                        $productCount = 0;
-                                    @endphp
-                                    @if(!empty($arrProducts))
-                                        @foreach($arrProducts['immediate_inventory_slot']['products'] as $productName => $quantity)
-                                            @if($productCount < 4)
-                                                <div class="col-12 col-sm-6">
-                                                    <div class="row">
-                                                        <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
-                                                                {{ $quantity }}
-                                                        </div>
-                                                        <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
-                                                                {{ $productName }}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                @php
-                                                    $productCount++;
-                                                @endphp
-                                            @else
-                                                @break
-                                            @endif
-                                        @endforeach
-                                    @endif
-
-                                    @for($i = $productCount; $i < 4; $i++)
-                                    <div class="col-12 col-sm-6">
-                                        <div class="row">
-                                            <div class="col-4">
-                                                &nbsp;
-                                            </div>
-                                            <div class="col-8">
-                                                &nbsp;
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @endfor
-                                </div>
-
-                                
                                 <h6>PREORDER</h6>
                                 <div class="row">
                                     @php
@@ -129,8 +86,87 @@
                                     @endfor
                                 </div>
 
+                                <h6>PREORDER {{ date("h:i A", strtotime($arrProducts['location_data']['sameday_preorder_end_time'])) . " - " . date("h:i A", strtotime($arrProducts['location_data']['first_additional_inventory_end_time'])) }}</h6>
+                                <div class="row">
+                                    @php
+                                        $productCount = 0;
+                                    @endphp
+                                    @if(!empty($arrProducts))
+                                        @foreach($arrProducts['sameday_preorder_slot']['products'] as $productName => $quantity)
+                                            @if($productCount < 4)
+                                                <div class="col-12 col-sm-6">
+                                                    <div class="row">
+                                                        <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
+                                                                {{ $quantity }}
+                                                        </div>
+                                                        <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
+                                                                {{ $productName }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                @php
+                                                    $productCount++;
+                                                @endphp
+                                            @else
+                                                @break
+                                            @endif
+                                        @endforeach
+                                    @endif
 
+                                    @for($i = $productCount; $i < 4; $i++)
+                                    <div class="col-12 col-sm-6">
+                                        <div class="row">
+                                            <div class="col-4">
+                                                &nbsp;
+                                            </div>
+                                            <div class="col-8">
+                                                &nbsp;
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endfor
+                                </div>
 
+                                <h6>PREORDER {{ date("h:i A", strtotime($arrProducts['location_data']['first_additional_inventory_end_time'])) . " - " . date("h:i A", strtotime($arrProducts['location_data']['second_additional_inventory_end_time'])) }}</h6>
+                                <div class="row">
+                                    @php
+                                        $productCount = 0;
+                                    @endphp
+                                    @if(!empty($arrProducts))
+                                        @foreach($arrProducts['additional_inventory_slot']['products'] as $productName => $quantity)
+                                            @if($productCount < 4)
+                                                <div class="col-12 col-sm-6">
+                                                    <div class="row">
+                                                        <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
+                                                                {{ $quantity }}
+                                                        </div>
+                                                        <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
+                                                                {{ $productName }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                @php
+                                                    $productCount++;
+                                                @endphp
+                                            @else
+                                                @break
+                                            @endif
+                                        @endforeach
+                                    @endif
+
+                                    @for($i = $productCount; $i < 4; $i++)
+                                    <div class="col-12 col-sm-6">
+                                        <div class="row">
+                                            <div class="col-4">
+                                                &nbsp;
+                                            </div>
+                                            <div class="col-8">
+                                                &nbsp;
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endfor
+                                </div>
                             </div>
                         </div>
                     </div>

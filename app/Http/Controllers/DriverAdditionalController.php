@@ -6,7 +6,7 @@ use App\Models\Locations;
 use App\Models\Orders;
 use Illuminate\Http\Request;
 
-class DriverController extends Controller
+class DriverAdditionalController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -15,7 +15,7 @@ class DriverController extends Controller
     {
         $arrLocations = Locations::where('is_active', 'Y')
                                     ->whereNot('name', 'Additional Inventory')
-                                    // ->where('immediate_inventory', 'Y')
+                                    ->where('additional_inventory', 'Y')
                                     // ->orderBy('location_order', 'asc')
                                     ->orderByRaw('location_order IS NULL, location_order ASC')
                                     ->orderBy('name', 'ASC')
@@ -24,7 +24,7 @@ class DriverController extends Controller
         // Check if locations exist before proceeding
         if ($arrLocations->isEmpty()) {
             // Handle case when no locations are found
-            return view('drivers', ['arrData' => []]);
+            return view('drivers_additional', ['arrData' => []]);
         }
 
         $arrData = [];
@@ -34,12 +34,12 @@ class DriverController extends Controller
                 $location_name = $arrLocation->name;
 
                 $arrData[$location_name]['preorder_slot']['products'] = [];
-                // $arrData[$location_name]['sameday_preorder_slot']['products'] = [];
-                $arrData[$location_name]['immediate_inventory_slot']['products'] = [];
+                $arrData[$location_name]['sameday_preorder_slot']['products'] = [];
+                $arrData[$location_name]['additional_inventory_slot']['products'] = [];
 
                 $sameday_preorder_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->sameday_preorder_end_time));
-                $immediate_inventory_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->end_time));
-                // $second_immediate_inventory_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->second_immediate_inventory_end_time));
+                $first_additional_inventory_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->first_additional_inventory_end_time));
+                $second_additional_inventory_end_time = date("Y-m-d H:i:s", strtotime($arrLocation->second_additional_inventory_end_time));
 
                 // Initialize location_data here
                 if (!isset($arrData[$location_name]['location_data'])) {
@@ -74,18 +74,32 @@ class DriverController extends Controller
                                     $arrData[$location_name]['preorder_slot']['products'][$product_name] += $quantity;
                                 }
                             }
-                            else if($order_created_datetime >= $sameday_preorder_end_time && $order_created_datetime <= $immediate_inventory_end_time){
+                            else if($order_created_datetime >= $sameday_preorder_end_time && $order_created_datetime <= $first_additional_inventory_end_time){
                                 foreach ($arrLineItems as $arrLineItem) {
                                     $product_name = $arrLineItem['name'];
                                     $quantity = $arrLineItem['quantity'];
 
                                     // Initialize product data if not already set
-                                    if (!isset($arrData[$location_name]['immediate_inventory_slot']['products'][$product_name])) {
-                                        $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] = 0;
+                                    if (!isset($arrData[$location_name]['sameday_preorder_slot']['products'][$product_name])) {
+                                        $arrData[$location_name]['sameday_preorder_slot']['products'][$product_name] = 0;
                                     }
 
                                     // Accumulate quantity
-                                    $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] += $quantity;
+                                    $arrData[$location_name]['sameday_preorder_slot']['products'][$product_name] += $quantity;
+                                }
+                            }
+                            else if($order_created_datetime >= $first_additional_inventory_end_time && $order_created_datetime <= $second_additional_inventory_end_time){
+                                foreach ($arrLineItems as $arrLineItem) {
+                                    $product_name = $arrLineItem['name'];
+                                    $quantity = $arrLineItem['quantity'];
+
+                                    // Initialize product data if not already set
+                                    if (!isset($arrData[$location_name]['additional_inventory_slot']['products'][$product_name])) {
+                                        $arrData[$location_name]['additional_inventory_slot']['products'][$product_name] = 0;
+                                    }
+
+                                    // Accumulate quantity
+                                    $arrData[$location_name]['additional_inventory_slot']['products'][$product_name] += $quantity;
                                 }
                             }
                         }
@@ -97,7 +111,7 @@ class DriverController extends Controller
 
         // dd($arrData);
 
-        return view('drivers', ['arrData' => $arrData]);
+        return view('drivers_additional', ['arrData' => $arrData]);
     }
 
     /**

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AmountProductsLocationWeekdayController;
 use App\Http\Controllers\ArtisanController;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\DriverAdditionalController;
 use App\Http\Controllers\LocationProductsTableController;
 use App\Http\Controllers\LocationRevenueController;
 use App\Http\Controllers\LocationsTextController;
@@ -35,6 +36,7 @@ use Illuminate\Support\Facades\Route;
 //Route::domain('{subdomain}.sushi.catering')->group(function () {
     Route::resource('kitchen', KitchenController::class);
     Route::resource('drivers', DriverController::class);
+    Route::resource('drivers_additional', DriverAdditionalController::class);
 //});
 
 
