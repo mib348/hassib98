@@ -27,7 +27,7 @@
 <div class="container-full p-2">
     <div class="row">
         <div class="col-12 col-sm-6">
-            <h5>Sushi Catering PreOrders (& Immediate)</h5>
+            <h5>Sushi Catering PreOrders & Immediate Inventory</h5>
         </div>
     </div>
     <div class="row">
@@ -46,7 +46,7 @@
                         <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse @if($loop->first) show @endif" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
                             <div class="accordion-body">
 
-                                <h6>IMMEDIATE ORDER {{ date("h:i A", strtotime($arrProducts['location_data']['sameday_preorder_end_time'])) . " - " . date("h:i A", strtotime($arrProducts['location_data']['end_time'])) }}</h6>
+                                <h6>IMMEDIATE INVENTORY</h6>
                                 <div class="row">
                                     @php
                                         $productCount = 0;
@@ -87,7 +87,7 @@
                                     @endfor
                                 </div>
 
-                                
+
                                 <h6>PREORDER</h6>
                                 <div class="row">
                                     @php
