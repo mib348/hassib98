@@ -14,7 +14,7 @@ class KitchenController extends Controller
      */
     public function index()
     {
-        $dates = [];
+        $dates = $arrTotalOrders = [];
         $arrLocations = Locations::where('is_active', operator: 'Y')
                                     ->whereNot('name', operator: 'Additional Inventory')
                                     ->orderBy('name', 'ASC')
@@ -23,7 +23,7 @@ class KitchenController extends Controller
         // Check if locations exist before proceeding
         if ($arrLocations->isEmpty()) {
             // Handle case when no locations are found
-            return view('kitchen', ['arrData' => [], 'dates' => []]);
+            return view('kitchen', ['arrData' => [], 'dates' => [], 'arrTotalOrders' => []]);
         }
 
         // Generate dates for the next 7 days starting from today
@@ -31,6 +31,7 @@ class KitchenController extends Controller
             $date = date("Y-m-d", strtotime("+$i day"));
             $day_name = date('l', strtotime($date)); // Get the actual day name (e.g., Monday)
             $dates[$date] = $day_name;
+            $arrTotalOrders[$date]['total_orders'] = [];
         }
 
         $arrData = [];
@@ -81,20 +82,37 @@ class KitchenController extends Controller
                                     if (!isset($arrData[$location_name][$date]['products'][$product_name])) {
                                         $arrData[$location_name][$date]['products'][$product_name] = 0;
                                     }
+                                    if (!isset($arrTotalOrders[$date]['total_orders'][$product_name])) {
+                                        $arrTotalOrders[$date]['total_orders'][$product_name] = 0;
+                                    }
 
                                     // Accumulate quantity
                                     $arrData[$location_name][$date]['products'][$product_name] += $quantity;
+                                    $arrTotalOrders[$date]['total_orders'][$product_name] += $quantity;
                                 }
                             }
+
                         }
                     }
                 }
             }
         }
 
-        // dd($arrData, $dates);
+        // $arrTotalOrders = [];
+        // foreach ($arrData as $location => $dates) {
+        //     foreach ($dates as $date => $arrDate) {
+        //         $arrTotalOrders[$date]['products'] = 0;
+
+        //         foreach ($arrDate['products'] as $title => $quantity) {
+        //             $arrTotalOrders[$date][$title] = 0;
+        //             dd($date, $title, $quantity, $arrTotalOrders);
+        //         }
+        //     }
+        // }
+
+        // dd($arrData, $dates, $arrTotalOrders);
         // Pass both arrData and dates to the view
-        return view('kitchen', ['arrData' => $arrData, 'dates' => $dates]);
+        return view('kitchen', ['arrData' => $arrData, 'dates' => $dates, 'arrTotalOrders' => $arrTotalOrders]);
     }
 
 

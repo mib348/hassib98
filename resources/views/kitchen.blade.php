@@ -139,6 +139,81 @@
                 </div>
                 <br>
             @endforeach
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover table-vcenter table-condensed">
+                    <thead>
+                        <tr>
+                            <th colspan="100" class="text-center">Total Orders</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($dates as $date => $day_name)
+                            @php
+                                $productCount = count($arrTotalOrders[$date]['total_orders']);
+                                $rowsNeeded = ceil($productCount / 4) ?: 1;
+                                $productsArray = array_chunk($arrTotalOrders[$date]['total_orders'], 4, true);
+                                $firstRow = true;
+
+                                // Map product names to fixed color classes
+                                $productColors = [];
+                                $colorClasses = [
+                                    'location-1',
+                                    'location-2',
+                                    'location-3',
+                                    'location-4',
+                                    'location-5',
+                                    'location-6',
+                                    'location-7',
+                                    'location-8',
+                                    'location-9',
+                                    'location-10'
+                                ];
+                                $colorIndex = 0;
+                            @endphp
+
+                            @if(empty($arrTotalOrders[$date]['total_orders']))
+                                <tr>
+                                    <td class="column-day">{{ $day_name }} ({{ $date }})</td>
+                                    @for($i = 0; $i < 4; $i++)
+                                        <td class="column-qty"></td>
+                                        <td class="column-product"></td>
+                                    @endfor
+                                </tr>
+                            @else
+                                @foreach($productsArray as $rowProducts)
+                                    <tr>
+                                        @if($firstRow)
+                                            <td class="column-day" rowspan="{{ $rowsNeeded }}">{{ $day_name }} ({{ $date }})</td>
+                                            @php $firstRow = false; @endphp
+                                        @endif
+                                        @foreach($rowProducts as $productName => $quantity)
+                                            @php
+                                                // Assign a fixed color class to each product
+                                                if (!isset($productColors[$productName])) {
+                                                    $productColors[$productName] = $colorClasses[$colorIndex % count($colorClasses)];
+                                                    $colorIndex++;
+                                                }
+                                                $colorClass = $productColors[$productName];
+                                            @endphp
+                                            <td class="{{ $colorClass }} text-center column-qty">
+                                                {{ $quantity }}
+                                            </td>
+                                            <td class="{{ $colorClass }} column-product">
+                                                {{ $productName }}
+                                            </td>
+                                        @endforeach
+                                        @for($i = count($rowProducts); $i < 4; $i++)
+                                            <td class="column-qty"></td>
+                                            <td class="column-product"></td>
+                                        @endfor
+                                    </tr>
+                                @endforeach
+                            @endif
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <br>
         </div>
     </div>
 </div>
