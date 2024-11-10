@@ -48,7 +48,7 @@ class DriverAdditionalController extends Controller
                 }
 
                 $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
-                                    ->where('location', operator: $location_name)
+                                    ->where('location', $location_name)
                                     ->whereNull(['cancel_reason', 'cancelled_at'])
                                     ->orderBy('id', 'asc')
                                     ->get();

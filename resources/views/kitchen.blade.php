@@ -52,7 +52,7 @@
 @section('content')
 <div class="container-fluid p-2">
     <div class="row">
-        <div class="col-6">
+        <div class="col-12">
             <h5>Sushi Catering PreOrders</h5>
         </div>
     </div>

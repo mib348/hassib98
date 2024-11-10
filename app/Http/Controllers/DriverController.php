@@ -47,17 +47,12 @@ class DriverController extends Controller
                     $arrData[$location_name]['location_data'] = $arrLocation;
                 }
 
+                //immediate orders
                 $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
-                                        ->where('location', operator: $location_name)
+                                        ->where('location', $location_name)
                                         ->where('day', Carbon::now('Europe/Berlin')->format('l'))
                                         ->where('inventory_type', 'immediate')
                                         ->get();
-
-                $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
-                                    ->where('location', operator: $location_name)
-                                    ->whereNull(['cancel_reason', 'cancelled_at'])
-                                    ->orderBy('id', 'asc')
-                                    ->get();
 
                 if (!$arrImmediateInventory->isEmpty()) {
                     foreach ($arrImmediateInventory as $key => $arrProduct) {
@@ -74,6 +69,14 @@ class DriverController extends Controller
                     }
                 }
 
+                //preorders
+                $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
+                                    ->where('location', $location_name)
+                                    ->whereNull(['cancel_reason', 'cancelled_at'])
+                                    ->orderBy('id', 'asc')
+                                    ->get();
+
+
                 // Process orders if any
                 if (!$arrOrders->isEmpty()) {
 
@@ -82,15 +85,22 @@ class DriverController extends Controller
                             $arrLineItems = json_decode($arrOrder->line_items, true);
                             $order_created_datetime = Carbon::parse($arrOrder->date, 'Europe/Berlin')->format("Y-m-d H:i:s");
 
+                            //do not show immediate orders
+                            if(isset($arrLineItems[0]['properties'][6])){
+                                if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
+                                    continue;
+                                }
+                            }
 
                             foreach ($arrLineItems as $arrLineItem) {
                                 $product_name = $arrLineItem['name'];
                                 $quantity = $arrLineItem['quantity'];
-                                $is_immediate_inventory_order = ($arrLineItem['properties'][6]['name'] == 'immediate_inventory') ? $arrLineItem['properties'][6]['value'] : "";
+
+                                // $is_immediate_inventory_order = ($arrLineItem['properties'][6]['name'] == 'immediate_inventory') ? $arrLineItem['properties'][6]['value'] : "";
 
                                 // dd($is_immediate_inventory_order, $arrLineItem['properties'][6], $order_created_datetime, $sameday_preorder_end_time, $immediate_inventory_end_time);
 
-                                if($order_created_datetime <= $sameday_preorder_end_time && $is_immediate_inventory_order != "Y"){
+                                // if($order_created_datetime <= $sameday_preorder_end_time && $is_immediate_inventory_order != "Y"){
                                     // Initialize product data if not already set
                                     if (!isset($arrData[$location_name]['preorder_slot']['products'][$product_name])) {
                                         $arrData[$location_name]['preorder_slot']['products'][$product_name] = 0;
@@ -98,7 +108,7 @@ class DriverController extends Controller
 
                                     // Accumulate quantity
                                     $arrData[$location_name]['preorder_slot']['products'][$product_name] += $quantity;
-                                }
+                                // }
                                 // else if($order_created_datetime >= $sameday_preorder_end_time && $order_created_datetime <= $immediate_inventory_end_time && $is_immediate_inventory_order === "Y"){
                                 //     $product_name = $arrLineItem['name'];
                                 //     $quantity = $arrLineItem['quantity'];

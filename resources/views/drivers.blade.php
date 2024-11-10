@@ -15,6 +15,14 @@
     .location-4 {
         background-color: #dda0dd !important; /* Plum */
     }
+    .location-5 { background-color: #ffe4b5 !important; /* Moccasin */ }
+    .location-6 { background-color: #e6e6fa !important; /* Lavender */ }
+    .location-7 { background-color: #d3d3d3 !important; /* Light Gray */ }
+    .location-8 { background-color: #98fb98 !important; /* Pale Green */ }
+    .location-9 { background-color: #afeeee !important; /* Pale Turquoise */ }
+    .location-10 { background-color: #deb887 !important; /* Burlywood */ }
+    .location-11 { background-color: #ffdead !important; /* Navajo White */ }
+    .location-12 { background-color: #b0e0e6 !important; /* Powder Blue */ }
     button::after {
         position: absolute;
         z-index: 100;
@@ -26,7 +34,7 @@
 @section('content')
 <div class="container-full p-2">
     <div class="row">
-        <div class="col-12 col-sm-6">
+        <div class="col-12">
             <h5>Sushi Catering PreOrders & Immediate Inventory</h5>
         </div>
     </div>
@@ -95,23 +103,19 @@
                                     @endphp
                                     @if(!empty($arrProducts))
                                         @foreach($arrProducts['preorder_slot']['products'] as $productName => $quantity)
-                                            @if($productCount < 4)
-                                                <div class="col-12 col-sm-6">
-                                                    <div class="row">
-                                                        <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
-                                                                {{ $quantity }}
-                                                        </div>
-                                                        <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
-                                                                {{ $productName }}
-                                                        </div>
+                                            <div class="col-12 col-sm-6">
+                                                <div class="row">
+                                                    <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
+                                                            {{ $quantity }}
+                                                    </div>
+                                                    <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
+                                                            {{ $productName }}
                                                     </div>
                                                 </div>
-                                                @php
-                                                    $productCount++;
-                                                @endphp
-                                            @else
-                                                @break
-                                            @endif
+                                            </div>
+                                            @php
+                                                $productCount++;
+                                            @endphp
                                         @endforeach
                                     @endif
 
