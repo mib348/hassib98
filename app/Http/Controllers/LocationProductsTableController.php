@@ -412,3 +412,4 @@ class LocationProductsTableController extends Controller
         }
     }
 }
+

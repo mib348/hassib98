@@ -45,7 +45,7 @@
         left: 0;
         background-color: #fff;
     }
-    
+
     .preorder_table .fixed-column.day-column {
         min-width: 150px;
         max-width: 150px;
@@ -99,8 +99,14 @@
 
             <br>
             <!-- Preorders Table -->
-            <h5>PreOrder Inventory</h5>
-            <form id="location_products_form_preorder">
+            <h5 class="float-left pull-left float-start pull-start ">PreOrder Inventory</h5>
+            <button type="button" class="float-left pull-left float-start pull-start ms-3 btn btn-primary btn-sm save-all-days_btn float-right" data-inventory-type="preorder">
+                Save All
+                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
+            </button>
+            <br class="clearfix">
+            <br class="clearfix">
+            <form id="location_products_form_preorder" class="clearfix">
                 <input type="hidden" name="inventory_type" value="preorder">
                 <div class="table-responsive preorder_table">
                     <div class="table-wrapper">
@@ -113,7 +119,13 @@
             <br>
 
             <!-- Immediate Orders Table -->
-            <h5>Immediate Inventory</h5>
+            <h5 class="float-start">Immediate Inventory</h5>
+            <button type="button" class="float-start ms-3 btn btn-primary btn-sm save-all-days_btn float-right" data-inventory-type="immediate">
+                Save All
+                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
+            </button>
+            <br class="clearfix">
+            <br class="clearfix">
             <form id="location_products_form_immediate">
                 <input type="hidden" name="inventory_type" value="immediate">
                 <div class="table-responsive">
@@ -322,6 +334,8 @@
                 const day = $(this).data('day');
                 const location = $('#strFilterLocation').val();
                 const inventoryType = $(this).closest('table').data('inventory-type');
+                $(".remove-product-btn").prop('disabled', true);
+                $(".remove-product-btn").attr('disabled', true);
 
                 if (location === '') {
                     alert('Please Select Location');
@@ -368,6 +382,9 @@
 
                         // Re-enable the save button
                         $(`.save-day[data-day="${day}"][data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+
+                        $(".remove-product-btn").prop('disabled', false);
+                        $(".remove-product-btn").attr('disabled', false);
                     },
                     error: function(error) {
                         console.error(`Error saving ${inventoryType} Data for ${day}:`, error);
@@ -378,6 +395,89 @@
 
                         // Re-enable the save button on error
                         $(`.save-day[data-day="${day}"][data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+
+                        $(".remove-product-btn").prop('disabled', false);
+                        $(".remove-product-btn").attr('disabled', false);
+                    }
+                });
+            });
+
+            // Save button handler
+            $(document).on('click', '.save-all-days_btn', function() {
+                const location = $('#strFilterLocation').val();
+                const inventoryType = $(this).data('inventory-type');
+                $(".remove-product-btn").prop('disabled', true);
+                $(".remove-product-btn").attr('disabled', true);
+
+                if (location === '') {
+                    alert('Please Select Location');
+                    return;
+                }
+
+                $(`.loading-icon[data-inventory-type="${inventoryType}"]`).addClass('show');
+
+                // Disable the save button while loading
+                $(this).prop('disabled', true);
+                $(`.save-day[data-inventory-type="${inventoryType}"]`).prop('disabled', true);
+
+                const arrDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const formData = {
+                    _token: '{{ csrf_token() }}',
+                    strFilterLocation: location,
+                    "save-all-days": true,
+                    inventory_type: inventoryType,
+                    day: arrDays,
+                    nProductId: {},
+                    nQuantity: {}
+                };
+
+                // Get product IDs and quantities for the specific day
+                arrDays.forEach(function(day) {
+                    $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nProductId`).each(function(index) {
+                        const productId = $(this).val();
+                        formData.nProductId[day] = formData.nProductId[day] || [];
+                        formData.nProductId[day].push(productId);
+                    });
+
+                    $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nQuantity`).each(function(index) {
+                        const quantity = $(this).val();
+                        formData.nQuantity[day] = formData.nQuantity[day] || [];
+                        formData.nQuantity[day].push(quantity);
+                    });
+                });
+
+
+                $.ajax({
+                    url: "{{ route('location_products.store') }}",
+                    type: "POST",
+                    data: formData,
+                    dataType: "json",
+                    success: function(data) {
+                        alert(`${inventoryType.charAt(0).toUpperCase() + inventoryType.slice(1)} Data for all days Saved Successfully`);
+
+                        // Hide the loading icon
+                        $(`.loading-icon[data-inventory-type="${inventoryType}"]`).removeClass('show');
+
+                        // Re-enable the save button
+                        $(`.save-day[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+                        $(`.save-all-days_btn[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+
+                        $(".remove-product-btn").prop('disabled', false);
+                        $(".remove-product-btn").attr('disabled', false);
+                    },
+                    error: function(error) {
+                        console.error(`Error saving ${inventoryType} Data for all days:`, error);
+                        alert(`Error saving ${inventoryType} Data for all days`);
+
+                        // Hide the loading icon on error as well
+                        $(`.loading-icon[data-inventory-type="${inventoryType}"]`).removeClass('show');
+
+                        // Re-enable the save button on error
+                        $(`.save-day[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+                        $(`.save-all-days_btn[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+
+                        $(".remove-product-btn").prop('disabled', false);
+                        $(".remove-product-btn").attr('disabled', false);
                     }
                 });
             });
