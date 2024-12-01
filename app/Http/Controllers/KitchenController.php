@@ -32,6 +32,7 @@ class KitchenController extends Controller
             $day_name = date('l', strtotime($date)); // Get the actual day name (e.g., Monday)
             $dates[$date] = $day_name;
             $arrTotalOrders[$date]['total_orders'] = [];
+            $arrTotalOrders[$date]['total_orders_count'] = 0;
         }
 
         $arrData = [];
@@ -89,6 +90,7 @@ class KitchenController extends Controller
                                     // Accumulate quantity
                                     $arrData[$location_name][$date]['products'][$product_name] += $quantity;
                                     $arrTotalOrders[$date]['total_orders'][$product_name] += $quantity;
+                                    $arrTotalOrders[$date]['total_orders_count'] += $quantity;
                                 }
                             }
 

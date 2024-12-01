@@ -183,7 +183,7 @@
                                 @foreach($productsArray as $rowProducts)
                                     <tr>
                                         @if($firstRow)
-                                            <td class="column-day" rowspan="{{ $rowsNeeded }}">{{ $day_name }} ({{ $date }})</td>
+                                            <td class="column-day" rowspan="{{ $rowsNeeded }}"><b>{{ $day_name }} ({{ $date }})</b> <span class="badge text-bg-primary text-white">{{ $arrTotalOrders[$date]['total_orders_count'] }}</span></td>
                                             @php $firstRow = false; @endphp
                                         @endif
                                         @foreach($rowProducts as $productName => $quantity)
