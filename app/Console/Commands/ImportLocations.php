@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\User;
 use Illuminate\Console\Command;
@@ -73,11 +74,46 @@ class ImportLocations extends Command
 
             // Step 3: Update or create locations in the database based on the provided list
             foreach ($newLocations as $location) {
+                // Update or create the location
                 Locations::updateOrCreate(['name' => $location], [
                     'name' => $location,
                 ]);
+
+                // Check if the location already has products assigned
+                if (!LocationProductsTable::where('location', $location)->exists()) {
+                    // If not, assign default products from the 'Default Menu'
+                    $arrDefaultProducts = LocationProductsTable::where('location', 'Default Menu')->get();
+
+                    $productsToInsert = [];
+
+                    foreach ($arrDefaultProducts as $product) {
+                        // Copy the 'Default Menu' location and set it to the new location
+                        $newProduct = $product->toArray();  // Convert the product to an array
+
+                        // Unset the 'id' field to ensure Laravel does not attempt to insert it
+                        if(empty($newProduct['day']))
+                            continue;
+                        unset($newProduct['id']);
+                        unset($newProduct['created_at']);
+                        unset($newProduct['updated_at']);
+
+                        // Set the new location
+                        $newProduct['location'] = $location;
+
+                        // Collect the modified product
+                        $productsToInsert[] = $newProduct;
+                    }
+
+                    // Bulk insert products for the new location
+                    if (!empty($productsToInsert)) {
+                        LocationProductsTable::insert($productsToInsert);
+                    }
+                }
+
                 $i++;
             }
+
+
 
             // Step 4: Delete locations from the database that are not in the new locations list
             $locationsToDelete = array_diff($existingLocations, $newLocations);
