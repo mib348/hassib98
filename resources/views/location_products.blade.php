@@ -104,6 +104,10 @@
                 Save All
                 <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
             </button>
+            <button type="button" class="float-left pull-left float-start pull-start ms-3 btn btn-info btn-sm import_default_menu_btn float-right text-white" data-inventory-type="preorder">
+                Import Default Menu
+                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
+            </button>
             <br class="clearfix">
             <br class="clearfix">
             <form id="location_products_form_preorder" class="clearfix">
@@ -122,6 +126,10 @@
             <h5 class="float-start">Immediate Inventory</h5>
             <button type="button" class="float-start ms-3 btn btn-primary btn-sm save-all-days_btn float-right" data-inventory-type="immediate">
                 Save All
+                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
+            </button>
+            <button type="button" class="float-start ms-3 btn btn-info btn-sm import_default_menu_btn float-right text-white" data-inventory-type="immediate">
+                Import Default Menu
                 <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
             </button>
             <br class="clearfix">
@@ -478,6 +486,88 @@
 
                         $(".remove-product-btn").prop('disabled', false);
                         $(".remove-product-btn").attr('disabled', false);
+                    }
+                });
+            });
+
+            $(document).on('click', '.import_default_menu_btn', function() {
+                const location = $('#strFilterLocation').val();
+                const inventoryType = $(this).data('inventory-type');
+                $(".remove-product-btn").prop('disabled', true);
+                $(".remove-product-btn").attr('disabled', true);
+
+                if (location === '') {
+                    alert('Please Select Location');
+                    return;
+                }
+
+                $(`.loading-icon[data-inventory-type="${inventoryType}"]`).addClass('show');
+
+                // Disable the save button while loading
+                $(this).prop('disabled', true);
+                $(`.save-day[data-inventory-type="${inventoryType}"]`).prop('disabled', true);
+
+                const arrDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const formData = {
+                    _token: '{{ csrf_token() }}',
+                    strFilterLocation: location,
+                    "import_default_menu": true,
+                    inventory_type: inventoryType,
+                    day: arrDays,
+                    nProductId: {},
+                    nQuantity: {}
+                };
+
+                // Get product IDs and quantities for the specific day
+                arrDays.forEach(function(day) {
+                    $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nProductId`).each(function(index) {
+                        const productId = $(this).val();
+                        formData.nProductId[day] = formData.nProductId[day] || [];
+                        formData.nProductId[day].push(productId);
+                    });
+
+                    $(`table[data-inventory-type="${inventoryType}"] tr.${day} .nQuantity`).each(function(index) {
+                        const quantity = $(this).val();
+                        formData.nQuantity[day] = formData.nQuantity[day] || [];
+                        formData.nQuantity[day].push(quantity);
+                    });
+                });
+
+
+                $.ajax({
+                    url: "{{ route('ImportDefaultMenu') }}",
+                    type: "POST",
+                    data: formData,
+                    dataType: "json",
+                    success: function(data) {
+                        LoadList();
+
+                        // Hide the loading icon
+                        $(`.loading-icon[data-inventory-type="${inventoryType}"]`).removeClass('show');
+
+                        // Re-enable the save button
+                        $(`.save-day[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+                        $(`.save-all-days_btn[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+
+                        $(".remove-product-btn").prop('disabled', false);
+                        $(".remove-product-btn").attr('disabled', false);
+                        $(".import_default_menu_btn").attr('disabled', false);
+
+                    },
+                    error: function(error) {
+                        console.error(`Error importing ${inventoryType} Data for all days:`, error);
+                        alert(`Error importing ${inventoryType} Data for all days`);
+
+                        // Hide the loading icon on error as well
+                        $(`.loading-icon[data-inventory-type="${inventoryType}"]`).removeClass('show');
+
+                        // Re-enable the save button on error
+                        $(`.save-day[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+                        $(`.save-all-days_btn[data-inventory-type="${inventoryType}"]`).prop('disabled', false);
+
+                        $(".remove-product-btn").prop('disabled', false);
+                        $(".remove-product-btn").attr('disabled', false);
+                        $(".import_default_menu_btn").attr('disabled', false);
                     }
                 });
             });

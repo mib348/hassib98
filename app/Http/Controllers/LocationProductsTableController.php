@@ -535,5 +535,48 @@ class LocationProductsTableController extends Controller
             ]);
         }
     }
+
+    public function ImportDefaultMenu(Request $request){
+        $location = $request->input('strFilterLocation');
+        $inventoryType = $request->input('inventory_type', 'immediate');
+
+        $arrDefaultProducts = LocationProductsTable::where('location', 'Default Menu')
+                                                    ->where('inventory_type', $inventoryType)
+                                                    ->get();
+
+        $productsToInsert = [];
+
+        foreach ($arrDefaultProducts as $product) {
+            // Copy the 'Default Menu' location and set it to the new location
+            $newProduct = $product->toArray();  // Convert the product to an array
+
+            // Unset the 'id' field to ensure Laravel does not attempt to insert it
+            if(empty($newProduct['day']))
+                continue;
+            unset($newProduct['id']);
+            unset($newProduct['created_at']);
+            unset($newProduct['updated_at']);
+
+            // Set the new location
+            $newProduct['location'] = $location;
+
+            // Collect the modified product
+            $productsToInsert[] = $newProduct;
+        }
+
+        // Bulk insert products for the new location
+        if (!empty($productsToInsert)) {
+            LocationProductsTable::where('location', $location)
+                                ->where('inventory_type', $inventoryType)
+                                ->delete();
+            LocationProductsTable::insert($productsToInsert);
+        }
+
+        return response()->json([
+            'data' => [
+                $inventoryType => $productsToInsert
+            ]
+        ]);
+    }
 }
 
