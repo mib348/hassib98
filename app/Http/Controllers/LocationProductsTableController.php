@@ -38,9 +38,6 @@ class LocationProductsTableController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $shop = Auth::user() ?? User::find(env('db_shop_id', 1));
@@ -52,288 +49,415 @@ class LocationProductsTableController extends Controller
         $inventoryType = $request->input('inventory_type', 'immediate');
 
         // Determine metafield key based on inventory_type
-        $metafieldKey = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
+        $metafieldKey = ($inventoryType === 'preorder') ? 'preorder_inventory' : 'json';
 
-        // Track product IDs
+        // Collect all product IDs to update
         $productIds = [];
         foreach ($daysToUpdate as $day) {
-            // Delete existing entries for the day, location, and inventory type
-            LocationProductsTable::where('location', $location)
-                ->where('day', $day)
-                ->where('inventory_type', $inventoryType)
-                ->delete();
-
             $dayProductIds = $productData['nProductId'][$day] ?? [];
             foreach (array_filter($dayProductIds) as $productId) {
-                $productIds[$productId] = $productId;
+                $productIds[] = $productId;
             }
         }
+        //$productIds = array_unique($productIds);
 
-        // Fetch all metafields for the products in one go
-        $productMetafields = [];
-        foreach ($productIds as $productId) {
-            $response = $api->rest('GET', "/admin/products/{$productId}/metafields.json");
-            $productMetafields[$productId] = $response['body']['metafields'] ?? [];
-        }
+        // Start database transaction for atomicity
+        DB::beginTransaction();
 
-        // Process updates for specified products
-        foreach ($daysToUpdate as $day) {
-            $dayProductIds = $productData['nProductId'][$day] ?? [];
-            $dayQuantities = $productData['nQuantity'][$day] ?? [];
+        try {
+            // Bulk delete existing entries for the specified location, days, and inventory type
+            LocationProductsTable::where('location', $location)
+                ->whereIn('day', $daysToUpdate)
+                ->where('inventory_type', $inventoryType)
+                ->whereIn('product_id', $productIds)
+                ->delete();
 
-            foreach (array_filter($dayProductIds) as $index => $productId) {
-                $quantity = $dayQuantities[$index] ?? null;
-                if ($quantity !== null) {
-                    // Create new entry in the database
-                    LocationProductsTable::create([
-                        'product_id' => $productId,
-                        'location' => $location,
-                        'day' => $day,
-                        'quantity' => $quantity,
-                        'inventory_type' => $inventoryType
-                    ]);
+            // Prepare new entries for bulk insertion
+            $newEntries = [];
+            foreach ($daysToUpdate as $day) {
+                $dayProductIds = $productData['nProductId'][$day] ?? [];
+                $dayQuantities = $productData['nQuantity'][$day] ?? [];
 
-                    // Update product metafield
-                    $this->updateProductMetafield($api, $productId, $location, $day, $productMetafields[$productId], $inventoryType);
-                }
-            }
-        }
-
-        // Update "available_on" metafield for all products
-        foreach ($productIds as $productId) {
-            $this->updateAvailableOnMetafield($api, $productId);
-        }
-
-        // Remove the location and day info from all other products' metafields
-        $allProductsResponse = $api->rest('GET', "/admin/products.json");
-        $allProducts = $allProductsResponse['body']['products'] ?? [];
-
-        foreach ($allProducts as $product) {
-            $productId = $product['id'];
-            if (!isset($productIds[$productId])) {
-                $response = $api->rest('GET', "/admin/products/{$productId}/metafields.json");
-                $metafields = $response['body']['metafields'] ?? [];
-                $this->removeProductMetafield($api, $productId, $location, $daysToUpdate, $metafields, $inventoryType);
-
-                $this->updateAvailableOnMetafield($api, $productId);
-            }
-        }
-
-        return response()->json(['message' => 'Location Products Data Saved Successfully']);
-    }
-
-    protected function updateProductMetafield($api, $productId, $location, $day, $metafields, $inventoryType)
-    {
-        $metafieldKey = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
-        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', $metafieldKey);
-        $updatedValues = $this->prepareMetafieldValue($productId, $location, $day, $metafields, $inventoryType);
-
-        $metafieldData = [
-            'namespace' => 'custom',
-            'key' => $metafieldKey,
-            'value' => $updatedValues,
-            'type' => 'json',
-        ];
-
-        if ($dateAndQuantityMetafield) {
-            // Metafield exists, update it
-            $metafieldData['id'] = $dateAndQuantityMetafield['id'];
-            $updateResponse = $api->rest('PUT', "/admin/products/{$productId}/metafields/{$metafieldData['id']}.json", ['metafield' => $metafieldData]);
-        } else {
-            // Metafield does not exist, create it
-            $updateResponse = $api->rest('POST', "/admin/products/{$productId}/metafields.json", ['metafield' => $metafieldData]);
-        }
-
-        if (isset($updateResponse['body']['metafield'])) {
-            Log::info("Metafield updated for product {$productId}: " . json_encode($updateResponse['body']['metafield']));
-        } else {
-            Log::error("Error updating metafield for product {$productId}: " . json_encode($updateResponse['body']));
-        }
-    }
-
-    protected function removeProductMetafield($api, $productId, $location, $daysToUpdate, $metafields, $inventoryType)
-    {
-        $metafieldKey = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
-
-        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', $metafieldKey);
-        if ($dateAndQuantityMetafield) {
-            $existingValues = json_decode($dateAndQuantityMetafield['value'], true) ?? [];
-            $updatedValues = [];
-
-            foreach ($existingValues as $value) {
-                [$valueLocation, $valueDate, $valueQuantity] = explode(':', $value);
-                if ($valueLocation !== $location || !in_array(date('l', strtotime($valueDate)), $daysToUpdate)) {
-                    if (!isset($updatedValues[$valueLocation])) {
-                        $updatedValues[$valueLocation] = [];
+                foreach (array_filter($dayProductIds) as $index => $productId) {
+                    $quantity = $dayQuantities[$index] ?? null;
+                    if ($quantity !== null) {
+                        $newEntries[] = [
+                            'product_id' => $productId,
+                            'location' => $location,
+                            'day' => $day,
+                            'quantity' => $quantity,
+                            'inventory_type' => $inventoryType,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
                     }
-                    $updatedValues[$valueLocation][$valueDate] = (string)$valueQuantity;
                 }
             }
 
-            // Sort dates within each location
-            foreach ($updatedValues as $location => &$dates) {
-                uksort($dates, function ($a, $b) {
-                    $timestampA = strtotime($a);
-                    $timestampB = strtotime($b);
-                    return $timestampA <=> $timestampB;
+            // Bulk insert new entries
+            if (!empty($newEntries)) {
+                LocationProductsTable::insert($newEntries);
+            }
+
+            // Fetch existing metafields for all products in a single GraphQL query
+            $existingMetafields = $this->fetchExistingMetafields($api, $productIds, $metafieldKey);
+
+
+            // Prepare metafield updates
+            $metafieldMutations = [];
+            foreach ($productIds as $productId) {
+                $currentMetafield = $existingMetafields[$productId] ?? null;
+                $updatedValue = $this->prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType);
+
+                $metafieldMutations[] = [
+					'ownerId' => "gid://shopify/Product/" . $currentMetafield['id'],
+					'namespace' => 'custom',
+					'key' => $metafieldKey,
+					'value' => $updatedValue,
+					'type' => 'json',
+				];
+            }
+
+			// Update "available_on" metafield for all products
+            $availableOnMutations = [];
+            foreach ($productIds as $productId) {
+                $availableDays = $this->fetchAvailableDays($productId);
+                $availableOnMutations[] = [
+                    'productId' => $productId,
+                    'availableDays' => json_encode($availableDays),
+                ];
+            }
+
+            if (!empty($availableOnMutations)) {
+                $arrAvailableOnMetafields = $this->buildUpdateAvailableOnMetafields($api, $availableOnMutations);
+            }
+
+
+			// Split mutations into chunks of 25 to comply with Shopify's limit
+
+			$metafieldMutations = array_merge($metafieldMutations, $arrAvailableOnMetafields);
+			$chunks = array_chunk($metafieldMutations, 25);
+
+			foreach ($chunks as $chunk) {
+				if (!empty($chunk)) {
+					// Execute batch metafield mutations via GraphQL
+					$this->batchUpdateMetafields($api, $chunk);
+				}
+			}
+
+
+
+            // Commit the transaction
+            DB::commit();
+
+            return response()->json(['message' => 'Location Products Data Saved Successfully']);
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Error in store method: " . $e->getMessage());
+            return response()->json(['message' => 'An error occurred while saving data'], 500);
+        }
+    }
+
+    /**
+     * Fetch existing metafields for a list of products.
+     *
+     * @param \Osiset\ShopifyApp\Objects\Shop $api
+     * @param array $productIds
+     * @param string $metafieldKey
+     * @return array
+     */
+    protected function fetchExistingMetafields($api, array $productIds, string $metafieldKey)
+    {
+        // GraphQL query to fetch metafields for multiple products
+        $productQueries = [];
+        foreach ($productIds as $index => $productId) {
+            $alias = "product_{$index}";
+            $productQueries[] = "
+                {$alias}: product(id: \"gid://shopify/Product/{$productId}\") {
+                    id
+                    metafield(namespace: \"custom\", key: \"{$metafieldKey}\") {
+                        id
+                        value
+                    }
+                }
+            ";
+        }
+
+        $query = "
+            {
+                " . implode("\n", $productQueries) . "
+            }
+        ";
+
+        $response = $api->graph($query);
+
+        $existingMetafields = [];
+		$responseData = $response['body'] ?? []; // Adjust according to response structure
+
+		foreach ($responseData['container']['data'] as $key => $productData) {
+			if (isset($productData['metafield'])) {
+				$nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
+				$existingMetafields[$nProductId] = [
+					'id' => $nProductId,
+					'metafield_id' => $productData['metafield']['id'],
+					'value' => $productData['metafield']['value'],
+				];
+			}
+		}
+
+        return $existingMetafields;
+    }
+
+    /**
+     * Prepare the metafield value based on location, days, and inventory type.
+     *
+     * @param int $productId
+     * @param string $location
+     * @param array $daysToUpdate
+     * @param string $inventoryType
+     * @return string
+     */
+    protected function prepareMetafieldValue($productId, string $location, array $daysToUpdate, string $inventoryType)
+    {
+        // Fetch all relevant entries from the database
+        $entries = DB::table('location_products_tables')
+            ->where('product_id', $productId)
+            ->where('location', $location)
+            ->where('inventory_type', $inventoryType)
+            ->whereIn('day', $daysToUpdate)
+            ->get(['day', 'quantity']);
+
+        $values = [];
+        foreach ($entries as $entry) {
+            // Calculate the date based on the day (assuming 'day' is the day of the week, e.g., 'Monday')
+            $date = $this->getNextDateForDay($entry->day);
+            $values[] = "{$location}:{$date}:{$entry->quantity}";
+        }
+
+        return json_encode($values);
+    }
+
+    /**
+     * Get the next date for a given day of the week.
+     *
+     * @param string $day
+     * @return string
+     */
+    protected function getNextDateForDay(string $day)
+    {
+        // Find the next date matching the specified day
+        $nextDate = date('d-m-Y', strtotime("next {$day}"));
+        return $nextDate;
+    }
+
+    /**
+     * Batch update or create metafields using GraphQL.
+     *
+     * @param \Osiset\ShopifyApp\Objects\Shop $api
+     * @param array $mutations
+     * @param string $metafieldKey
+     * @return void
+     */
+    protected function batchUpdateMetafields($api, array $metafieldsToSet)
+	{
+		// Prepare the metafields array for the mutation
+		// Each entry in $metafieldsToSet should look like:
+		// [
+		//   'ownerId' => 'gid://shopify/Product/xxx',
+		//   'namespace' => 'custom',
+		//   'key' => $metafieldKey,
+		//   'type' => 'json',
+		//   'value' => $newValue,
+		// ]
+
+
+
+		$mutation = <<<'GRAPHQL'
+						mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+							metafieldsSet(metafields: $metafields) {
+								metafields {
+									id
+									namespace
+									key
+									value
+									type
+								}
+								userErrors {
+									field
+									message
+								}
+							}
+						}
+						GRAPHQL;
+
+		$variables = [
+			'metafields' => $metafieldsToSet,
+		];
+
+		$response = $api->graph($mutation, $variables);
+
+		// Examine the response and handle errors or success
+		$data = $response['data']['metafieldsSet'] ?? null;
+		if ($data) {
+			if (!empty($data['userErrors'])) {
+				Log::error("Metafield set errors: " . json_encode($data['userErrors']));
+			} else {
+				foreach ($data['metafields'] as $mf) {
+					Log::info("Metafield updated/created: " . json_encode($mf));
+				}
+			}
+		} else {
+			Log::error("No response for metafieldsSet mutation");
+		}
+	}
+
+
+    /**
+     * Batch update "available_on" metafields using GraphQL.
+     *
+     * @param \Osiset\ShopifyApp\Objects\Shop $api
+     * @param array $mutations
+     * @return void
+     */
+	protected function buildUpdateAvailableOnMetafields($api, array $mutations)
+	{
+		// Prepare the metafields array for the mutation
+		// Each entry in $mutations should look like:
+		// [
+		//   'productId' => 'gid://shopify/Product/xxx',
+		//   'availableDays' => '["Monday", "Tuesday", "Wednesday"]',
+		// ]
+		$metafieldsToSet = [];
+		foreach ($mutations as $mutation) {
+			$metafieldsToSet[] = [
+				'ownerId' => "gid://shopify/Product/{$mutation['productId']}",
+				'namespace' => 'custom',
+				'key' => 'available_on',
+				'type' => 'list.single_line_text_field', // Or adjust the type if it's not JSON
+				'value' => $mutation['availableDays'],
+			];
+		}
+
+		return $metafieldsToSet;
+
+
+		$mutation = <<<'GRAPHQL'
+					mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+						metafieldsSet(metafields: $metafields) {
+							metafields {
+								id
+								namespace
+								key
+								value
+								type
+							}
+							userErrors {
+								field
+								message
+							}
+						}
+					}
+					GRAPHQL;
+
+			$variables = [
+				'metafields' => $metafieldsToSet,
+			];
+
+			$response = $api->graph($mutation, $variables);
+
+			// Handle response and log errors or successes
+			$data = $response['data']['metafieldsSet'] ?? null;
+			if ($data) {
+				if (!empty($data['userErrors'])) {
+					Log::error("Metafield set errors: " . json_encode($data['userErrors']));
+				} else {
+					foreach ($data['metafields'] as $mf) {
+						Log::info("Metafield 'available_on' updated/created: " . json_encode($mf));
+					}
+				}
+			} else {
+				Log::error("No response for metafieldsSet mutation");
+			}
+	}
+
+    /**
+     * Remove location and day info from metafields for products not in the current update set.
+     *
+     * @param \Osiset\ShopifyApp\Objects\Shop $api
+     * @param array $allProductIds
+     * @param string $location
+     * @param array $daysToUpdate
+     * @param string $inventoryType
+     * @return void
+     */
+    protected function cleanUpOtherProductsMetafields($api, array $allProductIds, string $location, array $daysToUpdate, string $inventoryType)
+    {
+        // Identify products not in the current update set
+        $excludedProductIds = DB::table('location_products_tables')
+            ->where('location', $location)
+            ->whereIn('day', $daysToUpdate)
+            ->where('inventory_type', $inventoryType)
+            ->pluck('product_id')
+            ->toArray();
+
+        $productsToClean = array_diff($allProductIds, $excludedProductIds);
+
+        if (empty($productsToClean)) {
+            return;
+        }
+
+        // Fetch existing metafields for these products
+        $metafieldKey = ($inventoryType === 'preorder') ? 'preorder_inventory' : 'json';
+        $existingMetafields = $this->fetchExistingMetafields($api, $productsToClean, $metafieldKey);
+
+        // Prepare metafield clean-up mutations
+        $metafieldMutations = [];
+        foreach ($productsToClean as $productId) {
+            $currentMetafield = $existingMetafields[$productId] ?? null;
+            if ($currentMetafield) {
+                // Parse existing metafield value
+                $existingValues = json_decode($currentMetafield['value'], true) ?? [];
+                $filteredValues = array_filter($existingValues, function ($value) use ($location, $daysToUpdate) {
+                    [$valueLocation, $valueDate, $valueQuantity] = explode(':', $value);
+                    return !($valueLocation === $location && in_array(date('l', strtotime($valueDate)), $daysToUpdate));
                 });
-            }
 
-            // Prepare the value for updating
-            $newValue = [];
-            array_walk($updatedValues, function ($dates, $location) use (&$newValue) {
-                foreach ($dates as $date => $quantity) {
-                    $newValue[] = "{$location}:{$date}:{$quantity}";
-                }
-            });
+                // Re-encode the filtered values
+                $updatedValue = json_encode(array_values($filteredValues));
 
-            $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
-
-            $metafieldData = [
-                'namespace' => 'custom',
-                'key' => $metafieldKey,
-                'value' => $newValue,
-                'type' => 'json',
-            ];
-
-            $metafieldData['id'] = $dateAndQuantityMetafield['id'];
-            $updateResponse = $api->rest('PUT', "/admin/products/{$productId}/metafields/{$metafieldData['id']}.json", ['metafield' => $metafieldData]);
-
-            if (isset($updateResponse['body']['metafield'])) {
-                Log::info("Metafield updated for product {$productId}: " . json_encode($updateResponse['body']['metafield']));
-            } else {
-                Log::error("Error updating metafield for product {$productId}: " . json_encode($updateResponse['body']));
-            }
-        }
-    }
-
-    protected function prepareMetafieldValue($productId, $location, $day, $metafields, $inventoryType)
-    {
-        $metafieldKey = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
-
-        // Initialize the updated values array
-        $updatedValues = [];
-
-        // Extract existing metafields and parse them
-        $dateAndQuantityMetafield = collect($metafields)->firstWhere('key', $metafieldKey);
-        if ($dateAndQuantityMetafield) {
-            $existingValues = json_decode($dateAndQuantityMetafield['value'], true) ?? [];
-
-            foreach ($existingValues as $value) {
-                [$valueLocation, $valueDate, $valueQuantity] = explode(':', $value);
-                if (!isset($updatedValues[$valueLocation])) {
-                    $updatedValues[$valueLocation] = [];
-                }
-                // if($valueDate >= date('d-m-Y', strtotime('today')))
-                    $updatedValues[$valueLocation][$valueDate] = (string)$valueQuantity;
-            }
-        }
-
-        // Fetch the product IDs and quantities for the specified day from the request
-        $dayProductIds = request()->input("nProductId.{$day}", []);
-        $dayQuantities = request()->input("nQuantity.{$day}", []);
-        $validProductIds = array_filter($dayProductIds);
-
-        // Update the quantity for the specified day
-        $today = strtotime('today');
-        for ($i = 0; $i < 7; $i++) {
-            $newDate = date('d-m-Y', strtotime("+{$i} days", $today));
-            if (date('l', strtotime($newDate)) === $day) {
-                // Check if the product is in the valid product IDs list
-                foreach ($validProductIds as $index => $prodId) {
-                    if ($productId == $prodId) {
-                        // Product is valid, update the quantity
-                        $quantity = $dayQuantities[$index] ?? null;
-                        if ($quantity !== null) {
-                            if (!isset($updatedValues[$location])) {
-                                $updatedValues[$location] = [];
-                            }
-                            $updatedValues[$location][$newDate] = (string)$quantity;
-                        }
-                    }
+                // Add to mutations if there's a change
+                if ($updatedValue !== $currentMetafield['value']) {
+                    $metafieldMutations[] = [
+                        'id' => $currentMetafield['id'],
+                        'value' => $updatedValue,
+                    ];
                 }
             }
         }
 
-        // Sort dates within each location
-        foreach ($updatedValues as $locationKey => &$dates) {
-            uksort($dates, function ($a, $b) {
-                $timestampA = strtotime($a);
-                $timestampB = strtotime($b);
-                return $timestampA <=> $timestampB;
-            });
-        }
-
-        // Prepare the value for updating
-        $newValue = [];
-        array_walk($updatedValues, function ($dates, $location) use (&$newValue) {
-            foreach ($dates as $date => $quantity) {
-                $newValue[] = "{$location}:{$date}:{$quantity}";
-            }
-        });
-
-        $newValue = json_encode(array_values($newValue)); // Ensure proper JSON encoding
-
-        return $newValue;
-    }
-
-    protected function updateAvailableOnMetafield($api, $productId)
-    {
-        $arrDays = $this->fetchAvailableDays($productId);
-        $arrDays = json_encode($arrDays);
-
-        $response = $api->rest('GET', "/admin/products/{$productId}/metafields.json");
-        $metafields = $response['body']['metafields'] ?? [];
-        // $availableOnKey = ($inventoryType == 'preorder') ? 'available_on_preorder' : 'available_on';
-        $availableOnKey = 'available_on';
-        $availableOnMetafield = collect($metafields)->firstWhere('key', $availableOnKey);
-
-        if ($availableOnMetafield) {
-            // Metafield exists, update it
-            $metafieldId = $availableOnMetafield['id'];
-            $updateResponse = $api->rest('PUT', "/admin/products/{$productId}/metafields/{$metafieldId}.json", [
-                'metafield' => [
-                    'id' => $metafieldId,
-                    'value' => $arrDays,
-                    'namespace' => 'custom',
-                    'key' => $availableOnKey,
-                    'type' => 'list.single_line_text_field',
-                ],
-            ]);
-        } else {
-            // Metafield does not exist, create it
-            $updateResponse = $api->rest('POST', "/admin/products/{$productId}/metafields.json", [
-                'metafield' => [
-                    'namespace' => 'custom',
-                    'key' => $availableOnKey,
-                    'value' => $arrDays,
-                    'type' => 'list.single_line_text_field',
-                ],
-            ]);
-        }
-
-        if (isset($updateResponse['body']['metafield'])) {
-            Log::info("Available on metafield updated for product {$productId}: " . json_encode($updateResponse['body']['metafield']));
-        } else {
-            Log::error("Error updating available on metafield for product {$productId}: " . json_encode($updateResponse['body']));
+        // Execute batch metafield mutations via GraphQL
+        if (!empty($metafieldMutations)) {
+            $this->batchUpdateMetafields($api, $metafieldMutations, $metafieldKey);
         }
     }
 
+    /**
+     * Fetch available days for a product.
+     *
+     * @param int $productId
+     * @return array
+     */
     public function fetchAvailableDays($productId)
     {
-        $arr = [];
-        $arrDays = DB::table('location_products_tables')
-            ->select('day')
-            ->distinct()
+        $days = DB::table('location_products_tables')
             ->where('product_id', $productId)
+			->whereNotNull('day')
             ->whereIn('inventory_type', ['immediate', 'preorder'])
-            ->get();
+            ->distinct()
+            ->pluck('day')
+            ->toArray();
 
-        foreach ($arrDays as $arrDay) {
-            $arr[] = $arrDay->day;
-        }
-
-        return $arr;
+        return $days;
     }
 
     /**
