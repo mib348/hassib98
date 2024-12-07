@@ -80,7 +80,7 @@ class LocationProductsTableController extends Controller
 
                 foreach (array_filter($dayProductIds) as $index => $productId) {
                     $quantity = $dayQuantities[$index] ?? null;
-                    if ($quantity !== null) {
+                    if ($quantity !== null && $quantity > 0) {
                         $newEntries[] = [
                             'product_id' => $productId,
                             'location' => $location,
@@ -103,19 +103,23 @@ class LocationProductsTableController extends Controller
             $existingMetafields = $this->fetchExistingMetafields($api, $productIds, $metafieldKey);
 
 
-            // Prepare metafield updates
+             // Prepare metafield updates, merging existing values
             $metafieldMutations = [];
             foreach ($productIds as $productId) {
                 $currentMetafield = $existingMetafields[$productId] ?? null;
-                $updatedValue = $this->prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType);
+                $existingValue = $currentMetafield['value'] ?? '{}'; // Default to empty JSON object
+                $existingData = json_decode($existingValue, true) ?? [];
+
+                // Merge new data for the current location and day
+                $updatedData = $this->prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType, $existingData);
 
                 $metafieldMutations[] = [
-					'ownerId' => "gid://shopify/Product/" . $currentMetafield['id'],
-					'namespace' => 'custom',
-					'key' => $metafieldKey,
-					'value' => $updatedValue,
-					'type' => 'json',
-				];
+                    'ownerId' => "gid://shopify/Product/" . $productId,
+                    'namespace' => 'custom',
+                    'key' => $metafieldKey,
+                    'value' => json_encode($updatedData),
+                    'type' => 'json',
+                ];
             }
 
 			// Update "available_on" metafield for all products
@@ -217,38 +221,50 @@ class LocationProductsTableController extends Controller
      * @param string $inventoryType
      * @return string
      */
-    protected function prepareMetafieldValue($productId, string $location, array $daysToUpdate, string $inventoryType)
+    protected function prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType, $existingData)
     {
-        // Fetch all relevant entries from the database
-        $entries = DB::table('location_products_tables')
-            ->where('product_id', $productId)
-            ->where('location', $location)
-            ->where('inventory_type', $inventoryType)
-            ->whereIn('day', $daysToUpdate)
-            ->get(['day', 'quantity']);
 
-        $values = [];
-        foreach ($entries as $entry) {
-            // Calculate the date based on the day (assuming 'day' is the day of the week, e.g., 'Monday')
-            $date = $this->getNextDateForDay($entry->day);
-            $values[] = "{$location}:{$date}:{$entry->quantity}";
+        // Parse the existing data into a structured array
+        $parsedData = [];
+        foreach ($existingData as $entry) {
+            [$entryLocation, $entryDate, $entryQuantity] = explode(':', $entry);
+            $parsedData[$entryLocation][$entryDate] = $entryQuantity;
         }
 
-        return json_encode($values);
+        // Add or update the data for the current location and days
+        foreach ($daysToUpdate as $day) {
+            $today = strtotime('today');
+            for ($i = 0; $i < 7; $i++) {
+                $newDate = date('d-m-Y', strtotime("+{$i} days", $today));
+                if (date('l', strtotime($newDate)) === $day) {
+                    // Fetch the quantity for this product, location, and day
+                    $quantity = $this->fetchQuantityForDay($productId, $day, $location);
+                    if ($quantity !== null && $quantity > 0) {
+                        $parsedData[$location][$newDate] = $quantity;
+                    }
+                }
+            }
+        }
+
+        // Reformat the data back into the required string format
+        $formattedData = [];
+        foreach ($parsedData as $entryLocation => $dates) {
+            foreach ($dates as $entryDate => $entryQuantity) {
+                $formattedData[] = "{$entryLocation}:{$entryDate}:{$entryQuantity}";
+            }
+        }
+
+        return $formattedData;
     }
 
-    /**
-     * Get the next date for a given day of the week.
-     *
-     * @param string $day
-     * @return string
-     */
-    protected function getNextDateForDay(string $day)
+    protected function fetchQuantityForDay($productId, $day, $location)
     {
-        // Find the next date matching the specified day
-        $nextDate = date('d-m-Y', strtotime("next {$day}"));
-        return $nextDate;
+        return LocationProductsTable::where('product_id', $productId)
+            ->where('location', $location)
+            ->where('day', $day)
+            ->value('quantity') ?? 0;
     }
+
 
     /**
      * Batch update or create metafields using GraphQL.
