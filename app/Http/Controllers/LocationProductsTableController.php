@@ -59,20 +59,16 @@ class LocationProductsTableController extends Controller
                 $productIds[] = $productId;
             }
         }
-        //$productIds = array_unique($productIds);
 
-        // Start database transaction for atomicity
         DB::beginTransaction();
 
         try {
-            // Bulk delete existing entries for the specified location, days, and inventory type
+            // Delete existing entries for this location
             LocationProductsTable::where('location', $location)
-                ->whereIn('day', $daysToUpdate)
                 ->where('inventory_type', $inventoryType)
-                ->whereIn('product_id', $productIds)
                 ->delete();
 
-            // Prepare new entries for bulk insertion
+            // Prepare new entries
             $newEntries = [];
             foreach ($daysToUpdate as $day) {
                 $dayProductIds = $productData['nProductId'][$day] ?? [];
@@ -94,7 +90,6 @@ class LocationProductsTableController extends Controller
                 }
             }
 
-            // Bulk insert new entries
             if (!empty($newEntries)) {
                 LocationProductsTable::insert($newEntries);
             }
@@ -102,15 +97,13 @@ class LocationProductsTableController extends Controller
             // Fetch existing metafields for all products in a single GraphQL query
             $existingMetafields = $this->fetchExistingMetafields($api, $productIds, $metafieldKey);
 
-
-             // Prepare metafield updates, merging existing values
+            // Prepare metafield updates for updated products
             $metafieldMutations = [];
             foreach ($productIds as $productId) {
                 $currentMetafield = $existingMetafields[$productId] ?? null;
-                $existingValue = $currentMetafield['value'] ?? '{}'; // Default to empty JSON object
+                $existingValue = $currentMetafield['value'] ?? '[]';
                 $existingData = json_decode($existingValue, true) ?? [];
 
-                // Merge new data for the current location and day
                 $updatedData = $this->prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType, $existingData);
 
                 $metafieldMutations[] = [
@@ -122,7 +115,38 @@ class LocationProductsTableController extends Controller
                 ];
             }
 
-			// Update "available_on" metafield for all products
+            // Fetch all products in the location to determine removed products
+            $allProductIdsInLocation = LocationProductsTable::where('location', $location)
+                ->pluck('product_id')
+                ->toArray();
+
+            $removedProductIds = array_diff($allProductIdsInLocation, $productIds);
+
+            // Clean up metafields for removed products
+            $removedMetafields = $this->fetchExistingMetafields($api, $removedProductIds, $metafieldKey);
+            foreach ($removedProductIds as $removedProductId) {
+                $currentMetafield = $removedMetafields[$removedProductId] ?? null;
+                if ($currentMetafield) {
+                    $existingValue = $currentMetafield['value'] ?? '[]';
+                    $existingData = json_decode($existingValue, true) ?? [];
+
+                    // Remove the location from the metafield data
+                    $cleanedData = array_filter($existingData, function ($value) use ($location) {
+                        [$entryLocation] = explode(':', $value);
+                        return $entryLocation !== $location;
+                    });
+
+                    $metafieldMutations[] = [
+                        'ownerId' => "gid://shopify/Product/" . $removedProductId,
+                        'namespace' => 'custom',
+                        'key' => $metafieldKey,
+                        'value' => json_encode(array_values($cleanedData)),
+                        'type' => 'json',
+                    ];
+                }
+            }
+
+            // Update "available_on" metafield for all products
             $availableOnMutations = [];
             foreach ($productIds as $productId) {
                 $availableDays = $this->fetchAvailableDays($productId);
@@ -134,24 +158,15 @@ class LocationProductsTableController extends Controller
 
             if (!empty($availableOnMutations)) {
                 $arrAvailableOnMetafields = $this->buildUpdateAvailableOnMetafields($api, $availableOnMutations);
+                $metafieldMutations = array_merge($metafieldMutations, $arrAvailableOnMetafields);
             }
 
+            // Split mutations into chunks of 25 to comply with Shopify's limit
+            $chunks = array_chunk($metafieldMutations, 25);
+            foreach ($chunks as $chunk) {
+                $this->batchUpdateMetafields($api, $chunk);
+            }
 
-			// Split mutations into chunks of 25 to comply with Shopify's limit
-
-			$metafieldMutations = array_merge($metafieldMutations, $arrAvailableOnMetafields);
-			$chunks = array_chunk($metafieldMutations, 25);
-
-			foreach ($chunks as $chunk) {
-				if (!empty($chunk)) {
-					// Execute batch metafield mutations via GraphQL
-					$this->batchUpdateMetafields($api, $chunk);
-				}
-			}
-
-
-
-            // Commit the transaction
             DB::commit();
 
             return response()->json(['message' => 'Location Products Data Saved Successfully']);
@@ -161,6 +176,7 @@ class LocationProductsTableController extends Controller
             return response()->json(['message' => 'An error occurred while saving data'], 500);
         }
     }
+
 
     /**
      * Fetch existing metafields for a list of products.
@@ -198,14 +214,16 @@ class LocationProductsTableController extends Controller
         $existingMetafields = [];
 		$responseData = $response['body'] ?? []; // Adjust according to response structure
 
-		foreach ($responseData['container']['data'] as $key => $productData) {
-			if (isset($productData['metafield'])) {
-				$nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
-				$existingMetafields[$nProductId] = [
-					'id' => $nProductId,
-					'metafield_id' => $productData['metafield']['id'],
-					'value' => $productData['metafield']['value'],
-				];
+		if(isset($responseData['data'])){
+			foreach ($responseData['data'] as $key => $productData) {
+				if (isset($productData['metafield'])) {
+					$nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
+					$existingMetafields[$nProductId] = [
+						'id' => $nProductId,
+						'metafield_id' => $productData['metafield']['id'],
+						'value' => $productData['metafield']['value'],
+					];
+				}
 			}
 		}
 
