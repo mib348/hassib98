@@ -474,10 +474,11 @@
                         $(".remove-product-btn").attr('disabled', false);
                     },
                     error: function(error) {
-                        console.error(`Error saving ${inventoryType} Data for all days:`, error);
-                        alert(`Error saving ${inventoryType} Data for all days`);
+                        console.error(`Error saving ${inventoryType} Data for all days:`, error.responseJSON.message);
+                        alert(`Error saving ${inventoryType} Data for all days: ` + error.responseJSON.message);
 
                         // Hide the loading icon on error as well
+                        
                         $(`.loading-icon[data-inventory-type="${inventoryType}"]`).removeClass('show');
 
                         // Re-enable the save button on error

@@ -60,121 +60,138 @@ class LocationProductsTableController extends Controller
             }
         }
 
-        DB::beginTransaction();
+        // if(count($productIds) > 0){
 
-        try {
-            // Delete existing entries for this location
-            LocationProductsTable::where('location', $location)
-                ->where('inventory_type', $inventoryType)
-                ->delete();
+            DB::beginTransaction();
 
-            // Prepare new entries
-            $newEntries = [];
-            foreach ($daysToUpdate as $day) {
-                $dayProductIds = $productData['nProductId'][$day] ?? [];
-                $dayQuantities = $productData['nQuantity'][$day] ?? [];
+            try {
+                // Delete existing entries for this location
+                LocationProductsTable::where('location', $location)
+                    ->where('inventory_type', $inventoryType)
+                    ->delete();
 
-                foreach (array_filter($dayProductIds) as $index => $productId) {
-                    $quantity = $dayQuantities[$index] ?? null;
-                    if ($quantity !== null && $quantity > 0) {
-                        $newEntries[] = [
-                            'product_id' => $productId,
-                            'location' => $location,
-                            'day' => $day,
-                            'quantity' => $quantity,
-                            'inventory_type' => $inventoryType,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
+                // Prepare new entries
+                $newEntries = [];
+                foreach ($daysToUpdate as $day) {
+                    $dayProductIds = $productData['nProductId'][$day] ?? [];
+                    $dayQuantities = $productData['nQuantity'][$day] ?? [];
+
+                    foreach (array_filter($dayProductIds) as $index => $productId) {
+                        $quantity = $dayQuantities[$index] ?? null;
+                        if ($quantity !== null && $quantity > 0) {
+                            $newEntries[] = [
+                                'product_id' => $productId,
+                                'location' => $location,
+                                'day' => $day,
+                                'quantity' => $quantity,
+                                'inventory_type' => $inventoryType,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        }
                     }
                 }
-            }
 
-            if (!empty($newEntries)) {
-                LocationProductsTable::insert($newEntries);
-            }
+                if (!empty($newEntries)) {
+                    LocationProductsTable::insert($newEntries);
+                }
 
-            // Fetch existing metafields for all products in a single GraphQL query
-            $existingMetafields = $this->fetchExistingMetafields($api, $productIds, $metafieldKey);
+                $productIds = array_unique($productIds);
 
-            // Prepare metafield updates for updated products
-            $metafieldMutations = [];
-            foreach ($productIds as $productId) {
-                $currentMetafield = $existingMetafields[$productId] ?? null;
-                $existingValue = $currentMetafield['value'] ?? '[]';
-                $existingData = json_decode($existingValue, true) ?? [];
+                if(count($productIds) > 0){
+                    // Fetch existing metafields for all products in a single GraphQL query
+                    $existingMetafields = $this->fetchExistingMetafields($api, $productIds, $metafieldKey);
 
-                $updatedData = $this->prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType, $existingData);
 
-                $metafieldMutations[] = [
-                    'ownerId' => "gid://shopify/Product/" . $productId,
-                    'namespace' => 'custom',
-                    'key' => $metafieldKey,
-                    'value' => json_encode($updatedData),
-                    'type' => 'json',
-                ];
-            }
+                    // Prepare metafield updates for updated products
+                    $metafieldMutations = [];
+                    $i = 0;
+                    foreach ($productIds as $productId) {
+                        $currentMetafield = $existingMetafields[$productId] ?? null;
+                        $existingValue = $currentMetafield['value'] ?? '[]';
+                        $existingData = json_decode($existingValue, true) ?? [];
 
-            // Fetch all products in the location to determine removed products
-            $allProductIdsInLocation = LocationProductsTable::where('location', $location)
-                ->pluck('product_id')
+                        $updatedData = $this->prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType, $existingData);
+
+                        $metafieldMutations[] = [
+                            'ownerId' => "gid://shopify/Product/" . $productId,
+                            'namespace' => 'custom',
+                            'key' => $metafieldKey,
+                            'value' => json_encode($updatedData),
+                            'type' => 'json',
+                        ];
+                        $i++;
+                    }
+                }
+
+                // Fetch all products in the location to determine removed products
+                $allProductIdsInLocation = Products::where('status', 'active')->pluck('product_id')
                 ->toArray();
 
-            $removedProductIds = array_diff($allProductIdsInLocation, $productIds);
+                $removedProductIds = array_diff($allProductIdsInLocation, $productIds);
 
-            // Clean up metafields for removed products
-            $removedMetafields = $this->fetchExistingMetafields($api, $removedProductIds, $metafieldKey);
-            foreach ($removedProductIds as $removedProductId) {
-                $currentMetafield = $removedMetafields[$removedProductId] ?? null;
-                if ($currentMetafield) {
-                    $existingValue = $currentMetafield['value'] ?? '[]';
-                    $existingData = json_decode($existingValue, true) ?? [];
+                if(count($removedProductIds) > 0){
+                    // Clean up metafields for removed products
+                    $removedMetafields = $this->fetchExistingMetafields($api, $removedProductIds, $metafieldKey);
+                    foreach ($removedProductIds as $removedProductId) {
+                        $currentMetafield = $removedMetafields[$removedProductId] ?? null;
+                        if ($currentMetafield) {
+                            $existingValue = $currentMetafield['value'] ?? '[]';
+                            $existingData = json_decode($existingValue, true) ?? [];
 
-                    // Remove the location from the metafield data
-                    $cleanedData = array_filter($existingData, function ($value) use ($location) {
-                        [$entryLocation] = explode(':', $value);
-                        return $entryLocation !== $location;
-                    });
+                            // Remove the location from the metafield data
+                            $cleanedData = array_filter($existingData, function ($value) use ($location) {
+                                [$entryLocation] = explode(':', $value);
+                                return $entryLocation !== $location;
+                            });
 
-                    $metafieldMutations[] = [
-                        'ownerId' => "gid://shopify/Product/" . $removedProductId,
-                        'namespace' => 'custom',
-                        'key' => $metafieldKey,
-                        'value' => json_encode(array_values($cleanedData)),
-                        'type' => 'json',
+                            $metafieldMutations[] = [
+                                'ownerId' => "gid://shopify/Product/" . $removedProductId,
+                                'namespace' => 'custom',
+                                'key' => $metafieldKey,
+                                'value' => json_encode(array_values($cleanedData)),
+                                'type' => 'json',
+                            ];
+                        }
+                    }
+                }
+
+                // Update "available_on" metafield for all products
+                $availableOnMutations = [];
+                foreach ($productIds as $productId) {
+                    $availableDays = $this->fetchAvailableDays($productId);
+                    $availableOnMutations[] = [
+                        'productId' => $productId,
+                        'availableDays' => json_encode($availableDays),
                     ];
                 }
+
+                if (!empty($availableOnMutations)) {
+                    $arrAvailableOnMetafields = $this->buildUpdateAvailableOnMetafields($api, $availableOnMutations);
+                    $metafieldMutations = array_merge($metafieldMutations, $arrAvailableOnMetafields);
+                }
+
+
+
+                // Split mutations into chunks of 25 to comply with Shopify's limit
+                $chunks = array_chunk($metafieldMutations, 25);
+                foreach ($chunks as $chunk) {
+                    $this->batchUpdateMetafields($api, $chunk);
+                }
+
+                DB::commit();
+
+                return response()->json(['message' => 'Location Products Data Saved Successfully']);
+            } catch (Exception $e) {
+                DB::rollBack();
+                Log::error("Error in store method: " . $e->getMessage());
+                return response()->json(['message' => 'An error occurred while saving data'], 500);
             }
+        // }
+        // else{
+        //     abort(403, 'No product selected');
+        // }
 
-            // Update "available_on" metafield for all products
-            $availableOnMutations = [];
-            foreach ($productIds as $productId) {
-                $availableDays = $this->fetchAvailableDays($productId);
-                $availableOnMutations[] = [
-                    'productId' => $productId,
-                    'availableDays' => json_encode($availableDays),
-                ];
-            }
-
-            if (!empty($availableOnMutations)) {
-                $arrAvailableOnMetafields = $this->buildUpdateAvailableOnMetafields($api, $availableOnMutations);
-                $metafieldMutations = array_merge($metafieldMutations, $arrAvailableOnMetafields);
-            }
-
-            // Split mutations into chunks of 25 to comply with Shopify's limit
-            $chunks = array_chunk($metafieldMutations, 25);
-            foreach ($chunks as $chunk) {
-                $this->batchUpdateMetafields($api, $chunk);
-            }
-
-            DB::commit();
-
-            return response()->json(['message' => 'Location Products Data Saved Successfully']);
-        } catch (Exception $e) {
-            DB::rollBack();
-            Log::error("Error in store method: " . $e->getMessage());
-            return response()->json(['message' => 'An error occurred while saving data'], 500);
-        }
     }
 
 
@@ -212,10 +229,9 @@ class LocationProductsTableController extends Controller
         $response = $api->graph($query);
 
         $existingMetafields = [];
-		$responseData = $response['body'] ?? []; // Adjust according to response structure
 
-		if(isset($responseData['data'])){
-			foreach ($responseData['data'] as $key => $productData) {
+		//if(isset($response['body']['container']['data'])){
+			foreach ($response['body']['container']['data'] as $key => $productData) {
 				if (isset($productData['metafield'])) {
 					$nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
 					$existingMetafields[$nProductId] = [
@@ -225,7 +241,8 @@ class LocationProductsTableController extends Controller
 					];
 				}
 			}
-		}
+		//}
+
 
         return $existingMetafields;
     }
@@ -249,6 +266,8 @@ class LocationProductsTableController extends Controller
             $parsedData[$entryLocation][$entryDate] = $entryQuantity;
         }
 
+
+
         // Add or update the data for the current location and days
         foreach ($daysToUpdate as $day) {
             $today = strtotime('today');
@@ -256,7 +275,7 @@ class LocationProductsTableController extends Controller
                 $newDate = date('d-m-Y', strtotime("+{$i} days", $today));
                 if (date('l', strtotime($newDate)) === $day) {
                     // Fetch the quantity for this product, location, and day
-                    $quantity = $this->fetchQuantityForDay($productId, $day, $location);
+                    $quantity = $this->fetchQuantityForDay($productId, $day, $location, $inventoryType);
                     if ($quantity !== null && $quantity > 0) {
                         $parsedData[$location][$newDate] = $quantity;
                     }
@@ -271,15 +290,15 @@ class LocationProductsTableController extends Controller
                 $formattedData[] = "{$entryLocation}:{$entryDate}:{$entryQuantity}";
             }
         }
-
         return $formattedData;
     }
 
-    protected function fetchQuantityForDay($productId, $day, $location)
+    protected function fetchQuantityForDay($productId, $day, $location, $inventoryType)
     {
         return LocationProductsTable::where('product_id', $productId)
             ->where('location', $location)
             ->where('day', $day)
+            ->where('inventory_type', $inventoryType)
             ->value('quantity') ?? 0;
     }
 
@@ -599,10 +618,10 @@ class LocationProductsTableController extends Controller
         }
 
         // Bulk insert products for the new location
+        LocationProductsTable::where('location', $location)
+                            ->where('inventory_type', $inventoryType)
+                            ->delete();
         if (!empty($productsToInsert)) {
-            LocationProductsTable::where('location', $location)
-                                ->where('inventory_type', $inventoryType)
-                                ->delete();
             LocationProductsTable::insert($productsToInsert);
         }
 
