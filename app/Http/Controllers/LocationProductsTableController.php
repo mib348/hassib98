@@ -125,10 +125,10 @@ class LocationProductsTableController extends Controller
                 }
 
                 // Fetch all products in the location to determine removed products
-                $allProductIdsInLocation = Products::where('status', 'active')->pluck('product_id')
+                $allProductIds = Products::where('status', 'active')->pluck('product_id')
                 ->toArray();
 
-                $removedProductIds = array_diff($allProductIdsInLocation, $productIds);
+                $removedProductIds = array_diff($allProductIds, $productIds);
 
                 if(count($removedProductIds) > 0){
                     // Clean up metafields for removed products
@@ -279,6 +279,8 @@ class LocationProductsTableController extends Controller
                     if ($quantity !== null && $quantity > 0) {
                         $parsedData[$location][$newDate] = $quantity;
                     }
+					else
+                        unset($parsedData[$location][$newDate]);
                 }
             }
         }
@@ -299,7 +301,7 @@ class LocationProductsTableController extends Controller
             ->where('location', $location)
             ->where('day', $day)
             ->where('inventory_type', $inventoryType)
-            ->value('quantity') ?? 0;
+            ->value('quantity');
     }
 
 
