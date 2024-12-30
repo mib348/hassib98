@@ -84,6 +84,8 @@ class LocationsTextController extends Controller
         if ($arrLocation) {
             $startTime = substr($arrLocation['start_time'], 0, 5); // HH:MM
             $endTime = substr($arrLocation['end_time'], 0, 5); // HH:MM
+            $startTime2 = substr($arrLocation['start_time2'], 0, 5); // HH:MM
+            $endTime2 = substr($arrLocation['end_time2'], 0, 5); // HH:MM
             $sameday_preorder_end_time = substr($arrLocation['sameday_preorder_end_time'], 0, 5); // HH:MM
             $first_additional_inventory_end_time = substr($arrLocation['first_additional_inventory_end_time'], 0, 5); // HH:MM
             $second_additional_inventory_end_time = substr($arrLocation['second_additional_inventory_end_time'], 0, 5); // HH:MM
@@ -93,36 +95,46 @@ class LocationsTextController extends Controller
                 $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime . "' /></td>";
                 $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime . "' /></td>";
             $html .= "</tr>";
-            $html .= '<tr>
-                            <th></th>
-                            <th></th>
-                            <th>Same Day PreOrder End Time</th>
-                        </tr>';
-            $html .= "<tr>";
-                $html .= "<td></td>";
-                $html .= "<td></td>";
-                $html .= "<td><input type='time' id='sameday_preorder_end_time' name='sameday_preorder_end_time' value='" . $sameday_preorder_end_time . "' /></td>";
-            $html .= "</tr>";
-            $html .= '<tr>
-                            <th></th>
-                            <th></th>
-                            <th>First Additional Inventory End Time</th>
-                        </tr>';
-            $html .= "<tr>";
-                $html .= "<td></td>";
-                $html .= "<td></td>";
-                $html .= "<td><input type='time' id='first_additional_inventory_end_time' name='first_additional_inventory_end_time' value='" . $first_additional_inventory_end_time . "' /></td>";
-            $html .= "</tr>";
-            $html .= '<tr>
-                            <th></th>
-                            <th></th>
-                            <th>Second Additional Inventory End Time</th>
-                        </tr>';
-            $html .= "<tr>";
-                $html .= "<td></td>";
-                $html .= "<td></td>";
-                $html .= "<td><input type='time' id='second_additional_inventory_end_time' name='second_additional_inventory_end_time' value='" . $second_additional_inventory_end_time . "' /></td>";
-            $html .= "</tr>";
+
+            if($arrLocation['name'] == 'Delivery') {
+                $html .= "<tr>";
+                    $html .= "<td></td>";
+                    $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime2 . "' /></td>";
+                    $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime2 . "' /></td>";
+                $html .= "</tr>";
+            }
+            else{
+                $html .= '<tr>
+                                <th></th>
+                                <th></th>
+                                <th>Same Day PreOrder End Time</th>
+                            </tr>';
+                $html .= "<tr>";
+                    $html .= "<td></td>";
+                    $html .= "<td></td>";
+                    $html .= "<td><input type='time' id='sameday_preorder_end_time' name='sameday_preorder_end_time' value='" . $sameday_preorder_end_time . "' /></td>";
+                $html .= "</tr>";
+                $html .= '<tr>
+                                <th></th>
+                                <th></th>
+                                <th>First Additional Inventory End Time</th>
+                            </tr>';
+                $html .= "<tr>";
+                    $html .= "<td></td>";
+                    $html .= "<td></td>";
+                    $html .= "<td><input type='time' id='first_additional_inventory_end_time' name='first_additional_inventory_end_time' value='" . $first_additional_inventory_end_time . "' /></td>";
+                $html .= "</tr>";
+                $html .= '<tr>
+                                <th></th>
+                                <th></th>
+                                <th>Second Additional Inventory End Time</th>
+                            </tr>';
+                $html .= "<tr>";
+                    $html .= "<td></td>";
+                    $html .= "<td></td>";
+                    $html .= "<td><input type='time' id='second_additional_inventory_end_time' name='second_additional_inventory_end_time' value='" . $second_additional_inventory_end_time . "' /></td>";
+                $html .= "</tr>";
+            }
 
             return response()->json([
                 'html' => $html,
