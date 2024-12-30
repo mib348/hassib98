@@ -60,7 +60,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2">
+                    <div class="col-2 accept_only_preorders_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="accept_only_preorders" name="accept_only_preorders">
                             <label class="form-check-label" for="accept_only_preorders">
@@ -68,7 +68,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2">
+                    <div class="col-2 no_station_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="no_station" name="no_station">
                             <label class="form-check-label" for="no_station">
@@ -76,7 +76,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2">
+                    <div class="col-2 additional_inventory_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="additional_inventory" name="additional_inventory">
                             <label class="form-check-label" for="additional_inventory">
@@ -84,7 +84,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2">
+                    <div class="col-2 immediate_inventory_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="immediate_inventory" name="immediate_inventory">
                             <label class="form-check-label" for="immediate_inventory">
@@ -94,7 +94,7 @@
                     </div>
                 </div>
                 <br>
-                <div class="row">
+                <div class="row location_order_portion">
                     <div class="col-12">
                         <label class="label fw-bold font-bold" for="location_order">Order</label>
                         <select name="location_order" id="location_order" class="form-control">
@@ -218,9 +218,27 @@
               $(document).on('change', '#strFilterLocation', function(e){
                 if($(this).val() == ""){
                     $("#save_btn").hide();
+                    $(".accept_only_preorders_portion").hide();
+                    $(".no_station_portion").hide();
+                    $(".additional_inventory_portion").hide();
+                    $(".immediate_inventory_portion").hide();
+                    $(".location_order_portion").hide();
+                }
+                else if($(this).val() == "Delivery"){
+                    $("#save_btn").show();
+                    $(".accept_only_preorders_portion").hide();
+                    $(".no_station_portion").hide();
+                    $(".additional_inventory_portion").hide();
+                    $(".immediate_inventory_portion").hide();
+                    $(".location_order_portion").hide();
                 }
                 else{
                     $("#save_btn").show();
+                    $(".accept_only_preorders_portion").show();
+                    $(".no_station_portion").show();
+                    $(".additional_inventory_portion").show();
+                    $(".immediate_inventory_portion").show();
+                    $(".location_order_portion").show();
                 }
 
                 LoadList();
