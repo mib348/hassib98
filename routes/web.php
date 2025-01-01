@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AmountProductsLocationWeekdayController;
 use App\Http\Controllers\ArtisanController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverAdditionalController;
 use App\Http\Controllers\LocationProductsTableController;
@@ -37,7 +38,9 @@ use Illuminate\Support\Facades\Route;
     Route::resource('kitchen', KitchenController::class);
     Route::resource('drivers', DriverController::class);
     Route::resource('drivers_additional', DriverAdditionalController::class);
-//});
+    Route::post('/delivery/fulfilled/{order_id}', [DeliveryController::class, 'MarkAsDelivered'])->name('delivery.MarkAsDelivered');
+    Route::resource('delivery', DeliveryController::class);
+    //});
 
 
 Route::get('/migrate/{type?}', [ArtisanController::class, 'migrate']);
