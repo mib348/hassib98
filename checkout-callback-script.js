@@ -28,16 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoadingMessage(true); // Show loading message before fetching the order number
 
         try {
-            const url = 'https://app.sushi.catering/api/getordernumber/' + Shopify.checkout.order_id;
+            const url = 'https://dev.sushi.catering/api/getordernumber/' + Shopify.checkout.order_id;
             const response = await fetch(url);
             const data = await response.json();
             const order_number = data.order_number.toString();
             console.log(`The order number is: ${order_number}`);
-            const stationFlag = data.no_station;
+            const stationFlag = data.arrLocation.no_station;
             console.log(`The no_station is: ${stationFlag}`);
 
-            if (stationFlag === 'Y') { 
-                displayStationInstructions(true); // No QR code, show alternate text 
+            if (stationFlag === 'Y' || data.arrLocation.name == 'Delivery') { 
+                displayStationInstructions(true, data.arrLocation); // No QR code, show alternate text 
             }
             else{
                 const mobileQuery = window.matchMedia("(max-width: 480px)");
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="order-qr-code" style="flex: 1; margin-bottom: 15px;width:100%;"></div>
                     <div class="custom-message" style="flex: 1;">
                         <p>
-                            Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät waagerecht, mittig und im Abstand von ca. 10cm vor den Scanner.
+                            Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.
                             Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.
                             Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.
                             Fragen und Antworten rund um deine Bestellung findest du <a href="https://sushi.catering/pages/faq">hier</a>.
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="order-qr-code" style="flex: 1;"></div>
                     <div class="custom-message" style="flex: 1; padding-left: 20px;">
                         <p>
-                            Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät waagerecht, mittig und im Abstand von ca. 10cm vor den Scanner.
+                            Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.
                             Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.
                             Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.
                             Fragen und Antworten rund um deine Bestellung findest du <a href="https://sushi.catering/pages/faq">hier</a>.
@@ -96,14 +96,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayStationInstructions(showQrCode) {
+    function displayStationInstructions(showQrCode, arrLocation) {
         const contentBox = document.createElement('div');
         contentBox.style.display = 'block';
         contentBox.innerHTML = `
             <p>
-                test test test. Lieferung bis zur Theke.
+                Wir liefern alle bestellten Gerichte in einer Sammellieferung täglich und frisch an die Rezeption. Achten Sie bitte darauf, dass die Gerichte bis zum Verzehr kühl gehalten werden müssen, z.B. im Kühlschrank. Um wie viel Uhr wir genau anliefern, entnehmen Sie bitte der Seite auf die Sie weitergeleitet werden, nachdem Sie den Standort festgelegt haben.
             </p>
         `;
+        if(arrLocation.name == 'Delivery'){
+            contentBox.innerHTML = `
+                <p style="font-weight:bold;">
+                    ` + arrLocation.checkout_note + `
+                </p>
+            `;
+        }
         Shopify.Checkout.OrderStatus.addContentBox(contentBox);
         toggleVisibility(showQrCode);
     }
@@ -122,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createLoadingMessage() {
         const loadingMessageElement = document.createElement('div');
         loadingMessageElement.id = 'loadingMessage';
-        loadingMessageElement.innerText = 'QR-Code wird geladen...';
+        loadingMessageElement.innerText = 'Details werden geladen. Bitte warten!...';
         loadingMessageElement.style.position = 'fixed';
         loadingMessageElement.style.top = '55%';
         loadingMessageElement.style.left = '30%';
