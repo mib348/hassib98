@@ -24,9 +24,10 @@ document.addEventListener('DOMContentLoaded', function() {
   document.body.addEventListener('click', function(e) {
     if ((e.target.classList.contains('todayorderbtn') || e.target.classList.contains('preorderbtn')) && !pageFullyLoaded) {
       e.preventDefault(); // Prevent navigation if page hasn't fully loaded
-      // Optionally, visually indicate that the link is disabled
-      e.target.style.pointerEvents = 'none';
-      e.target.style.opacity = '0.5';
+      // // Optionally, visually indicate that the link is disabled
+      // e.target.style.pointerEvents = 'none';
+      // e.target.style.opacity = '0.5';
+      location.reload();
     } else {
       // Optionally, reset visual changes if any were made
       e.target.style.pointerEvents = '';
@@ -255,6 +256,7 @@ window.onload = function() {
             var today = `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
         
             sessionStorage.setItem("date", today);
+            sessionStorage.setItem("immediate_inventory", "Y");
         
             $.ajax({
                 url: "https://dev.sushi.catering/updateSelectedDate/" + today,
@@ -359,6 +361,8 @@ window.onload = function() {
                       sessionStorage.setItem("additional_inventory_time", "Y");
                     }
         
+                    sessionStorage.setItem("immediate_inventory", "N");
+                  
                     var newUrl = $(".preorderbtn").attr("href");
         
                     $.ajax({

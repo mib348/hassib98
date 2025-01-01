@@ -54,6 +54,14 @@ document.addEventListener('DOMContentLoaded', function() {
           href += "&date=" + sessionStorage.getItem("date");
         if (localStorage.getItem("uuid") != null)
           href += "&uuid=" + localStorage.getItem("uuid");
+        if (sessionStorage.getItem("no_station") != null)
+          href += "&no_station=" + sessionStorage.getItem("no_station");
+        if (sessionStorage.getItem("immediate_inventory") != null)
+          href += "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory");
+        if (sessionStorage.getItem("b_additional_inventory") != null)
+          href += "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory");
+        if (sessionStorage.getItem("additional_inventory_time") != null)
+          href += "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time");
     
         // Set the updated href back as the 'data-href' attribute
         pfMainMedia.setAttribute('data-href', href);
@@ -176,7 +184,7 @@ if (window.location.pathname === "/pages/bestellen") {
           success:function(data){
             // console.log(data);
             //window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
-            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
+            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station")  + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory")  + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
           },
           error: function (request, status, error) {
               alert('set selected date error: global ');
