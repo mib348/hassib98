@@ -47,8 +47,13 @@
                     </table>
                 </div>
                 <div class="form-group">
-                    <label class="label fw-bold font-bold" for="strFilterLocation">Note</label>
+                    <label class="label fw-bold font-bold" for="note">Note (For Store Frontend)</label>
                     <textarea id='note' name='note' rows='3' cols='5' class='form-control'></textarea>
+                </div>
+                <br>
+                <div class="form-group checkout_note_portion">
+                    <label class="label fw-bold font-bold" for="checkout_note">Checkout Note (For Delivery)</label>
+                    <textarea id='checkout_note' name='checkout_note' rows='3' cols='5' class='form-control'></textarea>
                 </div>
                 <br>
                 <div class="row">
@@ -223,6 +228,7 @@
                     $(".additional_inventory_portion").hide();
                     $(".immediate_inventory_portion").hide();
                     $(".location_order_portion").hide();
+                    $(".checkout_note_portion").hide();
                 }
                 else if($(this).val() == "Delivery"){
                     $("#save_btn").show();
@@ -231,6 +237,7 @@
                     $(".additional_inventory_portion").hide();
                     $(".immediate_inventory_portion").hide();
                     $(".location_order_portion").hide();
+                    $(".checkout_note_portion").show();
                 }
                 else{
                     $("#save_btn").show();
@@ -239,6 +246,7 @@
                     $(".additional_inventory_portion").show();
                     $(".immediate_inventory_portion").show();
                     $(".location_order_portion").show();
+                    $(".checkout_note_portion").hide();
                 }
 
                 LoadList();
@@ -298,6 +306,7 @@
             	success:function(data){
                     if(data || data.length){
                         $("#note").val(data.note);
+                        $("#checkout_note").val(data.checkout_note);
                         $("#location_order").val(data.location_order);
                         $("#rows").html(data.html);
                         $("#location_toggle").prop('checked', data.location_toggle === 'Y');
@@ -308,6 +317,7 @@
                     }
                     else{
                         $("#note").val('');
+                        $("#checkout_note").val('');
                         $("#location_order").val('');
                         $("#rows").html('');
                         $("#location_toggle").prop('checked', false);

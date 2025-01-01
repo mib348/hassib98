@@ -64,6 +64,7 @@ class LocationsTextController extends Controller
         $arrLocation->first_additional_inventory_end_time = $request->input('first_additional_inventory_end_time');
         $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
         $arrLocation->note = $request->input('note');
+        $arrLocation->checkout_note = $request->input('checkout_note');
         $arrLocation->is_active = $request->has('location_toggle') ? 'Y' : 'N';
         $arrLocation->accept_only_preorders = $request->has('accept_only_preorders') ? 'Y' : 'N';
         $arrLocation->no_station = $request->has('no_station') ? 'Y' : 'N';
@@ -141,6 +142,7 @@ class LocationsTextController extends Controller
             return response()->json([
                 'html' => $html,
                 'note' => $arrLocation['note'],
+                'checkout_note' => $arrLocation['checkout_note'],
                 'location_toggle' => $arrLocation['is_active'],
                 'accept_only_preorders' => $arrLocation['accept_only_preorders'],
                 'no_station' => $arrLocation['no_station'],
