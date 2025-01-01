@@ -707,7 +707,7 @@ class ShopifyController extends Controller
                 // Log::info("Successfully fetched order number for order id {$order_id}");
                 $location = $updateResponse['body']['order']['line_items'][0]['properties'][1]['value'];
                 $arrLocation = Locations::where('name', $location)->first();
-                return ['order_number' => $updateResponse['body']['order']['order_number'], 'no_station' => $arrLocation->no_station];
+                return ['order_number' => $updateResponse['body']['order']['order_number'], 'arrLocation' => $arrLocation];
             } else {
                 // Log an error if the order number is not found
                 Log::error("Order number not found in response for order id {$order_id}: " . json_encode($updateResponse));
