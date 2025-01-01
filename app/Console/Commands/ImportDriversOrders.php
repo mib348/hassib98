@@ -114,6 +114,8 @@ class ImportDriversOrders extends Command
                 'note' => $order['note'],
                 'order_status_url' => $order['order_status_url'],
                 'line_items' => json_encode($order['line_items']),
+                'shipping' => json_encode($order['shipping_address']),
+                'customer' => json_encode($order['customer']),
                 'created_at' => $order['created_at'],
                 'updated_at' => $order['updated_at'],
                 'cancelled_at' => $order['cancelled_at'],
