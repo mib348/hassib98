@@ -58,6 +58,8 @@ class LocationsTextController extends Controller
         $arrLocation = Locations::where('name', $locations_text)->first();
         $arrLocation->start_time = $request->input('start_time');
         $arrLocation->end_time = $request->input('end_time');
+        $arrLocation->start_time2 = $request->input('start_time2');
+        $arrLocation->end_time2 = $request->input('end_time2');
         $arrLocation->sameday_preorder_end_time = $request->input('sameday_preorder_end_time');
         $arrLocation->first_additional_inventory_end_time = $request->input('first_additional_inventory_end_time');
         $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
@@ -99,8 +101,8 @@ class LocationsTextController extends Controller
             if($arrLocation['name'] == 'Delivery') {
                 $html .= "<tr>";
                     $html .= "<td></td>";
-                    $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime2 . "' /></td>";
-                    $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime2 . "' /></td>";
+                    $html .= "<td><input type='time' id='start_time2' name='start_time2' value='" . $startTime2 . "' /></td>";
+                    $html .= "<td><input type='time' id='end_time2' name='end_time2' value='" . $endTime2 . "' /></td>";
                 $html .= "</tr>";
             }
             else{
