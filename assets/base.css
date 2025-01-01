@@ -3557,3 +3557,5 @@ html, body{overflow-x:hidden !important;}
   background-color: #FF0000 !important; /* Bootstrap's danger color */
   border-color: #FF0000 !important; /* Bootstrap's danger color */
 }
+
+.homedeliverydatebtn, .homedeliverytimebtn {cursor:pointer !important;}
