@@ -266,9 +266,10 @@
 
                 // 2) Check device width to determine if we're on (roughly) mobile or not
                 const isMobile = window.matchMedia('(max-width: 1024px)').matches;
+                const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-                if (isMobile) {
-                    // If it's a mobile device (screen width <= 768px):
+                if (isMobile && isTouchDevice) {
+                    // If it's a mobile device (screen width <= 768px) and has touch capabilities:
                     // Attempt to open the Google Maps app first
                     window.open(googleMapsAppUrl, '_blank');
 
@@ -277,7 +278,7 @@
                         window.open(googleMapsWebUrl, '_blank');
                     }, 500);
                 } else {
-                    // If it's not a mobile device (screen width > 768px),
+                    // If it's not a mobile device (screen width > 768px) or doesn't have touch capabilities,
                     // just open the browser link
                     window.open(googleMapsWebUrl, '_blank');
                 }
