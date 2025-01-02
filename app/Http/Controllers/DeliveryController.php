@@ -64,7 +64,7 @@ class DeliveryController extends Controller
             $arrData = [];
         }
 
-        dd($arrData);
+        // dd($arrData);
 
         return view('delivery', ['arrData' => $arrData]);
     }
