@@ -21,8 +21,7 @@ class DeliveryController extends Controller
                             ->whereNull(['cancel_reason', 'cancelled_at'])
                             ->orderBy('id', 'asc')
                             ->get();
-
-        // Process orders if any
+                            // Process orders if any
         if (!$arrOrders->isEmpty()) {
             foreach ($arrOrders as $arrOrder) {
                 if ($arrOrder && !empty($arrOrder->line_items)) {
@@ -40,16 +39,32 @@ class DeliveryController extends Controller
 
                         // Accumulate quantity
                         $arrData['Delivery'][$arrOrder->order_id]['products'][$product_name] += $quantity;
-                        $arrData['Delivery'][$arrOrder->order_id]['customer'] = json_decode($arrOrder->customer, true);
-                        $arrData['Delivery'][$arrOrder->order_id]['shipping'] = json_decode($arrOrder->shipping, true);
+                        // $arrData['Delivery'][$arrOrder->order_id]['customer'] = json_decode($arrOrder->customer, true);
+                        // $arrData['Delivery'][$arrOrder->order_id]['shipping'] = json_decode($arrOrder->shipping, true);
+                        if(isset($arrOrder->customer) && !empty($arrOrder->customer) && $arrOrder->customer != "null"){
+                            $arrData['Delivery'][$arrOrder->order_id]['customer'] = json_decode($arrOrder->customer, true);
+                        }
+                        else{
+                            $arrData['Delivery'][$arrOrder->order_id]['customer'] = [];
+                        }
+                        if(isset($arrOrder->shipping) && !empty($arrOrder->shipping) && $arrOrder->shipping != "null"){
+                            $arrData['Delivery'][$arrOrder->order_id]['shipping'] = json_decode($arrOrder->shipping, true);
+                        }
+                        else{
+                            $arrData['Delivery'][$arrOrder->order_id]['shipping'] = [];
+                        }
+
                         $arrData['Delivery'][$arrOrder->order_id]['delivered_at'] = $arrOrder->delivered_at;
                     }
                 }
 
             }
         }
+        else{
+            $arrData = [];
+        }
 
-        // dd($arrData);
+        dd($arrData);
 
         return view('delivery', ['arrData' => $arrData]);
     }
