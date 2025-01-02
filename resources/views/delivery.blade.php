@@ -77,23 +77,29 @@
                                 <table class="table table-condensed customer_table" border="0">
                                     <tr>
                                         <td>Name</td>
-                                        <th>{{ ucwords($arrOrder['shipping']['first_name']) }} {{ ucwords($arrOrder['shipping']['last_name']) }}</th>
+                                        <th>
+                                            {{ isset($arrOrder['shipping']['first_name']) ? ucwords($arrOrder['shipping']['first_name']) : '' }}
+                                            {{ isset($arrOrder['shipping']['last_name']) ? ucwords($arrOrder['shipping']['last_name']) : '' }}
+                                        </th>
                                     </tr>
                                     <tr>
                                         <td>Phone</td>
-                                        <th>{{ $arrOrder['shipping']['phone'] }}</th>
+                                        <th>{{ isset($arrOrder['shipping']['phone']) ? $arrOrder['shipping']['phone'] : '' }}</th>
                                     </tr>
                                     <tr>
                                         <td>Address</td>
-                                        <th>{{ $arrOrder['shipping']['address1'] }}<br>{{ $arrOrder['shipping']['address2'] }}</th>
+                                        <th>
+                                            {{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}<br>
+                                            {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
+                                        </th>
                                     </tr>
                                     <tr>
                                         <td>City</td>
-                                        <th>{{ $arrOrder['shipping']['city'] }}</th>
+                                        <th>{{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}</th>
                                     </tr>
                                     <tr>
                                         <td>Zip</td>
-                                        <th>{{ $arrOrder['shipping']['zip'] }}</th>
+                                        <th>{{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}</th>
                                     </tr>
                                 </table>
                                 <br>
@@ -135,9 +141,20 @@
                                 </div>
                                 <br>
                                 <div class="d-grid gap-2 col-12 mx-auto">
-                                    <button type="button" class="btn btn-info col-12 col-sm-8 col-md-6 mx-auto mb-3 map_button" data-address="{{ $arrOrder['shipping']['address1'] }} {{ $arrOrder['shipping']['address2'] }} {{ $arrOrder['shipping']['zip'] }} {{ $arrOrder['shipping']['city'] }}" data-latitude="{{ $arrOrder['shipping']['latitude'] }}" data-longitude="{{ $arrOrder['shipping']['longitude'] }}"><i class="fa-solid fa-location-dot"></i> Show Map</button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-info col-12 col-sm-8 col-md-6 mx-auto mb-3 map_button"
+                                        data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
+                                                    {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
+                                                    {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
+                                                    {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
+                                        data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
+                                        data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
+                                        <i class="fa-solid fa-location-dot"></i> Show Map
+                                    </button>
+
                                     <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
-                                        <div id="map{{ $loop->index }}" style="height: 100%; width: 100%;">
+                                        <div id="map{{ $loop->index }}" style="height: 100%; width: 100%;text-align:center;">
                                             <div class="spinner-border spinner-border-sm text-danger loading-spinner" role="status">
                                                 <span class="visually-hidden">Loading...</span>
                                             </div>

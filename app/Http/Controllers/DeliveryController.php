@@ -47,8 +47,12 @@ class DeliveryController extends Controller
                         else{
                             $arrData['Delivery'][$arrOrder->order_id]['customer'] = [];
                         }
+
                         if(isset($arrOrder->shipping) && !empty($arrOrder->shipping) && $arrOrder->shipping != "null"){
                             $arrData['Delivery'][$arrOrder->order_id]['shipping'] = json_decode($arrOrder->shipping, true);
+                        }
+                        else if(isset($arrOrder->customer) && !empty($arrOrder->customer) && $arrOrder->customer != "null"){
+                            $arrData['Delivery'][$arrOrder->order_id]['shipping'] = $arrData['Delivery'][$arrOrder->order_id]['customer']['default_address'];
                         }
                         else{
                             $arrData['Delivery'][$arrOrder->order_id]['shipping'] = [];
