@@ -141,20 +141,43 @@
                                 </div>
                                 <br>
                                 <div class="d-grid gap-2 col-12 mx-auto">
-                                    <button
-                                        type="button"
-                                        class="btn btn-info col-12 col-sm-8 col-md-6 mx-auto mb-3 map_button"
-                                        data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
-                                                    {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
-                                                    {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
-                                                    {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
-                                        data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
-                                        data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
-                                        <i class="fa-solid fa-location-dot"></i> Show Map
-                                    </button>
 
+                                    <!-- Wrap both buttons in a row so they appear side-by-side -->
+                                    <div class="row g-2 justify-content-center mb-3">
+                                        <!-- Original "Show Map" button -->
+                                        <div class="col-auto">
+                                            <button
+                                                type="button"
+                                                class="btn btn-info map_button"
+                                                data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
+                                                               {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
+                                                               {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
+                                                               {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
+                                                data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
+                                                data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
+                                                <i class="fa-solid fa-location-dot"></i> Show Map
+                                            </button>
+                                        </div>
+
+                                        <!-- New "Open in Google Maps" button, using the same data attributes -->
+                                        <div class="col-auto">
+                                            <button
+                                                type="button"
+                                                class="btn btn-primary open-google-maps"
+                                                data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
+                                                              {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
+                                                              {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
+                                                              {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
+                                                data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
+                                                data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
+                                                <i class="fa-brands fa-google"></i> Open in Google Maps
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Existing map canvas (unchanged) -->
                                     <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
-                                        <div id="map{{ $loop->index }}" style="height: 100%; width: 100%;text-align:center;">
+                                        <div id="map{{ $loop->index }}" style="height: 100%; width: 100%; text-align:center;">
                                             <div class="spinner-border spinner-border-sm text-danger loading-spinner" role="status">
                                                 <span class="visually-hidden">Loading...</span>
                                             </div>
@@ -162,9 +185,17 @@
                                     </div>
 
                                     @if(empty($arrOrder['delivered_at']))
-                                    <button type="button" class="btn btn-success col-12 col-sm-8 col-md-6 mx-auto mb-3 fulfillment_button" data-order_id="{{ $nOrderId }}"><i class="fa-solid fa-truck"></i> Mark Order as Delivered</button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-success col-12 col-sm-8 col-md-6 mx-auto mb-3 fulfillment_button"
+                                            data-order_id="{{ $nOrderId }}">
+                                            <i class="fa-solid fa-truck"></i> Mark Order as Delivered
+                                        </button>
                                     @endif
+
                                 </div>
+
+
 
 
 
@@ -213,9 +244,48 @@
                 });
             });
 
+            $(document).on('click', '.open-google-maps', function() {
+                const latitude = $(this).data('latitude');
+                const longitude = $(this).data('longitude');
+                const address = $(this).data('address') || '';
+
+                let googleMapsAppUrl = '';
+                let googleMapsWebUrl = '';
+
+                // 1) Construct the appropriate URLs for app and web
+                if (latitude && longitude) {
+                    // Use latitude & longitude
+                    googleMapsAppUrl = `comgooglemaps://?q=${latitude},${longitude}`;
+                    googleMapsWebUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+                } else {
+                    // Fallback to address
+                    const encodedAddress = encodeURIComponent(address.trim());
+                    googleMapsAppUrl = `comgooglemaps://?q=${encodedAddress}`;
+                    googleMapsWebUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+                }
+
+                // 2) Check device width to determine if we're on (roughly) mobile or not
+                const isMobile = window.matchMedia('(max-width: 1024px)').matches;
+
+                if (isMobile) {
+                    // If it's a mobile device (screen width <= 768px):
+                    // Attempt to open the Google Maps app first
+                    window.open(googleMapsAppUrl, '_blank');
+
+                    // Fallback to web if the app is not installed or fails to open
+                    setTimeout(function() {
+                        window.open(googleMapsWebUrl, '_blank');
+                    }, 500);
+                } else {
+                    // If it's not a mobile device (screen width > 768px),
+                    // just open the browser link
+                    window.open(googleMapsWebUrl, '_blank');
+                }
+            });
+
             $(document).on('click', '.map_button', function() {
                 var button = $(this);
-                var mapCanvas = button.parent().find('.map_canvas');
+                var mapCanvas = button.parent().parent().parent().find('.map_canvas');
                 var mapDiv = mapCanvas.find('[id^="map"]');
 
                 if (mapDiv.length === 0) {
