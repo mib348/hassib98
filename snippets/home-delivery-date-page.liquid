@@ -451,6 +451,8 @@ window.onload = function() {
                         dateFormat: "dd-mm-yy",
                         onSelect: function(dateText, inst) {
                             sessionStorage.setItem("date", dateText);
+
+                            $(".location_bar_text").html("Delivery " + dateText);
                         
                             if(!sessionStorage.getItem("time_slot")){
                                 $("#datepicker").datepicker("destroy");
