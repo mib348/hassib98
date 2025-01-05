@@ -52,7 +52,8 @@
   .dropdown-menu {
     position: absolute;
     top: 100%;
-    left: 0;
+    /* left: 0; */
+    left: 21%;
     min-width: 10rem;
     padding: 0.5rem 0;
     margin: 0.125rem 0 0;
@@ -190,13 +191,130 @@ document.addEventListener('DOMContentLoaded', function () {
 <script>
 
 function formatTimeTo12Hour(time) {
-    const [hours, minutes] = time.split(':');
-    const date = new Date();
-    date.setHours(hours, minutes);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  // Convert "HH:MM" into 24-hour format string like "17:00"
+  const [hours, minutes] = time.split(':');
+  const date = new Date();
+  date.setHours(hours, minutes);
+  
+  // Use hour12: false => e.g. "17:00"
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-  let pageFullyLoaded = false;
+
+function toggleButton() {
+  // 1) Get the current time in Germany (24-hour format)
+  const now = new Date();
+  const options = {
+      timeZone: 'Europe/Berlin',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour12: false
+  };
+
+  const formatter = new Intl.DateTimeFormat([], options);
+  const parts = formatter.formatToParts(now);
+
+  let dateObj = {};
+  parts.forEach(({ type, value }) => {
+      dateObj[type] = value;
+  });
+
+  // Construct a Date in Germany's time zone
+  const timeGermany = new Date(
+    `${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}`
+  );
+  const currentHours = timeGermany.getHours();
+  const currentMinutes = timeGermany.getMinutes();
+  const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+  // Select all slots via jQuery
+  const $timeSlots = $('.time_slot');
+  const userSelectedDate = sessionStorage.getItem("date");
+
+  $timeSlots.each(function() {
+    const $slot = $(this);
+    const slotTime = $slot.attr('data-time_slot_start_time');
+    if (!slotTime) return;
+
+    const [slotHours, slotMins] = slotTime.split(':').map(Number);
+    const slotInMinutes = slotHours * 60 + slotMins;
+
+    // If it IS the same day, hide slots that are already past
+    if (isSameDayInGermany(userSelectedDate)) {
+      if (currentTimeInMinutes > slotInMinutes) {
+        $slot.hide();
+      } else {
+        $slot.show();
+      }
+    } else {
+      // If it's NOT the same day, always show all timeslots
+      $slot.show();
+    }
+  });
+
+}
+
+function isSameDayInGermany(dateText) {
+  // If no date has been chosen yet, treat it as not “today”
+  if (!dateText) return false;
+  
+  // dateText from datepicker is "dd-mm-yy" or "dd-mm-yyyy"
+  const [day, month, year] = dateText.split('-').map(Number);
+  const selectedDateLocal = new Date(year, month - 1, day);
+
+  // Current date/time in Germany
+  const now = new Date();
+  const options = {
+    timeZone: 'Europe/Berlin',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour12: false
+  };
+  const formatter = new Intl.DateTimeFormat([], options);
+  const parts = formatter.formatToParts(now);
+
+  let dateObj = {};
+  parts.forEach(({ type, value }) => {
+    dateObj[type] = value;
+  });
+
+  // “Today” (midnight) in Germany’s local date
+  const todayInGermany = new Date(`${dateObj.year}-${dateObj.month}-${dateObj.day}T00:00:00`);
+
+  return (
+    selectedDateLocal.getFullYear() === todayInGermany.getFullYear() &&
+    selectedDateLocal.getMonth() === todayInGermany.getMonth() &&
+    selectedDateLocal.getDate() === todayInGermany.getDate()
+  );
+}
+
+function redirect(dateText, timeSlot){
+    $.ajax({
+        url: "https://dev.sushi.catering/updateSelectedDate/" + dateText,
+        type: "GET",
+        data: { "uuid": localStorage.getItem("uuid") },
+        cache: false,
+        async: false,
+        dataType: "json",
+        success: function(data) {
+                window.location.href = "/pages/order-menue?location=Delivery&timeslot=" + timeSlot + "&immediate_inventory=N&no_station=N&additional_inventory=N&additional_inventory_time=N&uuid=" + localStorage.getItem("uuid");
+        },
+        error: function(request, status, error) {
+            alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+            console.log('Set selected date error:', error);
+        }
+    });
+}
+
+let pageFullyLoaded = false;
 
 document.addEventListener('DOMContentLoaded', function() {
   document.body.addEventListener('click', function(e) {
@@ -217,56 +335,6 @@ document.addEventListener('DOMContentLoaded', function() {
     sessionStorage.setItem("location", 'Delivery');
     const strLocation = "Delivery";
 
-    function toggleButton() {
-        // 1) Get the current time in Germany (24-hour format)
-        const now = new Date();
-        const options = {
-            timeZone: 'Europe/Berlin',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour12: false
-        };
-
-        const formatter = new Intl.DateTimeFormat([], options);
-        const parts = formatter.formatToParts(now);
-
-        let dateObj = {};
-        parts.forEach(({ type, value }) => {
-            dateObj[type] = value;
-        });
-
-        // Construct a Date in Germany's time zone
-        const timeGermany = new Date(
-        `${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}`
-        );
-        const currentHours = timeGermany.getHours();
-        const currentMinutes = timeGermany.getMinutes();
-        const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-
-        // 2) Find all time slots in the dropdown
-        const timeSlots = document.querySelectorAll('.time_slot');
-
-        // 3) For each time slot, parse its data-time_slot_start_time
-        timeSlots.forEach(slot => {
-            const slotTime = slot.getAttribute('data-time_slot_start_time');
-            if (!slotTime) return;
-
-            const [slotHours, slotMins] = slotTime.split(':').map(Number);
-            const slotInMinutes = slotHours * 60 + slotMins;
-
-            // 4) If the current time is strictly beyond that slot’s start time, remove the slot
-            //    (Use >= if you also want to remove it at the exact start minute)
-            if (currentTimeInMinutes > slotInMinutes) {
-                slot.remove();
-            }
-        });
-    }
-
-    
     if (strLocation !== "") {
         $.ajax({
             url: `https://dev.sushi.catering/getLocations/${strLocation}`,
@@ -343,23 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function redirect(dateText, timeSlot){
-    $.ajax({
-        url: "https://dev.sushi.catering/updateSelectedDate/" + dateText,
-        type: "GET",
-        data: { "uuid": localStorage.getItem("uuid") },
-        cache: false,
-        async: false,
-        dataType: "json",
-        success: function(data) {
-                window.location.href = "/pages/order-menue?location=Delivery&timeslot=" + timeSlot + "&immediate_inventory=N&no_station=N&additional_inventory=N&additional_inventory_time=N&uuid=" + localStorage.getItem("uuid");
-        },
-        error: function(request, status, error) {
-            alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
-            console.log('Set selected date error:', error);
-        }
-    });
-}
+
 
 window.onload = function() {
     pageFullyLoaded = true;
@@ -451,6 +503,7 @@ window.onload = function() {
                         dateFormat: "dd-mm-yy",
                         onSelect: function(dateText, inst) {
                             sessionStorage.setItem("date", dateText);
+                            toggleButton();
 
                             $(".location_bar_text").html("Delivery " + dateText);
                         
