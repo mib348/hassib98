@@ -11,12 +11,6 @@
   "name": "t:sections.footer.name",
   "type": "footer",
   "sections": {
-    "pagefly_section_zHcDC4": {
-      "type": "pagefly-section",
-      "settings": {
-        "section_id": "pf-f2a37a95"
-      }
-    },
     "footer": {
       "type": "footer",
       "blocks": {
@@ -48,7 +42,6 @@
     }
   },
   "order": [
-    "pagefly_section_zHcDC4",
     "footer"
   ]
 }

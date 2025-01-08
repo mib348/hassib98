@@ -54,6 +54,14 @@ document.addEventListener('DOMContentLoaded', function() {
           href += "&date=" + sessionStorage.getItem("date");
         if (localStorage.getItem("uuid") != null)
           href += "&uuid=" + localStorage.getItem("uuid");
+        if (sessionStorage.getItem("no_station") != null)
+          href += "&no_station=" + sessionStorage.getItem("no_station");
+        if (sessionStorage.getItem("immediate_inventory") != null)
+          href += "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory");
+        if (sessionStorage.getItem("b_additional_inventory") != null)
+          href += "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory");
+        if (sessionStorage.getItem("additional_inventory_time") != null)
+          href += "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time");
     
         // Set the updated href back as the 'data-href' attribute
         pfMainMedia.setAttribute('data-href', href);
@@ -176,7 +184,7 @@ if (window.location.pathname === "/pages/bestellen") {
           success:function(data){
             // console.log(data);
             //window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
-            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&uuid=" + localStorage.getItem("uuid");
+            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station")  + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory")  + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
           },
           error: function (request, status, error) {
               alert('set selected date error: global ');
@@ -192,6 +200,43 @@ else if(window.location.pathname === "/cart"){
       dataType: "json",
       success: function (response) {
         removePastDateProducts(response);
+
+          let items = response.items;
+
+          $.ajax({
+              type: "POST",
+              url: "https://app.sushi.catering/api/checkOrderInventory",
+              async: false,
+              cache: false,
+              data: {
+                  items: JSON.stringify(response.items)
+              },
+              dataType: "json",
+              success: function(response) {
+                  //window.location.href = "/checkout";
+                  if(response.sameday_preorder_time_expired == 1){
+                      alert('Du kannst nur noch eine Sofortbestellung tätigen.');
+                      sessionStorage.clear();
+                      $(".location_bar").remove();
+                  
+                      $.ajax({
+                        type: "POST",
+                        url: window.Shopify.routes.root + "cart/clear.js",
+                        dataType: "json",
+                        success: function (response) {
+                          window.location.href = "/pages/bestellen";
+                         },
+                        error: function (xhr, status, error) {
+                          alert("Cart clear error:");
+                          console.log("Cart clear error:", error);
+                        },
+                      });
+                  }
+              },
+              error: function() {
+                  console.log('Cart Check order Inventory api error');
+              }
+          });
       },
       error:function(){        
       }
@@ -400,6 +445,8 @@ else {
             //   alert("Um zur Kasse zu gehen, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen.");
             //   b_allowed = false;
             // }
+
+            
 
     // console.log(b_allowed);
               if (b_allowed){

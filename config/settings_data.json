@@ -1,8 +1,17 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
 {
   "current": {
-    "logo": "shopify:\/\/shop_images\/logo-mit-sushi.png",
+    "logo": "shopify://shop_images/logo-mit-sushi.png",
     "logo_width": 160,
-    "favicon": "shopify:\/\/shop_images\/icon.png",
+    "favicon": "shopify://shop_images/icon.png",
     "type_header_font": "mono",
     "heading_scale": 100,
     "type_body_font": "assistant_n4",
@@ -37,7 +46,7 @@
     "card_style": "standard",
     "card_image_padding": 0,
     "card_text_alignment": "left",
-    "card_color_scheme": "background-2",
+    "card_color_scheme": "accent-1",
     "card_border_thickness": 0,
     "card_border_opacity": 10,
     "card_corner_radius": 0,
@@ -99,7 +108,7 @@
     "sale_badge_color_scheme": "accent-2",
     "sold_out_badge_color_scheme": "inverse",
     "brand_headline": "",
-    "brand_description": "<p><\/p>",
+    "brand_description": "<p></p>",
     "brand_image_width": 100,
     "social_facebook_link": "",
     "social_instagram_link": "",
@@ -118,8 +127,8 @@
     "show_vendor": false,
     "show_cart_note": false,
     "cart_drawer_collection": "",
-    "checkout_header_image": "shopify:\/\/shop_images\/AdobeStock_616400046.jpg",
-    "checkout_logo_image": "shopify:\/\/shop_images\/Gruppe_188.png",
+    "checkout_header_image": "shopify://shop_images/AdobeStock_616400046.jpg",
+    "checkout_logo_image": "shopify://shop_images/Gruppe_188.png",
     "checkout_logo_position": "center",
     "checkout_logo_size": "large",
     "checkout_body_background_color": "#ffffff",
@@ -140,15 +149,12 @@
         }
       }
     },
-    "content_for_index": [
-
-    ],
+    "content_for_index": [],
     "blocks": {
       "16278478101612877664": {
-        "type": "shopify:\/\/apps\/pagefly-page-builder\/blocks\/app-embed\/83e179f7-59a0-4589-8c66-c0dddf959200",
+        "type": "shopify://apps/pagefly-page-builder/blocks/app-embed/83e179f7-59a0-4589-8c66-c0dddf959200",
         "disabled": false,
-        "settings": {
-        }
+        "settings": {}
       }
     },
     "color_schemes": {
@@ -365,7 +371,7 @@
       "sale_badge_color_scheme": "accent-2",
       "sold_out_badge_color_scheme": "inverse",
       "brand_headline": "",
-      "brand_description": "<p><\/p>",
+      "brand_description": "<p></p>",
       "brand_image_width": 100,
       "social_twitter_link": "",
       "social_facebook_link": "",
