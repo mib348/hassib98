@@ -65,7 +65,7 @@ class DeliveryController extends Controller
             }
         }
         else{
-            $arrData = [];
+            $arrData['Delivery'] = [];
         }
 
         // dd($arrData);
