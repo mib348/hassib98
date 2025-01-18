@@ -35,6 +35,7 @@ class UpdateProductMetafields extends Command
             foreach ($products as $product) {
                 $this->updateProductMetafield($api, 'immediate', $product);
                 $this->updateProductMetafield($api, 'preorder', $product);
+                sleep(2); // Sleep for 2 seconds to avoid rate limiting
             }
         } catch (\Throwable $th) {
             Log::error("Error running job for updating metafield: " . json_encode($th));
