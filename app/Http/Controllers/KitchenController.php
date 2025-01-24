@@ -16,7 +16,7 @@ class KitchenController extends Controller
     {
         $dates = $arrTotalOrders = [];
         $arrLocations = Locations::where('is_active', 'Y')
-                                    ->whereNot('name', 'Additional Inventory')
+                                    ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
                                     ->orderBy('name', 'ASC')
                                     ->get();
 
