@@ -47,6 +47,11 @@
                     </table>
                 </div>
                 <div class="form-group">
+                    <label class="label fw-bold font-bold" for="address">Address</label>
+                    <textarea id='address' name='address' rows='3' cols='5' class='form-control'></textarea>
+                </div>
+                <br>
+                <div class="form-group">
                     <label class="label fw-bold font-bold" for="note">Note (For Store Frontend)</label>
                     <textarea id='note' name='note' rows='3' cols='5' class='form-control'></textarea>
                 </div>
@@ -305,6 +310,7 @@
             	dataType:"json",
             	success:function(data){
                     if(data || data.length){
+                        $("#address").val(data.address);
                         $("#note").val(data.note);
                         $("#checkout_note").val(data.checkout_note);
                         $("#location_order").val(data.location_order);
@@ -316,6 +322,7 @@
                         $("#immediate_inventory").prop('checked', data.immediate_inventory === 'Y');
                     }
                     else{
+                        $("#address").val('');
                         $("#note").val('');
                         $("#checkout_note").val('');
                         $("#location_order").val('');

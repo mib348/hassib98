@@ -53,6 +53,7 @@
 
                         <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse @if($loop->first) show @endif" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
                             <div class="accordion-body">
+                                <p>{{ $arrProducts['location_data']['address'] }}</p>
 
                                 <h6>IMMEDIATE INVENTORY</h6>
                                 <div class="row">

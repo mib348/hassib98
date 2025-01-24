@@ -63,6 +63,7 @@ class LocationsTextController extends Controller
         $arrLocation->sameday_preorder_end_time = $request->input('sameday_preorder_end_time');
         $arrLocation->first_additional_inventory_end_time = $request->input('first_additional_inventory_end_time');
         $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
+        $arrLocation->address = $request->input('address');
         $arrLocation->note = $request->input('note');
         $arrLocation->checkout_note = $request->input('checkout_note');
         $arrLocation->is_active = $request->has('location_toggle') ? 'Y' : 'N';
@@ -141,6 +142,7 @@ class LocationsTextController extends Controller
 
             return response()->json([
                 'html' => $html,
+                'address' => $arrLocation['address'],
                 'note' => $arrLocation['note'],
                 'checkout_note' => $arrLocation['checkout_note'],
                 'location_toggle' => $arrLocation['is_active'],

@@ -16,7 +16,7 @@ class DriverController extends Controller
     public function index()
     {
         $arrLocations = Locations::where('is_active', 'Y')
-                                    ->whereNot('name', 'Additional Inventory')
+                                    ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
                                     // ->where('immediate_inventory', 'Y')
                                     // ->orderBy('location_order', 'asc')
                                     ->orderByRaw('location_order IS NULL, location_order ASC')
@@ -46,6 +46,8 @@ class DriverController extends Controller
                 if (!isset($arrData[$location_name]['location_data'])) {
                     $arrData[$location_name]['location_data'] = $arrLocation;
                 }
+
+                $bItemsFound = false;
 
                 //immediate orders
                 $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
@@ -127,6 +129,11 @@ class DriverController extends Controller
                     }
                 }
             }
+        }
+
+        foreach ($arrData as $key => $arr) {
+            if(empty($arr['immediate_inventory_slot']['products']) && empty($arr['preorder_slot']['products']))
+                unset($arrData[$key]);
         }
 
         // dd($arrData);
