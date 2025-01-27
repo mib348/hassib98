@@ -47,6 +47,10 @@ class KitchenController extends Controller
                 }
 
                 foreach ($dates as $date => $day_name) {
+                    // Initialize location_data here
+                    if (!isset($arrData[$location_name]['location_data']))
+                        $arrData[$location_name]['location_data'] = $arrLocation;
+
                     // Initialize the day data even if no orders are found
                     if (!isset($arrData[$location_name][$date])) {
                         $arrData[$location_name][$date] = [

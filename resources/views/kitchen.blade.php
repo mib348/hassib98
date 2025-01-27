@@ -65,6 +65,14 @@
                             <tr>
                                 <th colspan="100" class="text-center">{{ $location }}</th>
                             </tr>
+                            
+                            @if(!empty($days['location_data']['address']))
+                            <tr>
+                                <td colspan="100" class="text-left">
+                                    <p class="mb-0">{!! $days['location_data']['address'] !!}</p>
+                                </td>
+                            </tr>
+                            @endif
                         </thead>
                         <tbody>
                             @foreach($dates as $date => $day_name)
