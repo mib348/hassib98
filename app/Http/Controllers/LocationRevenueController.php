@@ -32,7 +32,7 @@ class LocationRevenueController extends Controller
             }
         }
 
-        $arrLocations = Locations::whereNot('name', 'Additional Inventory')->get();
+        $arrLocations = Locations::whereNot('name', 'Additional Inventory')->orderBy('name', 'asc')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_REVENUE')->first();
         $html = $this->getLocationsRevenueList(request());
 

@@ -29,7 +29,7 @@ class LocationProductsTableController extends Controller
         $productsResponse = $api->rest('GET', '/admin/products.json');
         $arrProducts = $productsResponse['body']['products'] ?? [];
 
-        $arrLocations = Locations::all();
+        $arrLocations = Locations::orderBy('name', 'asc')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_PRODUCTS')->first();
         return view('location_products', [
             'arrProducts' => $arrProducts,

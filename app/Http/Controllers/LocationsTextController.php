@@ -13,7 +13,7 @@ class LocationsTextController extends Controller
      */
     public function index()
     {
-        $arrLocations = Locations::whereNotIn('name', ['Additional Inventory', 'Default Menu'])->get();
+        $arrLocations = Locations::whereNotIn('name', ['Additional Inventory', 'Default Menu'])->orderBy('name', 'asc')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_TEXT')->first();
         return view('locations_text', ['arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
     }

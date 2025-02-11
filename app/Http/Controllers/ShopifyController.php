@@ -860,7 +860,7 @@ class ShopifyController extends Controller
             $arrLocations = Locations::where('name', $location)->first();
         } else {
             // If the parameter is not passed, select only the 'name' field for all locations
-            $arrLocations = Locations::select('name')->orderBy('id', 'asc')->get()->toArray();
+            $arrLocations = Locations::select('name')->orderBy('name', 'asc')->get()->toArray();
 
             // Extract the names from the array
             $arrLocations = array_map(function ($item) {
