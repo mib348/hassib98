@@ -24,12 +24,13 @@ class DriverController extends Controller
                                     ->get();
 
         // Check if locations exist before proceeding
+        $arrData = $arrTotalOrders = [];
+
         if ($arrLocations->isEmpty()) {
             // Handle case when no locations are found
-            return view('drivers', ['arrData' => []]);
+            return view('drivers', ['arrData' => [], 'arrTotalOrders' => []]);
         }
 
-        $arrData = [];
 
         foreach ($arrLocations as $arrLocation) {
             if ($arrLocation && !empty($arrLocation->name)) {
@@ -38,6 +39,7 @@ class DriverController extends Controller
                 $arrData[$location_name]['preorder_slot']['products'] = [];
                 // $arrData[$location_name]['sameday_preorder_slot']['products'] = [];
                 $arrData[$location_name]['immediate_inventory_slot']['products'] = [];
+                $arrTotalOrders[$location_name]['total_orders_count'] = [];
 
                 $sameday_preorder_end_time = Carbon::parse($arrLocation->sameday_preorder_end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
                 $immediate_inventory_end_time = Carbon::parse($arrLocation->end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
@@ -45,6 +47,7 @@ class DriverController extends Controller
                 // Initialize location_data here
                 if (!isset($arrData[$location_name]['location_data'])) {
                     $arrData[$location_name]['location_data'] = $arrLocation;
+                    $arrTotalOrders[$location_name]['total_orders_count'] = 0;
                 }
 
                 $bItemsFound = false;
@@ -68,6 +71,7 @@ class DriverController extends Controller
 
                         // Accumulate quantity
                         $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] += $quantity;
+                        $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
                     }
                 }
 
@@ -110,6 +114,7 @@ class DriverController extends Controller
 
                                     // Accumulate quantity
                                     $arrData[$location_name]['preorder_slot']['products'][$product_name] += $quantity;
+                                    $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
                                 // }
                                 // else if($order_created_datetime >= $sameday_preorder_end_time && $order_created_datetime <= $immediate_inventory_end_time && $is_immediate_inventory_order === "Y"){
                                 //     $product_name = $arrLineItem['name'];
@@ -138,7 +143,7 @@ class DriverController extends Controller
 
         // dd($arrData);
 
-        return view('drivers', ['arrData' => $arrData]);
+        return view('drivers', ['arrData' => $arrData, 'arrTotalOrders' => $arrTotalOrders]);
     }
 
     /**

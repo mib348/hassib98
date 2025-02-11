@@ -46,7 +46,7 @@
                         <div class="accordion-header" id="heading{{ $loop->index }}">
                             <h5 class="mb-0 ">
                                 <button class="accordion-button bg-light d-block text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="@if($loop->first) true @else false @endif" aria-controls="collapse{{ $loop->index }}">
-                                    {{ ($loop->index + 1) . ". " . $location }}
+                                    {{ ($loop->index + 1) . ". " . $location }} <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span>
                                 </button>
                             </h5>
                         </div>
