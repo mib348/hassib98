@@ -59,6 +59,24 @@ class DeliveryController extends Controller
                         }
 
                         $arrData['Delivery'][$arrOrder->order_id]['delivered_at'] = $arrOrder->delivered_at;
+
+                        $arrLocation = Locations::where('name', 'Delivery')->first();
+                        $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = "";
+                        if($arrLocation->start_time == $arrLineItem['properties'][7]['value']){
+                            $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = date("h:i a", strtotime($arrLocation['start_time'])) . " - " . date("h:i a", strtotime($arrLocation['end_time']));
+                        }
+                        else if($arrLocation->start_time2 == $arrLineItem['properties'][7]['value']){
+                            $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = date("h:i a", strtotime($arrLocation['start_time2'])) . " - " . date("h:i a", strtotime($arrLocation['end_time2']));
+                        }
+                        else if($arrLocation->start_time3 == $arrLineItem['properties'][7]['value']){
+                            $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = date("h:i a", strtotime($arrLocation['start_time3'])) . " - " . date("h:i a", strtotime($arrLocation['end_time3']));
+                        }
+                        else if($arrLocation->start_time4 == $arrLineItem['properties'][7]['value']){
+                            $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = date("h:i a", strtotime($arrLocation['start_time4'])) . " - " . date("h:i a", strtotime($arrLocation['end_time4']));
+                        }
+                        else if($arrLocation->start_time5 == $arrLineItem['properties'][7]['value']){
+                            $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = date("h:i a", strtotime($arrLocation['start_time5'])) . " - " . date("h:i a", strtotime($arrLocation['end_time5']));
+                        }
                     }
                 }
 

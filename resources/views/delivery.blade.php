@@ -101,6 +101,10 @@
                                         <td>Zip</td>
                                         <th>{{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}</th>
                                     </tr>
+                                    <tr>
+                                        <td>Timezone</td>
+                                        <th>{{ isset($arrOrder['timeslot']) ? $arrOrder['timeslot'] : '' }}</th>
+                                    </tr>
                                 </table>
                                 <br>
                                 <h6>ITEMS</h6>
