@@ -60,6 +60,12 @@ class LocationsTextController extends Controller
         $arrLocation->end_time = $request->input('end_time');
         $arrLocation->start_time2 = $request->input('start_time2');
         $arrLocation->end_time2 = $request->input('end_time2');
+        $arrLocation->start_time3 = $request->input('start_time3');
+        $arrLocation->end_time3 = $request->input('end_time3');
+        $arrLocation->start_time4 = $request->input('start_time4');
+        $arrLocation->end_time4 = $request->input('end_time4');
+        $arrLocation->start_time5 = $request->input('start_time5');
+        $arrLocation->end_time5 = $request->input('end_time5');
         $arrLocation->sameday_preorder_end_time = $request->input('sameday_preorder_end_time');
         $arrLocation->first_additional_inventory_end_time = $request->input('first_additional_inventory_end_time');
         $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
@@ -90,21 +96,44 @@ class LocationsTextController extends Controller
             $endTime = substr($arrLocation['end_time'], 0, 5); // HH:MM
             $startTime2 = substr($arrLocation['start_time2'], 0, 5); // HH:MM
             $endTime2 = substr($arrLocation['end_time2'], 0, 5); // HH:MM
+            $startTime3 = substr($arrLocation['start_time3'], 0, 5); // HH:MM
+            $endTime3 = substr($arrLocation['end_time3'], 0, 5); // HH:MM
+            $startTime4 = substr($arrLocation['start_time4'], 0, 5); // HH:MM
+            $endTime4 = substr($arrLocation['end_time4'], 0, 5); // HH:MM
+            $startTime5 = substr($arrLocation['start_time5'], 0, 5); // HH:MM
+            $endTime5 = substr($arrLocation['end_time5'], 0, 5); // HH:MM
             $sameday_preorder_end_time = substr($arrLocation['sameday_preorder_end_time'], 0, 5); // HH:MM
             $first_additional_inventory_end_time = substr($arrLocation['first_additional_inventory_end_time'], 0, 5); // HH:MM
             $second_additional_inventory_end_time = substr($arrLocation['second_additional_inventory_end_time'], 0, 5); // HH:MM
 
             $html = "<tr>";
-                $html .= "<td>" . $arrLocation['name'] . "</td>";
+                $html .= "<td>" . $arrLocation['name'] . "
+                            <p>Timezone 1</p>
+                          </td>";
                 $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime . "' /></td>";
                 $html .= "<td><input type='time' id='end_time' name='end_time' value='" . $endTime . "' /></td>";
             $html .= "</tr>";
 
             if($arrLocation['name'] == 'Delivery') {
                 $html .= "<tr>";
-                    $html .= "<td></td>";
+                    $html .= "<td><p>Timezone 2</p></td>";
                     $html .= "<td><input type='time' id='start_time2' name='start_time2' value='" . $startTime2 . "' /></td>";
                     $html .= "<td><input type='time' id='end_time2' name='end_time2' value='" . $endTime2 . "' /></td>";
+                $html .= "</tr>";
+                $html .= "<tr>";
+                    $html .= "<td><p>Timezone 3</p></td>";
+                    $html .= "<td><input type='time' id='start_time3' name='start_time3' value='" . $startTime3 . "' /></td>";
+                    $html .= "<td><input type='time' id='end_time3' name='end_time3' value='" . $endTime3 . "' /></td>";
+                $html .= "</tr>";
+                $html .= "<tr>";
+                    $html .= "<td><p>Timezone 4</p></td>";
+                    $html .= "<td><input type='time' id='start_time4' name='start_time4' value='" . $startTime4 . "' /></td>";
+                    $html .= "<td><input type='time' id='end_time4' name='end_time4' value='" . $endTime4 . "' /></td>";
+                $html .= "</tr>";
+                $html .= "<tr>";
+                    $html .= "<td><p>Timezone 5</p></td>";
+                    $html .= "<td><input type='time' id='start_time3' name='start_time5' value='" . $startTime5 . "' /></td>";
+                    $html .= "<td><input type='time' id='end_time3' name='end_time5' value='" . $endTime5 . "' /></td>";
                 $html .= "</tr>";
             }
             else{
