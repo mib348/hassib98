@@ -131,6 +131,11 @@ class OrdersCreateJob implements ShouldQueue
 
     protected function updateProductMetafieldForOrder($shop, $productId, $lineItem, $orderData)
     {
+        //skip inventory handling for Orders of Location: Delivery
+        if($lineItem['properties'][1]['value'] == "Delivery"){
+            return true;
+        }
+
         // Define the metafield details
         $inventoryType = ($lineItem['properties'][6]['value'] == "Y") ? 'immediate' : 'preorder';
         $key = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
