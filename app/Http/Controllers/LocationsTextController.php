@@ -69,6 +69,7 @@ class LocationsTextController extends Controller
         $arrLocation->sameday_preorder_end_time = $request->input('sameday_preorder_end_time');
         $arrLocation->first_additional_inventory_end_time = $request->input('first_additional_inventory_end_time');
         $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
+        $arrLocation->preorder_end_time_home_delivery = $request->input('preorder_end_time_home_delivery');
         $arrLocation->address = $request->input('address');
         $arrLocation->note = $request->input('note');
         $arrLocation->checkout_note = $request->input('checkout_note');
@@ -105,6 +106,7 @@ class LocationsTextController extends Controller
             $sameday_preorder_end_time = substr($arrLocation['sameday_preorder_end_time'], 0, 5); // HH:MM
             $first_additional_inventory_end_time = substr($arrLocation['first_additional_inventory_end_time'], 0, 5); // HH:MM
             $second_additional_inventory_end_time = substr($arrLocation['second_additional_inventory_end_time'], 0, 5); // HH:MM
+            $preorder_end_time_home_delivery = substr($arrLocation['preorder_end_time_home_delivery'], 0, 5); // HH:MM
 
             $html = "<tr>";
                 $html .= "<td>" . $arrLocation['name'] . "
@@ -134,6 +136,16 @@ class LocationsTextController extends Controller
                     $html .= "<td><p>Timezone 5</p></td>";
                     $html .= "<td><input type='time' id='start_time3' name='start_time5' value='" . $startTime5 . "' /></td>";
                     $html .= "<td><input type='time' id='end_time3' name='end_time5' value='" . $endTime5 . "' /></td>";
+                $html .= "</tr>";
+                $html .= '<tr>
+                                <th></th>
+                                <th></th>
+                                <th>PreOrder End Time Home Delivery</th>
+                            </tr>';
+                $html .= "<tr>";
+                    $html .= "<td></td>";
+                    $html .= "<td></td>";
+                    $html .= "<td><input type='time' id='preorder_end_time_home_delivery' name='preorder_end_time_home_delivery' value='" . $preorder_end_time_home_delivery . "' /></td>";
                 $html .= "</tr>";
             }
             else{
