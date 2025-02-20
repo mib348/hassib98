@@ -18,6 +18,8 @@ if (localStorage.getItem("uuid") == null) {
 
 document.addEventListener('DOMContentLoaded', function() {
     if (window.location.pathname === "/pages/order-menue") {
+        $(".order_qty").find("input").attr("max", 99);
+        $(".qty_portion").hide();
         history.pushState(null, null, window.location.href); // Push current state to history
 
         window.onpopstate = function(event) {
@@ -112,6 +114,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
+
 });
 
 
@@ -157,6 +160,15 @@ if (window.location.pathname === "/pages/order-menue" || (window.location.pathna
 
 if (window.jQuery) {
   let $ = window.jQuery;
+
+  //skip inventory handling for Orders of Location: Delivery
+  if (window.location.pathname === "/pages/order-menue") {
+    if(sessionStorage.getItem("location") == "Delivery"){
+      $(".order_qty").find("input").attr("max", 99);
+      $(".qty_portion").hide();
+    }
+  }
+  
   // if (window.history && window.history.pushState) {
   //     window.history.pushState('', null, window.location.pathname);
   //     $(window).on('popstate', function() {
@@ -194,6 +206,12 @@ if (window.location.pathname === "/pages/bestellen") {
   }
 } 
 else if(window.location.pathname === "/cart"){
+  // if(window.location.pathname === "/cart"){
+      if(sessionStorage.getItem("location") == "Delivery"){
+          $(".incorrent_item_agree_cb_portion").hide();
+      }
+  // }
+  
   $.ajax({
       type: "GET",
       url: window.Shopify.routes.root + "cart.js",
@@ -403,6 +421,9 @@ else {
             $.each(response.items, function (index, product) {
                 dateArray.push(product.properties.date);
                 var stored_qty = parseInt(product.properties.max_quantity, 10);
+                if(sessionStorage.getItem("location") == "Delivery")
+                  stored_qty = 99;
+              
                 if (product.quantity >= stored_qty) {
                     $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
                     $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').prop('disabled', true);
@@ -430,10 +451,13 @@ else {
               alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
               b_allowed = false;
             }
-    
-            if (!$('#incorrent_item_agree').is(':checked')) {
-              alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
-              b_allowed = false;
+
+            if(sessionStorage.getItem("location") != "Delivery"){
+                // $(".incorrent_item_agree_cb_portion").hide();
+                if (!$('#incorrent_item_agree').is(':checked')) {
+                  alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
+                  b_allowed = false;
+                }
             }
     
             if (!$('#agree').is(':checked')) {
@@ -445,6 +469,11 @@ else {
             //   alert("Um zur Kasse zu gehen, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen.");
             //   b_allowed = false;
             // }
+
+            if(sessionStorage.getItem("location") == "Delivery"){
+              b_allowed = false;
+              window.location.href = "/checkout";              
+            }
 
             
 
