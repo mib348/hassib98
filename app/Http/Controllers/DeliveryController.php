@@ -15,6 +15,7 @@ class DeliveryController extends Controller
      */
     public function index()
     {
+        $arrLocation = Locations::where('name', 'Delivery')->first();
         //preorders
         $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
                             ->where('location', 'Delivery')
@@ -60,7 +61,6 @@ class DeliveryController extends Controller
 
                         $arrData['Delivery'][$arrOrder->order_id]['delivered_at'] = $arrOrder->delivered_at;
 
-                        $arrLocation = Locations::where('name', 'Delivery')->first();
                         $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = "";
                         if($arrLocation->start_time == $arrLineItem['properties'][7]['value']){
                             $arrData['Delivery'][$arrOrder->order_id]['timeslot'] = date("h:i a", strtotime($arrLocation['start_time'])) . " - " . date("h:i a", strtotime($arrLocation['end_time']));
