@@ -26,7 +26,7 @@ class LocationProductsTableController extends Controller
         $api = $shop->api(); // Get the API instance for the shop.
 
         // Fetch products from Shopify API
-        $productsResponse = $api->rest('GET', '/admin/products.json');
+        $productsResponse = $api->rest('GET', '/admin/products.json', ['status' => 'active']);
         $arrProducts = $productsResponse['body']['products'] ?? [];
 
         $arrLocations = Locations::orderBy('name', 'asc')->get();
