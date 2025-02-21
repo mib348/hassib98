@@ -184,6 +184,45 @@
                                 $colorIndex = 0;
                             @endphp
 
+                            @if(empty($arrTotalOrders[$date]['total_orders']['immediate_inventory']))
+                                <tr>
+                                    <td class="column-day">{{ $day_name }} Immediate Orders<br>({{ $date }})</td>
+                                    @for($i = 0; $i < 4; $i++)
+                                        <td class="column-qty"></td>
+                                        <td class="column-product"></td>
+                                    @endfor
+                                </tr>
+                            @else
+                                @foreach($immediate_productsArray as $rowProducts)
+                                    <tr>
+                                        @if($immediate_firstRow)
+                                            <td class="column-day" rowspan="{{ $immediate_rowsNeeded }}"><b>{{ $day_name }} Immediate Orders<br>({{ $date }})</b> <span class="badge text-bg-primary text-white">{{ $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] }}</span></td>
+                                            @php $immediate_firstRow = false; @endphp
+                                        @endif
+                                        @foreach($rowProducts as $productName => $quantity)
+                                            @php
+                                                // Assign a fixed color class to each product
+                                                if (!isset($productColors[$productName])) {
+                                                    $productColors[$productName] = $colorClasses[$colorIndex % count($colorClasses)];
+                                                    $colorIndex++;
+                                                }
+                                                $colorClass = $productColors[$productName];
+                                            @endphp
+                                            <td class="{{ $colorClass }} text-center column-qty">
+                                                {{ $quantity }}
+                                            </td>
+                                            <td class="{{ $colorClass }} column-product">
+                                                {{ $productName }}
+                                            </td>
+                                        @endforeach
+                                        @for($i = count($rowProducts); $i < 4; $i++)
+                                            <td class="column-qty"></td>
+                                            <td class="column-product"></td>
+                                        @endfor
+                                    </tr>
+                                @endforeach
+                            @endif
+
                             @if(empty($arrTotalOrders[$date]['total_orders']['preorder_inventory']))
                                 <tr>
                                     <td class="column-day">{{ $day_name }} PreOrders<br>({{ $date }})</td>
@@ -223,44 +262,6 @@
                                 @endforeach
                             @endif
 
-                            @if(empty($arrTotalOrders[$date]['total_orders']['immediate_inventory']))
-                                <tr>
-                                    <td class="column-day">{{ $day_name }} Immediate Orders<br>({{ $date }})</td>
-                                    @for($i = 0; $i < 4; $i++)
-                                        <td class="column-qty"></td>
-                                        <td class="column-product"></td>
-                                    @endfor
-                                </tr>
-                            @else
-                                @foreach($immediate_productsArray as $rowProducts)
-                                    <tr>
-                                        @if($immediate_firstRow)
-                                            <td class="column-day" rowspan="{{ $immediate_rowsNeeded }}"><b>{{ $day_name }} Immediate Orders<br>({{ $date }})</b> <span class="badge text-bg-primary text-white">{{ $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] }}</span></td>
-                                            @php $immediate_firstRow = false; @endphp
-                                        @endif
-                                        @foreach($rowProducts as $productName => $quantity)
-                                            @php
-                                                // Assign a fixed color class to each product
-                                                if (!isset($productColors[$productName])) {
-                                                    $productColors[$productName] = $colorClasses[$colorIndex % count($colorClasses)];
-                                                    $colorIndex++;
-                                                }
-                                                $colorClass = $productColors[$productName];
-                                            @endphp
-                                            <td class="{{ $colorClass }} text-center column-qty">
-                                                {{ $quantity }}
-                                            </td>
-                                            <td class="{{ $colorClass }} column-product">
-                                                {{ $productName }}
-                                            </td>
-                                        @endforeach
-                                        @for($i = count($rowProducts); $i < 4; $i++)
-                                            <td class="column-qty"></td>
-                                            <td class="column-product"></td>
-                                        @endfor
-                                    </tr>
-                                @endforeach
-                            @endif
 
                         @endforeach
                     </tbody>
