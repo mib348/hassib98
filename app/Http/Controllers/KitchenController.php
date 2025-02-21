@@ -31,8 +31,10 @@ class KitchenController extends Controller
             $date = date("Y-m-d", strtotime("+$i day"));
             $day_name = date('l', strtotime($date)); // Get the actual day name (e.g., Monday)
             $dates[$date] = $day_name;
-            $arrTotalOrders[$date]['total_orders'] = [];
-            $arrTotalOrders[$date]['total_orders_count'] = 0;
+            $arrTotalOrders[$date]['total_orders']['immediate_inventory'] = [];
+            $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] = 0;
+            $arrTotalOrders[$date]['total_orders']['preorder_inventory'] = [];
+            $arrTotalOrders[$date]['total_orders_count']['preorder_inventory'] = 0;
         }
 
         $arrData = [];
@@ -72,30 +74,49 @@ class KitchenController extends Controller
                             if ($arrOrder && !empty($arrOrder->line_items)) {
                                 $arrLineItems = json_decode($arrOrder->line_items, true);
 
-                                //do not show immediate orders
-                                if(isset($arrLineItems[0]['properties'][6])){
-									if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
-										continue;
-									}
-								}
+                                // //do not show immediate orders
+                                // if(isset($arrLineItems[0]['properties'][6])){
+								// 	if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
+								// 		continue;
+								// 	}
+								// }
 
                                 foreach ($arrLineItems as $arrLineItem) {
                                     $product_name = $arrLineItem['name'];
                                     $quantity = $arrLineItem['quantity'];
 
-                                    // Initialize product data if not already set
-                                    if (!isset($arrData[$location_name][$date]['products'][$product_name])) {
-                                        $arrData[$location_name][$date]['products'][$product_name] = 0;
-                                    }
-                                    if (!isset($arrTotalOrders[$date]['total_orders'][$product_name])) {
-                                        $arrTotalOrders[$date]['total_orders'][$product_name] = 0;
-                                    }
 
+                                    //immediate orders
                                     // Accumulate quantity
-                                    $arrData[$location_name][$date]['products'][$product_name] += $quantity;
-                                    $arrTotalOrders[$date]['total_orders'][$product_name] += $quantity;
-                                    $arrTotalOrders[$date]['total_orders_count'] += $quantity;
+                                    if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
+                                        // Initialize product data if not already set - //immediate orders
+                                        if (!isset($arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name])) {
+                                            $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] = 0;
+                                        }
+                                        $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] += $quantity;
+                                        $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] += $quantity;
+                                    }
+                                    //preorder orders
+                                    // Accumulate quantity
+                                    else{
+                                        // Initialize product data if not already set - //preorder orders
+                                        if (!isset($arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name])) {
+                                            $arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name] = 0;
+                                        }
+                                        // Initialize product data if not already set
+                                        if (!isset($arrData[$location_name][$date]['products'][$product_name])) {
+                                            $arrData[$location_name][$date]['products'][$product_name] = 0;
+                                        }
+                                        // Accumulate quantity
+                                        $arrData[$location_name][$date]['products'][$product_name] += $quantity;
+                                        $arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name] += $quantity;
+                                        $arrTotalOrders[$date]['total_orders_count']['preorder_inventory'] += $quantity;
+                                    }
                                 }
+
+
+
+
                             }
 
                         }
