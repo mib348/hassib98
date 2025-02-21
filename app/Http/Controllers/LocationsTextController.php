@@ -71,6 +71,9 @@ class LocationsTextController extends Controller
         $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
         $arrLocation->preorder_end_time_home_delivery = $request->input('preorder_end_time_home_delivery');
         $arrLocation->address = $request->input('address');
+        $arrLocation->maps_directions = $request->input('maps_directions');
+        $arrLocation->longitude = $request->input('longitude');
+        $arrLocation->latitude = $request->input('latitude');
         $arrLocation->note = $request->input('note');
         $arrLocation->checkout_note = $request->input('checkout_note');
         $arrLocation->is_active = $request->has('location_toggle') ? 'Y' : 'N';
@@ -184,6 +187,9 @@ class LocationsTextController extends Controller
             return response()->json([
                 'html' => $html,
                 'address' => $arrLocation['address'],
+                'maps_directions' => $arrLocation['maps_directions'],
+                'longitude' => $arrLocation['longitude'],
+                'latitude' => $arrLocation['latitude'],
                 'note' => $arrLocation['note'],
                 'checkout_note' => $arrLocation['checkout_note'],
                 'location_toggle' => $arrLocation['is_active'],

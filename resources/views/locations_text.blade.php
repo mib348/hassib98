@@ -46,9 +46,34 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="form-group">
-                    <label class="label fw-bold font-bold" for="address">Address</label>
-                    <textarea id='address' name='address' rows='3' cols='5' class='form-control'></textarea>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label class="label fw-bold font-bold" for="address">Address</label>
+                            <textarea id='address' name='address' rows='6' cols='5' class='form-control'></textarea>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label class="label fw-bold font-bold" for="maps_directions">Maps Directions</label>
+                            <textarea id='maps_directions' name='maps_directions' rows='3' cols='5' class='form-control'></textarea>
+                        </div>
+                        <div class="row" style="margin-top: 10px;">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label class="label fw-bold font-bold" for="latitude">Latitude</label>
+                                    <input type="text" id='latitude' name='latitude' class='form-control'></input>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label class="label fw-bold font-bold" for="longitude">Longitude</label>
+                                    <input type="text" id='longitude' name='longitude' class='form-control'></input>
+                                </div>
+                            </div>
+                        </div>
+                        <br>
+                    </div>
                 </div>
                 <br>
                 <div class="form-group">
@@ -311,6 +336,9 @@
             	success:function(data){
                     if(data || data.length){
                         $("#address").val(data.address);
+                        $("#maps_directions").val(data.maps_directions);
+                        $("#longitude").val(data.longitude);
+                        $("#latitude").val(data.latitude);
                         $("#note").val(data.note);
                         $("#checkout_note").val(data.checkout_note);
                         $("#location_order").val(data.location_order);
@@ -323,6 +351,9 @@
                     }
                     else{
                         $("#address").val('');
+                        $("#maps_directions").val('');
+                        $("#longitude").val('');
+                        $("#latitude").val('');
                         $("#note").val('');
                         $("#checkout_note").val('');
                         $("#location_order").val('');
