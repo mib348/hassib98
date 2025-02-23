@@ -174,7 +174,7 @@
                                                               {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
                                                 data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
                                                 data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
-                                                <i class="fa-brands fa-google"></i> Open in Google Maps
+                                                <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
                                             </button>
                                         </div>
                                     </div>
