@@ -62,13 +62,22 @@
 
                                 <div class="d-grid gap-2 col-12 mx-auto">
                                     <div class="col-auto">
-                                        <button
+                                        {{-- <button
                                             type="button"
                                             class="btn btn-info map_button"
                                             data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
                                             data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
                                             data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
                                             <i class="fa-solid fa-location-dot"></i> Show Map
+                                        </button> --}}
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-primary open-google-maps"
+                                            data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
+                                            data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
+                                            data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
+                                            <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
                                         </button>
                                     </div>
 
@@ -214,6 +223,47 @@
                     mapCanvas.hide();
                 }
             });
+
+            $(document).on('click', '.open-google-maps', function() {
+                const latitude = $(this).data('latitude');
+                const longitude = $(this).data('longitude');
+                const address = $(this).data('address') || '';
+
+                let googleMapsAppUrl = '';
+                let googleMapsWebUrl = '';
+
+                // 1) Construct the appropriate URLs for app and web
+                if (latitude && longitude) {
+                    // Use latitude & longitude
+                    googleMapsAppUrl = `comgooglemaps://?q=${latitude},${longitude}`;
+                    googleMapsWebUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+                } else {
+                    // Fallback to address
+                    const encodedAddress = encodeURIComponent(address.trim());
+                    googleMapsAppUrl = `comgooglemaps://?q=${encodedAddress}`;
+                    googleMapsWebUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+                }
+
+                // 2) Check device width to determine if we're on (roughly) mobile or not
+                const isMobile = window.matchMedia('(max-width: 1024px)').matches;
+                const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+                if (isMobile && isTouchDevice) {
+                    // If it's a mobile device (screen width <= 768px) and has touch capabilities:
+                    // Attempt to open the Google Maps app first
+                    window.open(googleMapsAppUrl, '_blank');
+
+                    // Fallback to web if the app is not installed or fails to open
+                    setTimeout(function() {
+                        window.open(googleMapsWebUrl, '_blank');
+                    }, 500);
+                } else {
+                    // If it's not a mobile device (screen width > 768px) or doesn't have touch capabilities,
+                    // just open the browser link
+                    window.open(googleMapsWebUrl, '_blank');
+                }
+            });
+
         }
 
         function initializeMap(mapDiv, location) {
