@@ -4,6 +4,9 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/css/bootstrap-timepicker.min.css" rel="stylesheet">
 <style>
     #save_btn {display: none;}
+    #locations_text_form table td:first-child{width:50%;}
+    #locations_text_form table td:nth-child(2){width:25%;}
+    #locations_text_form table td:nth-child(3){width:25%;}
 </style>
 @endsection
 
@@ -230,12 +233,21 @@
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
+        // Create a button for 'Home Delivery Overview'
+        var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
+        homedeliveryButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/home_delivery');
+            // Add your logic for when the 'Orders' button is clicked
+        });
+
+
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
             title: 'Location Settings',
             buttons: {
                 primary: ordersButton,
-                secondary: [location_products, locations_revenue, kitchen]
+                secondary: [location_products, locations_revenue, kitchen, homedeliveryButton]
             },
         });
     </script>

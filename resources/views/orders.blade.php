@@ -156,13 +156,21 @@
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
+        // Create a button for 'Home Delivery Overview'
+        var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
+        homedeliveryButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/home_delivery');
+            // Add your logic for when the 'Orders' button is clicked
+        });
+
 
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
             title: 'Location Order Overview',
             buttons: {
                 primary: location_products,
-                secondary: [locations_revenue, locations_text, kitchen]
+                secondary: [locations_revenue, locations_text, kitchen, homedeliveryButton]
             },
         });
     </script>

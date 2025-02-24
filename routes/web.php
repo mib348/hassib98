@@ -5,6 +5,7 @@ use App\Http\Controllers\ArtisanController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverAdditionalController;
+use App\Http\Controllers\HomeDeliveryController;
 use App\Http\Controllers\LocationProductsTableController;
 use App\Http\Controllers\LocationRevenueController;
 use App\Http\Controllers\LocationsTextController;
@@ -89,6 +90,9 @@ Route::get('/getLocationsProductsJSON', [LocationProductsTableController::class,
 Route::post('/ImportDefaultMenu', [LocationProductsTableController::class, 'ImportDefaultMenu'])->name('ImportDefaultMenu');
 // Route::post('/location_products/updateDay', [LocationProductsTableController::class, 'updateDay'])->name('location_products.updateDay');
 Route::resource('location_products', LocationProductsTableController::class);
+
+//home delivery overview
+Route::resource('home_delivery', HomeDeliveryController::class);
 
 //get api limit information
 Route::get('/apiLimit', [ShopifyController::class, 'apiLimit']);

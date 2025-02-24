@@ -6,6 +6,7 @@ use App\Mail\QRCodeMail;
 use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Metafields;
+use App\Models\Orders;
 use App\Models\PersonalNotepad;
 use App\Models\Products;
 use App\Models\User;
@@ -858,6 +859,55 @@ class ShopifyController extends Controller
         if ($location) {
             // If the parameter is passed, select all fields for the specified location
             $arrLocations = Locations::where('name', $location)->first();
+
+            if($location == "Delivery"){
+                $strTimezone1 = $arrLocations->start_time;
+                $strTimezone2 = $arrLocations->start_time2;
+                $strTimezone3 = $arrLocations->start_time3;
+                $strTimezone4 = $arrLocations->start_time4;
+                $strTimezone5 = $arrLocations->start_time5;
+
+                $counter_Tz1 = $counter_Tz2 = $counter_Tz3 = $counter_Tz4 = $counter_Tz5 = 0;
+                $arrOrders = Orders::where('location', 'Delivery')
+                                    ->where('day', Carbon::now('Europe/Berlin')->format('l'))
+                                    ->whereNull(['cancel_reason', 'cancelled_at'])
+                                    ->get();
+
+                foreach ($arrOrders as $key => $arrOrder) {
+                    $arrLineItems = json_decode($arrOrder->line_items, true);
+                    foreach ($arrLineItems as $arrLineItem) {
+                        foreach ($arrLineItem['properties'] as $key => $value) {
+                            if($value['name'] == "timeslot" && $value['value'] == $strTimezone1){
+                                $counter_Tz1++;
+                                break;
+                            }
+                            elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone2){
+                                $counter_Tz2++;
+                                break;
+                            }
+                            elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone3){
+                                $counter_Tz3++;
+                                break;
+                            }
+                            elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone4){
+                                $counter_Tz4++;
+                                break;
+                            }
+                            elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone5){
+                                $counter_Tz5++;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                $arrLocations['tz1_orders_count'] = $counter_Tz1;
+                $arrLocations['tz2_orders_count'] = $counter_Tz2;
+                $arrLocations['tz3_orders_count'] = $counter_Tz3;
+                $arrLocations['tz4_orders_count'] = $counter_Tz4;
+                $arrLocations['tz5_orders_count'] = $counter_Tz5;
+            }
+
         } else {
             // If the parameter is not passed, select only the 'name' field for all locations
             $arrLocations = Locations::select('name')->orderBy('name', 'asc')->get()->toArray();
