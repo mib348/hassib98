@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kitchen;
+use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Orders;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class KitchenController extends Controller
@@ -61,6 +63,31 @@ class KitchenController extends Controller
                         ];
                     }
 
+                    //immediate orders
+                    $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', "location_products_tables.product_id")
+                                                                    ->where('location', $location_name)
+                                                                    ->where('day', Carbon::parse($date, 'Europe/Berlin')->format("l"))
+                                                                    ->where('inventory_type', 'immediate')
+                                                                    ->get();
+
+
+
+                    if (!$arrImmediateInventory->isEmpty()) {
+                        foreach ($arrImmediateInventory as $key => $arrProduct) {
+                            $product_name = $arrProduct['title'];
+                            $quantity = $arrProduct['quantity'];
+
+                            // Initialize product data if not already set
+                            if (!isset($arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name])) {
+                                $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] = 0;
+                            }
+
+                            // Accumulate quantity
+                            $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] += $quantity;
+                            $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] += $quantity;
+                        }
+                    }
+
                     // Fetch orders for the given date and location
                     $arrOrders = Orders::where('date', $date)
                                 ->where('location', $location_name)
@@ -75,30 +102,30 @@ class KitchenController extends Controller
                                 $arrLineItems = json_decode($arrOrder->line_items, true);
 
                                 // //do not show immediate orders
-                                // if(isset($arrLineItems[0]['properties'][6])){
-								// 	if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
-								// 		continue;
-								// 	}
-								// }
+                                if(isset($arrLineItems[0]['properties'][6])){
+									if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
+										continue;
+									}
+								}
 
                                 foreach ($arrLineItems as $arrLineItem) {
                                     $product_name = $arrLineItem['name'];
                                     $quantity = $arrLineItem['quantity'];
 
 
-                                    //immediate orders
-                                    // Accumulate quantity
-                                    if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
-                                        // Initialize product data if not already set - //immediate orders
-                                        if (!isset($arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name])) {
-                                            $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] = 0;
-                                        }
-                                        $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] += $quantity;
-                                        $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] += $quantity;
-                                    }
+                                    // //immediate orders
+                                    // // Accumulate quantity
+                                    // if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
+                                    //     // Initialize product data if not already set - //immediate orders
+                                    //     if (!isset($arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name])) {
+                                    //         $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] = 0;
+                                    //     }
+                                    //     $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] += $quantity;
+                                    //     $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] += $quantity;
+                                    // }
                                     //preorder orders
                                     // Accumulate quantity
-                                    else{
+                                    // else{
                                         // Initialize product data if not already set - //preorder orders
                                         if (!isset($arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name])) {
                                             $arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name] = 0;
@@ -111,7 +138,7 @@ class KitchenController extends Controller
                                         $arrData[$location_name][$date]['products'][$product_name] += $quantity;
                                         $arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name] += $quantity;
                                         $arrTotalOrders[$date]['total_orders_count']['preorder_inventory'] += $quantity;
-                                    }
+                                    // }
                                 }
 
 
