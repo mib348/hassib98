@@ -50,27 +50,18 @@
                     <div class="accordion-item">
                         <div class="accordion-header" id="heading{{ $loop->index }}">
                             <h5 class="mb-0 ">
-                                <button class="accordion-button bg-light d-block text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="@if($loop->first) true @else false @endif" aria-controls="collapse{{ $loop->index }}">
+                                <button class="accordion-button bg-light d-block text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="false" aria-controls="collapse{{ $loop->index }}">
                                     {{ ($loop->index + 1) . ". " . $location }} <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span>
                                 </button>
                             </h5>
                         </div>
 
-                        <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse @if($loop->first) show @endif" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
+                        <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
                             <div class="accordion-body">
                                 <p>{!! $arrProducts['location_data']['address'] !!}</p>
 
                                 <div class="d-grid gap-2 col-12 mx-auto">
                                     <div class="col-auto">
-                                        {{-- <button
-                                            type="button"
-                                            class="btn btn-info map_button"
-                                            data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
-                                            data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
-                                            data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
-                                            <i class="fa-solid fa-location-dot"></i> Show Map
-                                        </button> --}}
-
                                         <button
                                             type="button"
                                             class="btn btn-primary open-google-maps"
@@ -187,9 +178,57 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFGRlqpzt4EZKMT9f65pHWsI_hza6QNQ0&libraries=places&loading=async"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
-        setInterval(function() {
+        // Save current page scroll position before reload
+        $(window).on('beforeunload', function() {
+            localStorage.setItem('scrollPosition', $(window).scrollTop());
+        });
+        
+        // Function to store open accordion items
+        function storeAccordionState() {
+            var openItems = [];
+            $('.accordion-collapse.show').each(function() {
+                openItems.push($(this).attr('id'));
+            });
+            localStorage.setItem('openAccordionItems', JSON.stringify(openItems));
+        }
+        
+        // Function to restore open accordion items
+        function restoreAccordionState() {
+            var openItems = localStorage.getItem('openAccordionItems');
+            if (openItems) {
+                try {
+                    openItems = JSON.parse(openItems);
+                    // Open saved accordion items
+                    openItems.forEach(function(itemId) {
+                        $('#' + itemId).addClass('show');
+                        $('[data-bs-target="#' + itemId + '"]').attr('aria-expanded', 'true').removeClass('collapsed');
+                    });
+                } catch (e) {
+                    console.error("Error parsing stored accordion state:", e);
+                }
+            } else {
+                // If no stored state, open first item by default (initial page load only)
+                $('#collapse0').addClass('show');
+                $('[data-bs-target="#collapse0"]').attr('aria-expanded', 'true');
+            }
+            
+            // Restore scroll position
+            var scrollPosition = localStorage.getItem('scrollPosition');
+            if (scrollPosition) {
+                $(window).scrollTop(scrollPosition);
+            }
+        }
+
+        // Set up reload interval with preserved state
+        var reloadTimer = setInterval(function() {
+            storeAccordionState();
             window.location.reload();
         }, 60000); // 1 minute in milliseconds
+
+        // Listen for accordion changes to store state
+        $(document).on('shown.bs.collapse hidden.bs.collapse', '.accordion-collapse', function() {
+            storeAccordionState();
+        });
 
         function initMap() {
             $(document).on('click', '.map_button', function() {
@@ -263,7 +302,6 @@
                     window.open(googleMapsWebUrl, '_blank');
                 }
             });
-
         }
 
         function initializeMap(mapDiv, location) {
@@ -300,6 +338,8 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
+            // Restore accordion state after DOM is fully loaded
+            restoreAccordionState();
         });
     </script>
 @endsection
