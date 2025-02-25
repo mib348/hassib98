@@ -28,49 +28,220 @@ class ImportDriversOrders extends Command
             $api = $shop->api(); // Get the API instance for the shop.
 
             $now = Carbon::now();
-            $twoMinutesAgo = $now->copy()->subMinutes(5);
+            $startOfWeek = $now->copy()->startOfWeek();
 
-            $createdAtMin = $twoMinutesAgo->toIso8601String();
+            // Format dates for Shopify GraphQL API (Uses ISO8601 format)
+            // Adding 'Z' to ensure UTC timezone is explicitly specified to avoid ambiguity
+            $createdAtMin = $startOfWeek->toIso8601String();
             $createdAtMax = $now->toIso8601String();
 
-            $params = [
-                'created_at_min' => $createdAtMin,
-                'created_at_max' => $createdAtMax,
-                'status' => 'any',
-                'limit' => 250,
-            ];
+            $this->info("Fetching orders created between {$createdAtMin} and {$createdAtMax}");
+            $this->info("Filtering for orders with location 'Delivery'");
 
-			$allOrders = []; // Array to hold all orders
+            $allOrders = []; // Array to hold all orders
+            $cursor = null; // Initial cursor for pagination
 
-			do {
-				// Fetch orders from Shopify API
-				$response = $api->rest('GET', '/admin/orders.json', $params);
+            do {
+                // Construct GraphQL query with pagination
+                $query = '
+                {
+                    orders(
+                        first: 250,
+                        query: "created_at:>=' . $createdAtMin . ' AND created_at:<=' . $createdAtMax . '"
+                        ' . ($cursor ? ', after: "' . $cursor . '"' : '') . '
+                    ) {
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                        edges {
+                            node {
+                                id
+                                name
+                                createdAt
+                                updatedAt
+                                cancelledAt
+                                cancelReason
+                                totalPriceSet {
+                                    shopMoney {
+                                        amount
+                                    }
+                                }
+                                email
+                                displayFinancialStatus
+                                displayFulfillmentStatus
+                                paymentGatewayNames
+                                note
+                                customer {
+                                    id
+                                    email
+                                    firstName
+                                    lastName
+                                }
+                                shippingAddress {
+                                    address1
+                                    address2
+                                    city
+                                    company
+                                    country
+                                    firstName
+                                    lastName
+                                    phone
+                                    province
+                                    zip
+                                }
+                                lineItems(first: 100) {
+                                    edges {
+                                        node {
+                                            id
+                                            title
+                                            quantity
+                                            variant {
+                                                id
+                                                title
+                                                price
+                                            }
+                                            customAttributes {
+                                                key
+                                                value
+                                            }
+                                        }
+                                    }
+                                }
+                                statusPageUrl
+                            }
+                        }
+                    }
+                }';
 
-				// Check if the response contains orders
-				if (isset($response['body']['orders'])) {
-					$orders = $response['body']['orders'];
-					$orders = (array) $orders ?? [];
-					$orders = $orders['container'];
-					// Merge the fetched orders with the allOrders array
-					$allOrders = array_merge($allOrders, $orders);
-				}
+                // Execute GraphQL query
+                $response = $api->graph($query);
 
-				// Check if there is a 'next' page link
-				$nextPageInfo = null;
-				if (isset($response['body']['next_page_info'])) {
-					$nextPageInfo = $response['body']['next_page_info'];
-					$params['page_info'] = $nextPageInfo; // Set page_info for the next request
-				}
+                // Process orders from the response
+                if (isset($response['body']['data']['orders']['edges']) && count($response['body']['data']['orders']['edges']) > 0) {
+                    $orderEdges = $response['body']['data']['orders']['edges'];
+                    $orders = [];
 
-				// Log the current number of orders fetched
-				Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
-				$this->info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders)) . PHP_EOL;
+                    // Convert GraphQL response format to match the format expected by importOrders
+                    foreach ($orderEdges as $edge) {
+                        $node = $edge['node'];
 
-			} while (isset($nextPageInfo));
+                        // Skip cancelled orders
+                        if (!empty($node['cancelledAt'])) {
+                            Log::info('Skipping cancelled order: ' . $node['name']);
+                            continue;
+                        }
 
-            $allOrders = (array) $allOrders;
+                        // Format order data to match REST API format that importOrders expects
+                        $order = [
+                            'id' => preg_replace('/^gid:\/\/shopify\/Order\//', '', $node['id']),
+                            'order_number' => explode('#', $node['name'])[1],
+                            'total_price' => $node['totalPriceSet']['shopMoney']['amount'],
+                            'email' => $node['email'],
+                            'financial_status' => $node['displayFinancialStatus'],
+                            'fulfillment_status' => $node['displayFulfillmentStatus'],
+                            'cancel_reason' => $node['cancelReason'],
+                            'payment_gateway_names' => '',
+                            'note' => $node['note'],
+                            'order_status_url' => $node['statusPageUrl'],
+                            'created_at' => $node['createdAt'],
+                            'updated_at' => $node['updatedAt'],
+                            'cancelled_at' => !empty($node['cancelledAt']) ? date("Y-m-d H:i:s", strtotime($node['cancelledAt'])) : $node['cancelledAt'],
+                            'customer' => $node['customer'],
+                            'shipping_address' => $node['shippingAddress'],
+                        ];
 
-            $this->importOrders($api, $allOrders);
+                        // Try to safely extract payment gateway names
+                        try {
+                            // Convert the paymentGatewayNames to a simple string or array we can work with
+                            if (is_array($node['paymentGatewayNames'])) {
+                                $order['payment_gateway_names'] = $node['paymentGatewayNames'];
+                            } else if (is_object($node['paymentGatewayNames'])) {
+                                // For ResponseAccess objects, we'll try to access it as an array
+                                $pgNames = [];
+                                foreach ($node['paymentGatewayNames'] as $key => $value) {
+                                    $pgNames[] = $value;
+                                }
+                                $order['payment_gateway_names'] = $pgNames;
+                            }
+                        } catch (\Exception $e) {
+                            // If any errors, just use an empty string as fallback
+                            Log::info("Could not process payment gateway names for order {$node['name']}: {$e->getMessage()}");
+                            $order['payment_gateway_names'] = '';
+                        }
+
+                        // Process line items and check if any meet our criteria
+                        $lineItems = [];
+                        $matchesDelivery = false;
+
+                        foreach ($node['lineItems']['edges'] as $lineItemEdge) {
+                            $lineItem = $lineItemEdge['node'];
+
+                            // Convert customAttributes to properties format
+                            $properties = [];
+                            $locationValue = null;
+
+                            foreach ($lineItem['customAttributes'] as $idx => $attr) {
+                                $properties[] = [
+                                    'name' => $attr['key'],
+                                    'value' => $attr['value']
+                                ];
+
+                                // Check for location property
+                                if (strtolower($attr['key']) === 'location') {
+                                    $locationValue = $attr['value'];
+                                    // Check if location is 'Delivery'
+                                    if ($locationValue == 'Delivery') {
+                                        $matchesDelivery = true;
+                                    }
+                                }
+                            }
+
+                            $processedLineItem = [
+                                'id' => preg_replace('/^gid:\/\/shopify\/LineItem\//', '', $lineItem['id']),
+                                'title' => $lineItem['title'],
+                                'quantity' => $lineItem['quantity'],
+                                'properties' => $properties,
+                                'variant_id' => isset($lineItem['variant']['id']) ? preg_replace('/^gid:\/\/shopify\/ProductVariant\//', '', $lineItem['variant']['id']) : null,
+                                'variant_title' => isset($lineItem['variant']['title']) ? $lineItem['variant']['title'] : null,
+                                'price' => isset($lineItem['variant']['price']) ? $lineItem['variant']['price'] : null,
+                            ];
+
+                            $lineItems[] = $processedLineItem;
+                        }
+
+                        // Only include orders that have a line item matching our criteria
+                        if ($matchesDelivery) {
+                            $order['line_items'] = $lineItems;
+                            $orders[] = $order;
+                            Log::info("Found matching order: {$node['name']} with Delivery");
+                        }
+                    }
+
+                    // Add to the collection of all orders
+                    $allOrders = array_merge($allOrders, $orders);
+
+                    // Log the current number of orders fetched
+                    Log::info('Fetched ' . count($orders) . ' orders matching delivery. Total so far: ' . count($allOrders));
+                    $this->info('Fetched ' . count($orders) . ' orders matching delivery. Total so far: ' . count($allOrders)) . PHP_EOL;
+                }
+
+                // Check if there are more pages
+                $hasNextPage = $response['body']['data']['orders']['pageInfo']['hasNextPage'] ?? false;
+
+                // Get the cursor for the next page if it exists
+                if ($hasNextPage) {
+                    $cursor = $response['body']['data']['orders']['pageInfo']['endCursor'];
+                }
+
+            } while ($hasNextPage && $cursor);
+
+            if (count($allOrders) > 0) {
+                $this->info("Importing " . count($allOrders) . " orders matching delivery");
+                $this->importOrders($api, $allOrders);
+            } else {
+                $this->info("No orders found matching delivery");
+            }
 
         } catch (\Throwable $th) {
             Log::error("Error running job for importing drivers orders: " . json_encode($th));
@@ -110,7 +281,9 @@ class ImportDriversOrders extends Command
                 'financial_status' => $order['financial_status'],
                 'fulfillment_status' => $order['fulfillment_status'],
                 'cancel_reason' => $order['cancel_reason'],
-                'gateway' => implode($order['payment_gateway_names']),
+                'gateway' => is_array($order['payment_gateway_names'])
+                    ? implode(',', $order['payment_gateway_names'])
+                    : (string)$order['payment_gateway_names'],
                 'note' => $order['note'],
                 'order_status_url' => $order['order_status_url'],
                 'line_items' => json_encode($order['line_items']),
