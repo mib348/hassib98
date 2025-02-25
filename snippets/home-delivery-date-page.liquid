@@ -232,26 +232,18 @@ function toggleButton() {
   const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
   // Select all slots via jQuery
-  // const $timeSlots = $('.time_slot');
+  const $timeSlots = $('.time_slot');
   const userSelectedDate = sessionStorage.getItem("date");
 
-  // $timeSlots.each(function() {
-    // const $slot = $(this);
-    const $slot = $(".homedeliverytimebtn_portion");
-    // const slotTime = $slot.attr('data-time_slot_start_time');
-    // if (!slotTime) return;
-    if(preorder_end_time_home_delivery)
-      var slotTime = preorder_end_time_home_delivery;
-    else 
-        return;  
+  if(preorder_end_time_home_delivery)
+    var slotTime_preorder = preorder_end_time_home_delivery;
+  else 
+      return;  
 
-    const [slotHours, slotMins] = slotTime.split(':').map(Number);
-    const slotInMinutes = slotHours * 60 + slotMins;
+  const [slotHours, slotMins] = slotTime_preorder.split(':').map(Number);
+  const slotTime_preorder_InMinutes = slotHours * 60 + slotMins;
 
-    // If it IS the same day, hide slots that are already past
-    // if (isSameDayInGermany(userSelectedDate)) {
-      if (currentTimeInMinutes > slotInMinutes) {
-        // $slot.hide();
+  if (currentTimeInMinutes > slotTime_preorder_InMinutes) {
         $("#datepicker").datepicker("destroy");
         $("#datepicker").datepicker({
             minDate: 1,
@@ -259,8 +251,7 @@ function toggleButton() {
             dateFormat: "dd-mm-yy",
             onSelect: function(dateText, inst) {
                 sessionStorage.setItem("date", dateText);
-                toggleButton();
-
+    
                 $(".location_bar_text").html("Delivery " + dateText);
             
                 // if(!sessionStorage.getItem("time_slot")){
@@ -273,16 +264,7 @@ function toggleButton() {
                 // }
             }
         });
-      } else {
-        // $slot.show();
-      }
-    // } else {
-    //   alert('not same day');
-    //   // If it's NOT the same day, always show all timeslots
-    //   // $slot.show();
-    // }
-  // });
-
+  }
 }
 
 function isSameDayInGermany(dateText) {
@@ -341,6 +323,46 @@ function redirect(dateText, timeSlot){
     });
 }
 
+function HideTimeSlot(data){
+  // Select all slots via jQuery
+  const $timeSlots = $('.time_slot');
+  const userSelectedDate = sessionStorage.getItem("date");
+
+  $timeSlots.each(function() {
+    const $slot = $(this);
+
+      if (data.tz1_orders_count >= data.time_order_limit && $slot.data("time_slot_start_time") == data.start_time) {
+        $slot.hide();        
+      } else if($slot.data("time_slot_start_time") == data.start_time) {
+        $slot.show();
+      }
+    
+      if (data.tz2_orders_count >= data.time2_order_limit && $slot.data("time_slot_start_time") == data.start_time2) {
+        $slot.hide();        
+      } else if($slot.data("time_slot_start_time") == data.start_time2) {
+        $slot.show();
+      }
+    
+      if (data.tz3_orders_count >= data.time3_order_limit && $slot.data("time_slot_start_time") == data.start_time3) {
+        $slot.hide();        
+      } else if($slot.data("time_slot_start_time") == data.start_time3) {
+        $slot.show();
+      }
+    
+      if (data.tz4_orders_count >= data.time4_order_limit && $slot.data("time_slot_start_time") == data.start_time4) {
+        $slot.hide();        
+      } else if($slot.data("time_slot_start_time") == data.start_time4) {
+        $slot.show();
+      }
+    
+      if (data.tz5_orders_count >= data.time5_order_limit && $slot.data("time_slot_start_time") == data.start_time5) {
+        $slot.hide();        
+      } else if($slot.data("time_slot_start_time") == data.start_time5) {
+        $slot.show();
+      }
+  });
+}
+
 let pageFullyLoaded = false;
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -374,34 +396,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 if(data.preorder_end_time_home_delivery)
                     preorder_end_time_home_delivery = data.preorder_end_time_home_delivery;
                 if (data.start_time && data.end_time) {
-                    html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time + `">` + formatTimeTo12Hour(data.start_time) + ' - ' + formatTimeTo12Hour(data.end_time) + `</a>`;
+                    html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time_order_limit + `" data-total_orders_count="` + data.tz1_orders_count + `" data-time_slot_start_time="` + data.start_time + `">` + formatTimeTo12Hour(data.start_time) + ' - ' + formatTimeTo12Hour(data.end_time) + `</a>`;
                     if (data.start_time2 && data.end_time2) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time2 + `">` + formatTimeTo12Hour(data.start_time2) + ' - ' + formatTimeTo12Hour(data.end_time2) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time2_order_limit + `" data-total_orders_count="` + data.tz2_orders_count + `" data-time_slot_start_time="` + data.start_time2 + `">` + formatTimeTo12Hour(data.start_time2) + ' - ' + formatTimeTo12Hour(data.end_time2) + `</a>`;
                     }
                     if (data.start_time3 && data.end_time3) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time3 + `">` + formatTimeTo12Hour(data.start_time3) + ' - ' + formatTimeTo12Hour(data.end_time3) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time3_order_limit + `" data-total_orders_count="` + data.tz3_orders_count + `" data-time_slot_start_time="` + data.start_time3 + `">` + formatTimeTo12Hour(data.start_time3) + ' - ' + formatTimeTo12Hour(data.end_time3) + `</a>`;
                     }
                     if (data.start_time4 && data.end_time4) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time4 + `">` + formatTimeTo12Hour(data.start_time4) + ' - ' + formatTimeTo12Hour(data.end_time4) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time4_order_limit + `" data-total_orders_count="` + data.tz4_orders_count + `" data-time_slot_start_time="` + data.start_time4 + `">` + formatTimeTo12Hour(data.start_time4) + ' - ' + formatTimeTo12Hour(data.end_time4) + `</a>`;
                     }
                     if (data.start_time5 && data.end_time5) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time5 + `">` + formatTimeTo12Hour(data.start_time5) + ' - ' + formatTimeTo12Hour(data.end_time5) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time5_order_limit + `" data-total_orders_count="` + data.tz5_orders_count + `" data-time_slot_start_time="` + data.start_time5 + `">` + formatTimeTo12Hour(data.start_time5) + ' - ' + formatTimeTo12Hour(data.end_time5) + `</a>`;
                     }
                 } else {
                     if (data.start_time) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time + `">` + formatTimeTo12Hour(data.start_time) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time_order_limit + `" data-total_orders_count="` + data.tz1_orders_count + `" data-time_slot_start_time="` + data.start_time + `">` + formatTimeTo12Hour(data.start_time) + `</a>`;
                     }
                     if (data.start_time2) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time2 + `">` + formatTimeTo12Hour(data.start_time2) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time2_order_limit + `" data-total_orders_count="` + data.tz2_orders_count + `" data-time_slot_start_time="` + data.start_time2 + `">` + formatTimeTo12Hour(data.start_time2) + `</a>`;
                     }
                     if (data.start_time3) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time3 + `">` + formatTimeTo12Hour(data.start_time3) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time3_order_limit + `" data-total_orders_count="` + data.tz3_orders_count + `" data-time_slot_start_time="` + data.start_time3 + `">` + formatTimeTo12Hour(data.start_time3) + `</a>`;
                     }
                     if (data.start_time4) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time4 + `">` + formatTimeTo12Hour(data.start_time4) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time4_order_limit + `" data-total_orders_count="` + data.tz4_orders_count + `" data-time_slot_start_time="` + data.start_time4 + `">` + formatTimeTo12Hour(data.start_time4) + `</a>`;
                     }
                     if (data.start_time5) {
-                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-time_slot_start_time="` + data.start_time5 + `">` + formatTimeTo12Hour(data.start_time5) + `</a>`;
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time5_order_limit + `" data-total_orders_count="` + data.tz5_orders_count + `" data-time_slot_start_time="` + data.start_time5 + `">` + formatTimeTo12Hour(data.start_time5) + `</a>`;
                     }
                 }
                 $(".homedeliverytimebtn_dropdown_menu").html(html);
@@ -551,9 +573,24 @@ window.onload = function() {
                         dateFormat: "dd-mm-yy",
                         onSelect: function(dateText, inst) {
                             sessionStorage.setItem("date", dateText);
-                            toggleButton();
+                            // toggleButton();
 
                             $(".location_bar_text").html("Delivery " + dateText);
+
+                            $.ajax({
+                                url: "https://dev.sushi.catering/deliverySelectedDate/" + dateText,
+                                type: "GET",
+                                data: { "uuid": localStorage.getItem("uuid") },
+                                cache: false,
+                                async: false,
+                                dataType: "json",
+                                success: function(data) {
+                                  HideTimeSlot(data);
+                                },
+                                error: function(request, status, error) {
+                                    console.log('Set selected date error:', error);
+                                }
+                            });
                         
                             // if(!sessionStorage.getItem("time_slot")){
                                 $("#datepicker").datepicker("destroy");
