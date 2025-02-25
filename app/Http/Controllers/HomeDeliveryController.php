@@ -30,49 +30,67 @@ class HomeDeliveryController extends Controller
             $dates[$date] = $day_name;
         }
 
+        $arrOrdersList = [];
+
         foreach ($dates as $date => $day_name) {
             $counter_Tz1 = $counter_Tz2 = $counter_Tz3 = $counter_Tz4 = $counter_Tz5 = 0;
-            $arrOrders = Orders::where('location', 'Delivery')
-                                ->where('day', $day_name)
+            $arrOrdersList[$day_name]['tz1_orders'] = [];
+            $arrOrdersList[$day_name]['tz2_orders'] = [];
+            $arrOrdersList[$day_name]['tz3_orders'] = [];
+            $arrOrdersList[$day_name]['tz4_orders'] = [];
+            $arrOrdersList[$day_name]['tz5_orders'] = [];
+
+            $arrOrders = Orders::where('date', $date)
+                                ->where('location', 'Delivery')
+                                ->whereNull(['cancel_reason', 'cancelled_at'])
+                                ->orderBy('id', 'asc')
                                 ->get();
+
 
             foreach ($arrOrders as $key => $arrOrder) {
                 $arrLineItems = json_decode($arrOrder->line_items, true);
-                foreach ($arrLineItems as $arrLineItem) {
-                    foreach ($arrLineItem['properties'] as $key => $value) {
+                // foreach ($arrLineItems as $arrLineItem) {
+                    foreach ($arrLineItems[0]['properties'] as $key => $value) {
                         if($value['name'] == "timeslot" && $value['value'] == $strTimezone1){
                             $counter_Tz1++;
+                            $arrOrdersList[$day_name]['tz1_orders'][][$arrOrder->order_id] = $arrOrder->number;
                             break;
                         }
                         elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone2){
                             $counter_Tz2++;
+                            $arrOrdersList[$day_name]['tz2_orders'][][$arrOrder->order_id] = $arrOrder->number;
                             break;
                         }
                         elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone3){
                             $counter_Tz3++;
+                            $arrOrdersList[$day_name]['tz3_orders'][][$arrOrder->order_id] = $arrOrder->number;
                             break;
                         }
                         elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone4){
                             $counter_Tz4++;
+                            $arrOrdersList[$day_name]['tz4_orders'][][$arrOrder->order_id] = $arrOrder->number;
                             break;
                         }
                         elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone5){
                             $counter_Tz5++;
+                            $arrOrdersList[$day_name]['tz5_orders'][][$arrOrder->order_id] = $arrOrder->number;
                             break;
                         }
                     }
-                }
+                // }
             }
 
-            $html .= "<tr>
-                        <th>" . $day_name . "</th>
-                        <td>" . $counter_Tz1 . "</td>
-                        <td>" . $counter_Tz2 . "</td>
-                        <td>" . $counter_Tz3 . "</td>
-                        <td>" . $counter_Tz4 . "</td>
-                        <td>" . $counter_Tz5 . "</td>
-                    </tr>";
+            $html .= "<tr>";
+            $html .= "<th>" . $day_name . " " . $date . "</th>";
+            $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz1_orders']) . "'>" . $counter_Tz1 . "</a></td>";
+            $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz2_orders']) . "'>" . $counter_Tz2 . "</a></td>";
+            $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz3_orders']) . "'>" . $counter_Tz3 . "</a></td>";
+            $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz4_orders']) . "'>" . $counter_Tz4 . "</a></td>";
+            $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz5_orders']) . "'>" . $counter_Tz5 . "</a></td>";
+            $html .= "</tr>";
         }
+
+        // dd($arrOrdersList);
 
         return view('home_delivery', ['arrLocation' => $arrLocation, 'html' => $html]);
     }

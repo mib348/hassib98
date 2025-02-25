@@ -114,7 +114,7 @@ class OrdersController extends Controller
             $ordersForDate = $orders->get(date("Y-m-d", strtotime("$i day")), collect());
 
             $html .= "<tr>";
-            $html .= "<td>" . $date . "</td>";
+            $html .= "<td>" . $date . " " . Carbon::parse($date, 'Europe/Berlin')->format("l") . "</td>";
 
             $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = $arr_cancelled = $arr_refunded = $arr_items = $item_quantities = [];
             $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = 0;

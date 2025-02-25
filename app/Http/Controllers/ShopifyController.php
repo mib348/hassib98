@@ -948,6 +948,7 @@ class ShopifyController extends Controller
 
     public function deliverySelectedDate(Request $request, $date){
         $arrLocations = Locations::where('name', 'Delivery')->first();
+        $date = Carbon::parse($date, 'Europe/Berlin')->format("Y-m-d");
 
         $strTimezone1 = $arrLocations->start_time;
         $strTimezone2 = $arrLocations->start_time2;
@@ -956,35 +957,33 @@ class ShopifyController extends Controller
         $strTimezone5 = $arrLocations->start_time5;
 
         $counter_Tz1 = $counter_Tz2 = $counter_Tz3 = $counter_Tz4 = $counter_Tz5 = 0;
-        $arrOrders = Orders::where('location', 'Delivery')
-                            ->where('day', Carbon::parse($date, 'Europe/Berlin')->format("l"))
+        $arrOrders = Orders::where('date', $date)
+                            ->where('location', 'Delivery')
                             ->whereNull(['cancel_reason', 'cancelled_at'])
                             ->get();
 
         foreach ($arrOrders as $key => $arrOrder) {
             $arrLineItems = json_decode($arrOrder->line_items, true);
-            foreach ($arrLineItems as $arrLineItem) {
-                foreach ($arrLineItem['properties'] as $key => $value) {
-                    if($value['name'] == "timeslot" && $value['value'] == $strTimezone1){
-                        $counter_Tz1++;
-                        break;
-                    }
-                    elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone2){
-                        $counter_Tz2++;
-                        break;
-                    }
-                    elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone3){
-                        $counter_Tz3++;
-                        break;
-                    }
-                    elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone4){
-                        $counter_Tz4++;
-                        break;
-                    }
-                    elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone5){
-                        $counter_Tz5++;
-                        break;
-                    }
+            foreach ($arrLineItems[0]['properties'] as $key => $value) {
+                if($value['name'] == "timeslot" && $value['value'] == $strTimezone1){
+                    $counter_Tz1++;
+                    break;
+                }
+                elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone2){
+                    $counter_Tz2++;
+                    break;
+                }
+                elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone3){
+                    $counter_Tz3++;
+                    break;
+                }
+                elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone4){
+                    $counter_Tz4++;
+                    break;
+                }
+                elseif($value['name'] == "timeslot" && $value['value'] == $strTimezone5){
+                    $counter_Tz5++;
+                    break;
                 }
             }
         }
@@ -994,7 +993,7 @@ class ShopifyController extends Controller
         $arrLocations['tz3_orders_count'] = $counter_Tz3;
         $arrLocations['tz4_orders_count'] = $counter_Tz4;
         $arrLocations['tz5_orders_count'] = $counter_Tz5;
-        
+
         return response()->json($arrLocations);
     }
 

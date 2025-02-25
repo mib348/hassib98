@@ -31,6 +31,23 @@
     </div>
 </div>
 
+<div class="modal" tabindex="-1" id="orders_list_modal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><span id="order_type"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="orders_list">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          {{-- <button type="button" class="btn btn-primary">Save changes</button> --}}
+        </div>
+      </div>
+    </div>
+  </div>
+
 @endsection
 
 @section('scripts')
@@ -113,5 +130,25 @@
     </script>
 
     <script type="text/javascript">
+        $(document).on('click', '.order_counter', function(e){
+            const arrayOrders = JSON.parse($(this).attr('data-orders'));
+            console.log(arrayOrders);
+
+            var html = '<ul>';
+
+            // Loop through each object in the array
+            $.each(arrayOrders, function(index, orderObj){
+                // Get the first (and only) key from the object
+                const orderId = Object.keys(orderObj)[0];
+                // Get the value associated with that key
+                const orderValue = orderObj[orderId];
+
+                html += '<li><a href="https://admin.shopify.com/store/sushi2024/orders/' + orderId + '" target="_blank">' + orderValue + '</a></li>';
+            });
+
+            html += '</ul>';
+            $("#orders_list").html(html);
+            $("#orders_list_modal").modal('show');
+        });
     </script>
 @endsection

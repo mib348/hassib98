@@ -178,22 +178,34 @@
     <script type="text/javascript">
     	$(function(){
 
-            // Custom sorting plugin for date format d.m.Y
-            jQuery.fn.dataTable.ext.type.order['dmy-pre'] = function(d) {
-                // Convert the date format d.m.Y to Ymd for sorting
-                var parts = d.split('.');
-                return parts[2] + parts[1] + parts[0];
-            };
+            // Replace your current date sorting plugin with this more robust version
+            $.extend($.fn.dataTable.ext.type.order, {
+                "date-de-pre": function(data) {
+                    if (!data) return 0;
 
+                    // Extract just the date part (ignore the day of week text)
+                    var dateOnly = data.match(/\d{2}\.\d{2}\.\d{4}/)[0];
 
+                    // Split by period
+                    var parts = dateOnly.split('.');
+
+                    // Create a proper date format for sorting: YYYYMMDD
+                    var year = parts[2];
+                    var month = parts[1];
+                    var day = parts[0];
+
+                    return year + month + day;
+                }
+            });
+
+            // Then update your DataTable initialization
             window.table = jQuery('.js-dataTable-full').DataTable({
                 pageLength: 10,
                 lengthMenu: [[5, 10, 20], [5, 10, 20]],
-                order: [[0, 'desc']], // Adjust the default sorting column if necessary
+                order: [[0, 'desc']], // Sort by date column descending
                 autoWidth: false,
                 columnDefs: [
-                    // { orderable: false, targets: 0 }, // Example to make the first column non-orderable
-                    { type: 'dmy', targets: 0 }  // Change 1 to the index of your date column
+                    { type: 'date-de', targets: 0 }  // Apply our new sorting method
                 ]
             });
 
