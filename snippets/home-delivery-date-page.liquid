@@ -138,6 +138,11 @@
     overflow-y: auto;
     font-size: inherit !important;
   }
+
+  .dropdown-item.disabled, .dropdown-item:disabled{
+    color: lightgray;
+  }
+  .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
 </style>
 
 {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
@@ -210,7 +215,7 @@ function formatTimeTo12Hour(time) {
 
 
 function toggleButton() {
-  // 1) Get the current time in Germany (24-hour format)
+  // Get the current time in Germany (24-hour format)
   const now = new Date();
   const options = {
       timeZone: 'Europe/Berlin',
@@ -252,47 +257,15 @@ function toggleButton() {
   const slotTime_preorder_InMinutes = slotHours * 60 + slotMins;
   
   if (currentTimeInMinutes > slotTime_preorder_InMinutes) {
-        $("#datepicker").datepicker("destroy");
-        $("#datepicker").datepicker({
-            minDate: 1,
-            maxDate: '+6d',
-            dateFormat: "dd-mm-yy",
-            onSelect: function(dateText, inst) {
-                sessionStorage.setItem("date", dateText);
-    
-                $(".location_bar_text").html("Delivery " + dateText);
-
-                $.ajax({
-                    url: "https://dev.sushi.catering/deliverySelectedDate/" + dateText,
-                    type: "GET",
-                    data: { "uuid": localStorage.getItem("uuid") },
-                    cache: false,
-                    async: false,
-                    dataType: "json",
-                    success: function(data) {
-                      HideTimeSlot(data);
-                    },
-                    error: function(request, status, error) {
-                        console.log('Set selected date error:', error);
-                    }
-                });
-            
-                // if(!sessionStorage.getItem("time_slot")){
-                    $("#datepicker").datepicker("destroy");
-                    $(".homedeliverytimebtn").click();
-                    return;
-                // }
-                // else{
-                //     redirect(dateText, sessionStorage.getItem("time_slot"));
-                // }
-              
-            }
-        });
+      var minDate = 1;
   }
+  else
+      var minDate = 0;
+        return minDate;
 }
 
 function isSameDayInGermany(dateText) {
-  // If no date has been chosen yet, treat it as not “today”
+  // If no date has been chosen yet, treat it as not "today"
   if (!dateText) return false;
   
   // dateText from datepicker is "dd-mm-yy" or "dd-mm-yyyy"
@@ -319,7 +292,7 @@ function isSameDayInGermany(dateText) {
     dateObj[type] = value;
   });
 
-  // “Today” (midnight) in Germany’s local date
+  // "Today" (midnight) in Germany's local date
   const todayInGermany = new Date(`${dateObj.year}-${dateObj.month}-${dateObj.day}T00:00:00`);
 
   return (
@@ -356,33 +329,53 @@ function HideTimeSlot(data){
     const $slot = $(this);
 
       if (data.tz1_orders_count >= data.time_order_limit && $slot.data("time_slot_start_time") == data.start_time) {
-        $slot.hide();        
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
       } else if($slot.data("time_slot_start_time") == data.start_time) {
-        $slot.show();
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
       }
     
       if (data.tz2_orders_count >= data.time2_order_limit && $slot.data("time_slot_start_time") == data.start_time2) {
-        $slot.hide();        
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
       } else if($slot.data("time_slot_start_time") == data.start_time2) {
-        $slot.show();
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
       }
     
       if (data.tz3_orders_count >= data.time3_order_limit && $slot.data("time_slot_start_time") == data.start_time3) {
-        $slot.hide();        
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
       } else if($slot.data("time_slot_start_time") == data.start_time3) {
-        $slot.show();
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
       }
     
       if (data.tz4_orders_count >= data.time4_order_limit && $slot.data("time_slot_start_time") == data.start_time4) {
-        $slot.hide();        
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
       } else if($slot.data("time_slot_start_time") == data.start_time4) {
-        $slot.show();
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
       }
     
       if (data.tz5_orders_count >= data.time5_order_limit && $slot.data("time_slot_start_time") == data.start_time5) {
-        $slot.hide();        
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
       } else if($slot.data("time_slot_start_time") == data.start_time5) {
-        $slot.show();
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
       }
   });
 }
@@ -514,9 +507,17 @@ window.onload = function() {
 
         const randomNum = Math.random();
 
-        // This attaches the event handler to a parent element that exists when the page loads
         $(document).on('click', '.liefergebietbtn', function() {
           $(this).parent().find('.dropdown-menu').toggleClass('show');
+        });
+
+        // Add click handler to hide datepicker when clicking outside
+        $(document).on('click', function(e) {
+          // If the click is outside the datepicker and the datepicker is visible
+          if (!$(e.target).closest('#datepicker, .homedeliverydatebtn, .ui-datepicker, .ui-datepicker-header').length && $('#datepicker').is(':visible')) {
+            // Destroy the datepicker instead of just hiding it
+            $("#datepicker").datepicker("destroy");
+          }
         });
 
         $(".homedeliverytimebtn, .homedeliverydatebtn").each(function() {
@@ -534,6 +535,7 @@ window.onload = function() {
         
         // Apply the calculated positions
         $("#datepicker").datepicker('hide');
+        // $("#datepicker").css('display', 'none');
 
         // -------------------------------------------------------------
         // Only these lines inside the click handler have been updated.
@@ -556,7 +558,10 @@ window.onload = function() {
                     return;
                 }
                 else{
-                    redirect(sessionStorage.getItem("date"), $(this).data("time_slot_start_time"));
+                    if($(this).hasClass("disabled"))
+                      return
+                    else
+                      redirect(sessionStorage.getItem("date"), $(this).data("time_slot_start_time"));
                 }
             }
             else {
@@ -589,9 +594,7 @@ window.onload = function() {
                         dateObj[type] = value;
                     });
 
-                    toggleButton();
-                
-                    let minDate = 0; // Default to today
+                    let minDate = toggleButton(); // Default to today
                 
                     const currentHours = parseInt(dateObj.hour, 10);
                     const currentMinutes = parseInt(dateObj.minute, 10);
@@ -633,6 +636,7 @@ window.onload = function() {
                             // }
                         }
                     }).datepicker('show');
+                    // $("#datepicker").css('display', 'block');
                     
                     $('.ui-datepicker').addClass('notranslate');
             }
