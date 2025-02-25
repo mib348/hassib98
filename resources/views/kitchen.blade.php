@@ -148,7 +148,7 @@
                 <br>
             @endforeach
             <div class="table-responsive">
-                <table class="table table-bordered table-striped table-hover table-vcenter table-condensed">
+                <table class="table table-bordered table-hover table-vcenter table-condensed">
                     <thead>
                         <tr>
                             <th colspan="100" class="text-center">Total Orders</th>
@@ -261,6 +261,10 @@
                                     </tr>
                                 @endforeach
                             @endif
+
+                            <tr>
+                                <td colspan="9"></td>
+                            </tr>
 
 
                         @endforeach
