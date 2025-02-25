@@ -5,6 +5,7 @@
     transform: translateX(-50%);
     z-index: 1000; /* Adjust z-index as needed */
   }
+  .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
 </style>
 
 
@@ -392,7 +393,14 @@ window.onload = function() {
             $('.ui-datepicker').addClass('notranslate');
         });
         
-
+        // Add click handler to hide datepicker when clicking outside
+        $(document).on('click', function(e) {
+          // If the click is outside the datepicker, the preorderbtn, and the jQuery UI datepicker widget
+          if (!$(e.target).closest('#datepicker, .preorderbtn, .ui-datepicker, .ui-datepicker-header').length && $('#datepicker').is(':visible')) {
+            // Destroy the datepicker instead of just hiding it
+            $("#datepicker").datepicker("destroy");
+          }
+        });
 
      }
 }
