@@ -53,159 +53,179 @@
     <div class="row">
         <div class="col-12">
             <div id="accordion" class="accordion">
-                @foreach($arrData['Delivery'] as $nOrderId => $arrOrder)
-                    @php
-                        if(!empty($arrOrder['delivered_at'])){
-                            $strDelivered = "delivered";
-                        }
-                        else
-                            $strDelivered = "";
-                    @endphp
-                    <div class="accordion-item {{ $strDelivered }}" data-order_id="{{ $nOrderId }}">
-                        <div class="accordion-header" id="heading{{ $loop->index }}">
-                            <h5 class="mb-0 ">
-                                <button class="accordion-button bg-light d-block text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="@if($loop->first) true @else false @endif" aria-controls="collapse{{ $loop->index }}">
-                                    {{ ($loop->index + 1) . ". ORDER" }}
-                                </button>
-                            </h5>
-                        </div>
+                @php
+                    $orderCounter = 0; // Initialize a counter for all orders
+                @endphp
+                
+                @foreach ($arrOrdersData as $strTimezone => $arrOrders)
+                    <br>
+                    <h4>{{ $strTimezone }}</h4>
+                    @foreach ($arrOrders as $arrOrderData)
+                        @foreach($arrOrderData as $nOrderId => $arrOrder)
+                            @php
+                                if(!empty($arrOrder['delivered_at'])){
+                                    $strDelivered = "delivered";
+                                }
+                                else
+                                    $strDelivered = "";
+                                
+                                $orderCounter++; // Increment the counter for each order
+                            @endphp
+                            <div class="accordion-item {{ $strDelivered }}" data-order_id="{{ $nOrderId }}">
+                                <div class="accordion-header" id="heading{{ $orderCounter }}">
+                                    <h5 class="mb-0 ">
+                                        <button class="accordion-button bg-light d-block text-center fw-bold" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#collapse{{ $orderCounter }}" 
+                                                aria-expanded="@if($orderCounter == 1) true @else false @endif" 
+                                                aria-controls="collapse{{ $orderCounter }}">
+                                            {{ $orderCounter . ". ORDER" }}
+                                        </button>
+                                    </h5>
+                                </div>
 
-                        <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse @if($loop->first) show @endif" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
-                            <div class="accordion-body">
+                                <div id="collapse{{ $orderCounter }}" 
+                                     class="accordion-collapse collapse @if($orderCounter == 1) show @endif" 
+                                     aria-labelledby="heading{{ $orderCounter }}" 
+                                     data-bs-parent="#accordion">
+                                    <div class="accordion-body">
 
-                                <h6>CLIENT AND ADDRESS</h6>
-                                <table class="table table-condensed customer_table" border="0">
-                                    <tr>
-                                        <td>Name</td>
-                                        <th>
-                                            {{ isset($arrOrder['shipping']['first_name']) ? ucwords($arrOrder['shipping']['first_name']) : '' }}
-                                            {{ isset($arrOrder['shipping']['last_name']) ? ucwords($arrOrder['shipping']['last_name']) : '' }}
-                                        </th>
-                                    </tr>
-                                    <tr>
-                                        <td>Phone</td>
-                                        <th>{{ isset($arrOrder['shipping']['phone']) ? $arrOrder['shipping']['phone'] : '' }}</th>
-                                    </tr>
-                                    <tr>
-                                        <td>Address</td>
-                                        <th>
-                                            {{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}<br>
-                                            {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
-                                        </th>
-                                    </tr>
-                                    <tr>
-                                        <td>City</td>
-                                        <th>{{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}</th>
-                                    </tr>
-                                    <tr>
-                                        <td>Zip</td>
-                                        <th>{{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}</th>
-                                    </tr>
-                                    <tr>
-                                        <td>Timezone</td>
-                                        <th>{{ isset($arrOrder['timeslot']) ? $arrOrder['timeslot'] : '' }}</th>
-                                    </tr>
-                                </table>
-                                <br>
-                                <h6>ITEMS</h6>
-                                <div class="row m-0">
-                                    @php
-                                        $productCount = 0;
-                                    @endphp
-                                    @if(!empty($arrOrder))
-                                        @foreach($arrOrder['products'] as $productName => $quantity)
+                                        <h6>CLIENT AND ADDRESS</h6>
+                                        <table class="table table-condensed customer_table" border="0">
+                                            <tr>
+                                                <td>Name</td>
+                                                <th>
+                                                    {{ isset($arrOrder['shipping']['first_name']) ? ucwords($arrOrder['shipping']['first_name']) : '' }}
+                                                    {{ isset($arrOrder['shipping']['last_name']) ? ucwords($arrOrder['shipping']['last_name']) : '' }}
+                                                </th>
+                                            </tr>
+                                            <tr>
+                                                <td>Phone</td>
+                                                <th>{{ isset($arrOrder['shipping']['phone']) ? $arrOrder['shipping']['phone'] : '' }}</th>
+                                            </tr>
+                                            <tr>
+                                                <td>Address</td>
+                                                <th>
+                                                    {{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}<br>
+                                                    {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
+                                                </th>
+                                            </tr>
+                                            <tr>
+                                                <td>City</td>
+                                                <th>{{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}</th>
+                                            </tr>
+                                            <tr>
+                                                <td>Zip</td>
+                                                <th>{{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}</th>
+                                            </tr>
+                                            <tr>
+                                                <td>Timezone</td>
+                                                <th>{{ isset($arrOrder['timeslot']) ? $arrOrder['timeslot'] : '' }}</th>
+                                            </tr>
+                                        </table>
+                                        <br>
+                                        <h6>ITEMS</h6>
+                                        <div class="row m-0">
+                                            @php
+                                                $productCount = 0;
+                                                
+                                            @endphp
+                                            @if(!empty($arrOrder))
+                                                @foreach($arrOrder['products'] as $productName => $quantity)
+                                                    <div class="col-12 col-sm-6">
+                                                        <div class="row">
+                                                            <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
+                                                                    {{ $quantity }}
+                                                            </div>
+                                                            <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
+                                                                    {{ $productName }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    @php
+                                                        $productCount++;
+                                                    @endphp
+                                                @endforeach
+                                            @endif
+
+                                            @for($i = $productCount; $i < 4; $i++)
                                             <div class="col-12 col-sm-6">
                                                 <div class="row">
-                                                    <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
-                                                            {{ $quantity }}
+                                                    <div class="col-4">
+                                                        &nbsp;
                                                     </div>
-                                                    <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
-                                                            {{ $productName }}
+                                                    <div class="col-8">
+                                                        &nbsp;
                                                     </div>
                                                 </div>
                                             </div>
-                                            @php
-                                                $productCount++;
-                                            @endphp
-                                        @endforeach
-                                    @endif
-
-                                    @for($i = $productCount; $i < 4; $i++)
-                                    <div class="col-12 col-sm-6">
-                                        <div class="row">
-                                            <div class="col-4">
-                                                &nbsp;
-                                            </div>
-                                            <div class="col-8">
-                                                &nbsp;
-                                            </div>
+                                            @endfor
                                         </div>
+                                        <br>
+                                        <div class="d-grid gap-2 col-12 mx-auto">
+
+                                            <!-- Wrap both buttons in a row so they appear side-by-side -->
+                                            <div class="row g-2 justify-content-center mb-3">
+                                                <!-- Original "Show Map" button -->
+                                                <div class="col-auto">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-info map_button"
+                                                        data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
+                                                                    {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
+                                                                    {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
+                                                                    {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
+                                                        data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
+                                                        data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
+                                                        <i class="fa-solid fa-location-dot"></i> Show Map
+                                                    </button>
+                                                </div>
+
+                                                <!-- New "Open in Google Maps" button, using the same data attributes -->
+                                                <div class="col-auto">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-primary open-google-maps"
+                                                        data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
+                                                                    {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
+                                                                    {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
+                                                                    {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
+                                                        data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
+                                                        data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
+                                                        <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Existing map canvas (unchanged) -->
+                                            <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
+                                                <div id="map{{ $loop->index }}" style="height: 100%; width: 100%; text-align:center;">
+                                                    <div class="spinner-border spinner-border-sm text-danger loading-spinner" role="status">
+                                                        <span class="visually-hidden">Loading...</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            @if(empty($arrOrder['delivered_at']))
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-success col-12 col-sm-8 col-md-6 mx-auto mb-3 fulfillment_button"
+                                                    data-order_id="{{ $nOrderId }}">
+                                                    <i class="fa-solid fa-truck"></i> Mark Order as Delivered
+                                                </button>
+                                            @endif
+
+                                        </div>
+
+
+
+
+
                                     </div>
-                                    @endfor
                                 </div>
-                                <br>
-                                <div class="d-grid gap-2 col-12 mx-auto">
-
-                                    <!-- Wrap both buttons in a row so they appear side-by-side -->
-                                    <div class="row g-2 justify-content-center mb-3">
-                                        <!-- Original "Show Map" button -->
-                                        <div class="col-auto">
-                                            <button
-                                                type="button"
-                                                class="btn btn-info map_button"
-                                                data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
-                                                               {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
-                                                               {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
-                                                               {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
-                                                data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
-                                                data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
-                                                <i class="fa-solid fa-location-dot"></i> Show Map
-                                            </button>
-                                        </div>
-
-                                        <!-- New "Open in Google Maps" button, using the same data attributes -->
-                                        <div class="col-auto">
-                                            <button
-                                                type="button"
-                                                class="btn btn-primary open-google-maps"
-                                                data-address="{{ isset($arrOrder['shipping']['address1']) ? $arrOrder['shipping']['address1'] : '' }}
-                                                              {{ isset($arrOrder['shipping']['address2']) ? $arrOrder['shipping']['address2'] : '' }}
-                                                              {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
-                                                              {{ isset($arrOrder['shipping']['city']) ? $arrOrder['shipping']['city'] : '' }}"
-                                                data-latitude="{{ isset($arrOrder['shipping']['latitude']) ? $arrOrder['shipping']['latitude'] : '' }}"
-                                                data-longitude="{{ isset($arrOrder['shipping']['longitude']) ? $arrOrder['shipping']['longitude'] : '' }}">
-                                                <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Existing map canvas (unchanged) -->
-                                    <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
-                                        <div id="map{{ $loop->index }}" style="height: 100%; width: 100%; text-align:center;">
-                                            <div class="spinner-border spinner-border-sm text-danger loading-spinner" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    @if(empty($arrOrder['delivered_at']))
-                                        <button
-                                            type="button"
-                                            class="btn btn-success col-12 col-sm-8 col-md-6 mx-auto mb-3 fulfillment_button"
-                                            data-order_id="{{ $nOrderId }}">
-                                            <i class="fa-solid fa-truck"></i> Mark Order as Delivered
-                                        </button>
-                                    @endif
-
-                                </div>
-
-
-
-
-
                             </div>
-                        </div>
-                    </div>
+                        @endforeach
+                    @endforeach
                 @endforeach
             </div>
         </div>
