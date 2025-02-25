@@ -106,7 +106,7 @@
     z-index: 1000; /* Adjust z-index as needed */
   }
 
-  .homedeliverytimebtn, .homedeliverytimebtn:hover, .homedeliverydatebtn {
+  .homedeliverytimebtn, .homedeliverytimebtn:hover, .homedeliverydatebtn, .liefergebietbtn, .liefergebietbtn:hover {
     background-color: rgba(0, 0, 0, 0.1) !important;
     color: rgb(255, 255, 255) !important;
     margin-left: 20px !important;
@@ -121,6 +121,14 @@
     font-family: inherit !important;
     line-height:1 !important;
     margin-top: -2px !important;
+  }
+
+  .liefergebietbtn, .liefergebietbtn:hover{
+    padding: 8px !important;
+    background-color: white !important;
+    color: black !important;
+    margin-right: -5px;
+    margin-bottom: -0.5px;
   }
 
   /* Add this CSS to make the dropdown scrollable */
@@ -242,7 +250,7 @@ function toggleButton() {
 
   const [slotHours, slotMins] = slotTime_preorder.split(':').map(Number);
   const slotTime_preorder_InMinutes = slotHours * 60 + slotMins;
-
+  
   if (currentTimeInMinutes > slotTime_preorder_InMinutes) {
         $("#datepicker").datepicker("destroy");
         $("#datepicker").datepicker({
@@ -253,6 +261,21 @@ function toggleButton() {
                 sessionStorage.setItem("date", dateText);
     
                 $(".location_bar_text").html("Delivery " + dateText);
+
+                $.ajax({
+                    url: "https://dev.sushi.catering/deliverySelectedDate/" + dateText,
+                    type: "GET",
+                    data: { "uuid": localStorage.getItem("uuid") },
+                    cache: false,
+                    async: false,
+                    dataType: "json",
+                    success: function(data) {
+                      HideTimeSlot(data);
+                    },
+                    error: function(request, status, error) {
+                        console.log('Set selected date error:', error);
+                    }
+                });
             
                 // if(!sessionStorage.getItem("time_slot")){
                     $("#datepicker").datepicker("destroy");
@@ -262,6 +285,7 @@ function toggleButton() {
                 // else{
                 //     redirect(dateText, sessionStorage.getItem("time_slot"));
                 // }
+              
             }
         });
   }
@@ -490,6 +514,11 @@ window.onload = function() {
 
         const randomNum = Math.random();
 
+        // This attaches the event handler to a parent element that exists when the page loads
+        $(document).on('click', '.liefergebietbtn', function() {
+          $(this).parent().find('.dropdown-menu').toggleClass('show');
+        });
+
         $(".homedeliverytimebtn, .homedeliverydatebtn").each(function() {
             // Reset any inline styles that might have been applied to indicate disabled state
             this.style.pointerEvents = '';
@@ -559,6 +588,8 @@ window.onload = function() {
                     parts.forEach(({ type, value }) => {
                         dateObj[type] = value;
                     });
+
+                    toggleButton();
                 
                     let minDate = 0; // Default to today
                 
@@ -573,7 +604,7 @@ window.onload = function() {
                         dateFormat: "dd-mm-yy",
                         onSelect: function(dateText, inst) {
                             sessionStorage.setItem("date", dateText);
-                            // toggleButton();
+                            toggleButton();
 
                             $(".location_bar_text").html("Delivery " + dateText);
 
