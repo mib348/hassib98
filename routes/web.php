@@ -62,6 +62,7 @@ Route::get('/setWebhooks', [ShopifyController::class, 'setWebhooks'])->name('set
 Route::get('/testmail', [ShopifyController::class, 'testmail'])->name('testmail');
 Route::get('/getTheme', [ShopifyController::class, 'getTheme'])->name('getTheme');
 Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelectedDate'])->name('updateSelectedDate');
+Route::any('/deliverySelectedDate/{date}', [ShopifyController::class, 'deliverySelectedDate'])->name('deliverySelectedDate');
 Route::resource('shopify', ShopifyController::class);
 
 //locations
