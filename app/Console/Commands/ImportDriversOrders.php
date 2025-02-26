@@ -77,13 +77,29 @@ class ImportDriversOrders extends Command
                                     email
                                     firstName
                                     lastName
+                                    defaultAddress{
+										formattedArea
+                                        zip
+                                        city
+                                        name
+                                        phone
+                                        company
+                                        country
+                                        address1
+                                        address2
+                                        firstName
+                                        lastName
+									}
                                 }
                                 shippingAddress {
+                                    name
                                     address1
                                     address2
                                     city
                                     company
                                     country
+                                    latitude
+                                    longitude
                                     firstName
                                     lastName
                                     phone
@@ -95,7 +111,11 @@ class ImportDriversOrders extends Command
                                         node {
                                             id
                                             title
+                                            name
                                             quantity
+                                            product {
+												id
+											}
                                             variant {
                                                 id
                                                 title
@@ -126,11 +146,11 @@ class ImportDriversOrders extends Command
                     foreach ($orderEdges as $edge) {
                         $node = $edge['node'];
 
-                        // Skip cancelled orders
-                        if (!empty($node['cancelledAt'])) {
-                            Log::info('Skipping cancelled order: ' . $node['name']);
-                            continue;
-                        }
+                        // // Skip cancelled orders
+                        // if (!empty($node['cancelledAt'])) {
+                        //     Log::info('Skipping cancelled order: ' . $node['name']);
+                        //     continue;
+                        // }
 
                         // Format order data to match REST API format that importOrders expects
                         $order = [
@@ -174,6 +194,66 @@ class ImportDriversOrders extends Command
                         $lineItems = [];
                         $matchesDelivery = false;
 
+                        // Get shipping address data
+                        $shippingAddress = $node['shippingAddress'];
+                        // Shipping address is not an array to iterate through, but a single object
+                        if ($shippingAddress) {
+                            // Convert camelCase to snake_case for address fields
+                            $shippingAddress['first_name'] = $shippingAddress['firstName'] ?? '';
+                            $shippingAddress['last_name'] = $shippingAddress['lastName'] ?? '';
+
+                            // Remove camelCase fields
+                            unset($shippingAddress['firstName']);
+                            unset($shippingAddress['lastName']);
+
+                            // Set the formatted shipping address in the order
+                            $order['shipping_address'] = $shippingAddress;
+                        }
+
+                        // Get customer data
+						$arrCustomerData = $node['customer'];
+						// Customer data is not an array to iterate through, but a single object
+						if ($arrCustomerData) {
+							// Convert customer ID from Shopify GraphQL format (removing the prefix)
+							$arrCustomerData['id'] = preg_replace('/^gid:\/\/shopify\/Customer\//', '', $arrCustomerData['id']);
+
+							// Convert camelCase to snake_case for customer fields
+							$arrCustomerData['first_name'] = $arrCustomerData['firstName'];
+							$arrCustomerData['last_name'] = $arrCustomerData['lastName'];
+							unset($arrCustomerData['firstName']);
+							unset($arrCustomerData['lastName']);
+
+							// Handle default address
+							if (isset($arrCustomerData['defaultAddress'])) {
+								$arrDefaultAddress = $arrCustomerData['defaultAddress'];
+
+								// If defaultAddress is a JSON string, decode it first
+								if (is_string($arrDefaultAddress)) {
+									$arrDefaultAddress = json_decode($arrDefaultAddress, true);
+								}
+
+								// Convert camelCase to snake_case for address fields
+								$arrDefaultAddress['first_name'] = $arrDefaultAddress['firstName'] ?? '';
+								$arrDefaultAddress['last_name'] = $arrDefaultAddress['lastName'] ?? '';
+								$arrDefaultAddress['formatted_area'] = $arrDefaultAddress['formattedArea'] ?? '';
+
+								// Remove camelCase fields
+								unset($arrDefaultAddress['firstName']);
+								unset($arrDefaultAddress['lastName']);
+								unset($arrDefaultAddress['formattedArea']);
+
+								// Set the customer_id field
+								$arrDefaultAddress['customer_id'] = $arrCustomerData['id'];
+
+								// Update the default_address in customer data
+								$arrCustomerData['default_address'] = $arrDefaultAddress;
+								unset($arrCustomerData['defaultAddress']);
+							}
+
+							// Set the formatted customer data in the order
+							$order['customer'] = $arrCustomerData;
+						}
+
                         foreach ($node['lineItems']['edges'] as $lineItemEdge) {
                             $lineItem = $lineItemEdge['node'];
 
@@ -188,18 +268,20 @@ class ImportDriversOrders extends Command
                                 ];
 
                                 // Check for location property
-                                if (strtolower($attr['key']) === 'location') {
-                                    $locationValue = $attr['value'];
-                                    // Check if location is 'Delivery'
-                                    if ($locationValue == 'Delivery') {
-                                        $matchesDelivery = true;
-                                    }
-                                }
+                                // if (strtolower($attr['key']) === 'location') {
+                                //     $locationValue = $attr['value'];
+                                //     // Check if location is 'Delivery'
+                                //     if ($locationValue == 'Delivery') {
+                                //         $matchesDelivery = true;
+                                //     }
+                                // }
                             }
 
                             $processedLineItem = [
                                 'id' => preg_replace('/^gid:\/\/shopify\/LineItem\//', '', $lineItem['id']),
+                                'product_id' => isset($lineItem['product']['id']) ? preg_replace('/^gid:\/\/shopify\/Product\//', '', $lineItem['product']['id']) : null,
                                 'title' => $lineItem['title'],
+                                'name' => $lineItem['name'],
                                 'quantity' => $lineItem['quantity'],
                                 'properties' => $properties,
                                 'variant_id' => isset($lineItem['variant']['id']) ? preg_replace('/^gid:\/\/shopify\/ProductVariant\//', '', $lineItem['variant']['id']) : null,
@@ -211,11 +293,12 @@ class ImportDriversOrders extends Command
                         }
 
                         // Only include orders that have a line item matching our criteria
-                        if ($matchesDelivery) {
+                        // if ($matchesDelivery) {
+                            // $order['customer'] = $arrCustomerData;
                             $order['line_items'] = $lineItems;
                             $orders[] = $order;
-                            Log::info("Found matching order: {$node['name']} with Delivery");
-                        }
+                            // Log::info("Found matching order: {$node['name']} with Delivery");
+                        // }
                     }
 
                     // Add to the collection of all orders

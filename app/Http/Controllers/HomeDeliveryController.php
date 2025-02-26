@@ -222,7 +222,11 @@ class HomeDeliveryController extends Controller
                                         node {
                                             id
                                             title
+                                            name
                                             quantity
+                                            product {
+												id
+											}
                                             variant {
                                                 id
                                                 title
@@ -336,7 +340,9 @@ class HomeDeliveryController extends Controller
 
                             $processedLineItem = [
                                 'id' => preg_replace('/^gid:\/\/shopify\/LineItem\//', '', $lineItem['id']),
+                                'product_id' => isset($lineItem['product']['id']) ? preg_replace('/^gid:\/\/shopify\/Product\//', '', $lineItem['product']['id']) : null,
                                 'title' => $lineItem['title'],
+                                'name' => $lineItem['name'],
                                 'quantity' => $lineItem['quantity'],
                                 'properties' => $properties,
                                 'variant_id' => isset($lineItem['variant']['id']) ? preg_replace('/^gid:\/\/shopify\/ProductVariant\//', '', $lineItem['variant']['id']) : null,
