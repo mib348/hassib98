@@ -213,7 +213,7 @@
         var kitchen = Button.create(app, { label: 'Kitchen' });
         kitchen.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/kitchen');
+            redirect.dispatch(Redirect.Action.APP, '/kitchen_admin');
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
@@ -486,7 +486,7 @@
                         alert(`Error saving ${inventoryType} Data for all days: ` + error.responseJSON.message);
 
                         // Hide the loading icon on error as well
-                        
+
                         $(`.loading-icon[data-inventory-type="${inventoryType}"]`).removeClass('show');
 
                         // Re-enable the save button on error

@@ -36,6 +36,7 @@ use Illuminate\Support\Facades\Route;
 // })->middleware(['verify.shopify'])->name('home');
 
 //Route::domain('{subdomain}.sushi.catering')->group(function () {
+    Route::get('/kitchen_admin', [KitchenController::class, 'kitchen_admin'])->name('kitchen_admin');
     Route::resource('kitchen', KitchenController::class);
     Route::resource('drivers', DriverController::class);
     Route::resource('drivers_additional', DriverAdditionalController::class);
