@@ -40,6 +40,11 @@
         color: var(--bs-secondary-color) !important;
         opacity:0.4 !important;
     }
+    .timezoneslots{
+        font-family: inherit !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+    }
 </style>
 @endsection
 
@@ -56,10 +61,10 @@
                 @php
                     $orderCounter = 0; // Initialize a counter for all orders
                 @endphp
-                
+
                 @foreach ($arrOrdersData as $strTimezone => $arrOrders)
                     <br>
-                    <h4>{{ $strTimezone }}</h4>
+                    <h4 class="timezoneslots">{{ $strTimezone }}</h4>
                     @foreach ($arrOrders as $arrOrderData)
                         @foreach($arrOrderData as $nOrderId => $arrOrder)
                             @php
@@ -68,25 +73,25 @@
                                 }
                                 else
                                     $strDelivered = "";
-                                
+
                                 $orderCounter++; // Increment the counter for each order
                             @endphp
                             <div class="accordion-item {{ $strDelivered }}" data-order_id="{{ $nOrderId }}">
                                 <div class="accordion-header" id="heading{{ $orderCounter }}">
                                     <h5 class="mb-0 ">
-                                        <button class="accordion-button bg-light d-block text-center fw-bold" 
-                                                data-bs-toggle="collapse" 
-                                                data-bs-target="#collapse{{ $orderCounter }}" 
-                                                aria-expanded="@if($orderCounter == 1) true @else false @endif" 
+                                        <button class="accordion-button bg-light d-block text-center fw-bold"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#collapse{{ $orderCounter }}"
+                                                aria-expanded="@if($orderCounter == 1) true @else false @endif"
                                                 aria-controls="collapse{{ $orderCounter }}">
                                             {{ $orderCounter . ". ORDER" }}
                                         </button>
                                     </h5>
                                 </div>
 
-                                <div id="collapse{{ $orderCounter }}" 
-                                     class="accordion-collapse collapse @if($orderCounter == 1) show @endif" 
-                                     aria-labelledby="heading{{ $orderCounter }}" 
+                                <div id="collapse{{ $orderCounter }}"
+                                     class="accordion-collapse collapse @if($orderCounter == 1) show @endif"
+                                     aria-labelledby="heading{{ $orderCounter }}"
                                      data-bs-parent="#accordion">
                                     <div class="accordion-body">
 
@@ -128,7 +133,7 @@
                                         <div class="row m-0">
                                             @php
                                                 $productCount = 0;
-                                                
+
                                             @endphp
                                             @if(!empty($arrOrder))
                                                 @foreach($arrOrder['products'] as $productName => $quantity)
