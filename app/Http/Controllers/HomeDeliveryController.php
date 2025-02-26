@@ -307,6 +307,66 @@ class HomeDeliveryController extends Controller
                         $matchesDelivery = false;
                         $matchesDate = false;
 
+                        // Get shipping address data
+                        $shippingAddress = $node['shippingAddress'];
+                        // Shipping address is not an array to iterate through, but a single object
+                        if ($shippingAddress) {
+                            // Convert camelCase to snake_case for address fields
+                            $shippingAddress['first_name'] = $shippingAddress['firstName'] ?? '';
+                            $shippingAddress['last_name'] = $shippingAddress['lastName'] ?? '';
+
+                            // Remove camelCase fields
+                            unset($shippingAddress['firstName']);
+                            unset($shippingAddress['lastName']);
+
+                            // Set the formatted shipping address in the order
+                            $order['shipping_address'] = $shippingAddress;
+                        }
+
+                        // Get customer data
+						$arrCustomerData = $node['customer'];
+						// Customer data is not an array to iterate through, but a single object
+						if ($arrCustomerData) {
+							// Convert customer ID from Shopify GraphQL format (removing the prefix)
+							$arrCustomerData['id'] = preg_replace('/^gid:\/\/shopify\/Customer\//', '', $arrCustomerData['id']);
+
+							// Convert camelCase to snake_case for customer fields
+							$arrCustomerData['first_name'] = $arrCustomerData['firstName'];
+							$arrCustomerData['last_name'] = $arrCustomerData['lastName'];
+							unset($arrCustomerData['firstName']);
+							unset($arrCustomerData['lastName']);
+
+							// Handle default address
+							if (isset($arrCustomerData['defaultAddress'])) {
+								$arrDefaultAddress = $arrCustomerData['defaultAddress'];
+
+								// If defaultAddress is a JSON string, decode it first
+								if (is_string($arrDefaultAddress)) {
+									$arrDefaultAddress = json_decode($arrDefaultAddress, true);
+								}
+
+								// Convert camelCase to snake_case for address fields
+								$arrDefaultAddress['first_name'] = $arrDefaultAddress['firstName'] ?? '';
+								$arrDefaultAddress['last_name'] = $arrDefaultAddress['lastName'] ?? '';
+								$arrDefaultAddress['formatted_area'] = $arrDefaultAddress['formattedArea'] ?? '';
+
+								// Remove camelCase fields
+								unset($arrDefaultAddress['firstName']);
+								unset($arrDefaultAddress['lastName']);
+								unset($arrDefaultAddress['formattedArea']);
+
+								// Set the customer_id field
+								$arrDefaultAddress['customer_id'] = $arrCustomerData['id'];
+
+								// Update the default_address in customer data
+								$arrCustomerData['default_address'] = $arrDefaultAddress;
+								unset($arrCustomerData['defaultAddress']);
+							}
+
+							// Set the formatted customer data in the order
+							$order['customer'] = $arrCustomerData;
+						}
+
                         foreach ($node['lineItems']['edges'] as $lineItemEdge) {
                             $lineItem = $lineItemEdge['node'];
 
