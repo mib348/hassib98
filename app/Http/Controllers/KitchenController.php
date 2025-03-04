@@ -282,7 +282,7 @@ class KitchenController extends Controller
         // Check if locations exist before proceeding
         if ($arrLocations->isEmpty()) {
             // Handle case when no locations are found
-            return view('kitchen', ['arrData' => [], 'dates' => [], 'arrTotalOrders' => []]);
+            return view('kitchen', ['arrData' => [], 'dates' => [], 'arrTotalOrders' => [], 'arrTotalDeliveryOrders' => []]);
         }
 
         // Generate dates for the next 7 days starting from today

@@ -59,6 +59,17 @@
     <div class="row">
         <div class="col-12">
             @foreach($arrData as $location => $days)
+                @php
+                    // Check if any day has products
+                    $hasProducts = false;
+                    foreach ($days as $date => $dayData) {
+                        if (isset($dayData['products']) && count($dayData['products']) > 0) {
+                            $hasProducts = true;
+                            break;
+                        }
+                    }
+                    if (!$hasProducts) continue;
+                @endphp
                 <div class="table-responsive">
                     <table class="table table-bordered table-striped table-hover table-vcenter table-condensed">
                         <thead>
