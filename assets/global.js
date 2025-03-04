@@ -137,7 +137,7 @@ function getFormattedDate() {
     return `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
 }
 
-if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null)) {
+if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null && localStorage.getItem("location") == null)) {
   // Check if the session storage 'date' exists and is not null
   if (sessionStorage.getItem("date") !== null) {
       const storedDate = sessionStorage.getItem("date");
@@ -168,9 +168,12 @@ if (window.jQuery) {
 if (window.location.pathname === "/pages/bestellen") {
   if (
     sessionStorage.getItem("location") == null &&
-    sessionStorage.getItem("date") == null
+    sessionStorage.getItem("date") == null && localStorage.getItem("location") == null
   ) {
-  } else if (sessionStorage.getItem("location") == null) {
+  } else if (sessionStorage.getItem("location") == null && localStorage.getItem("location") != null) {
+    $("#stationDropdown").html(localStorage.getItem("location"));
+    $("#stationDropdown").attr('style', "background-color:black;");
+    $('#next_button').css('display', 'inline-block');
   } else if (sessionStorage.getItem("date") == null) {
     window.location.replace("/pages/datum");
   } else {
@@ -295,7 +298,7 @@ else if(window.location.pathname === "/cart"){
 
 }
 else {
-   if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null)) {
+   if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null && localStorage.getItem("location") == null)) {
      
     // Parse the query string
     const queryParams = new URLSearchParams(window.location.search);
@@ -373,15 +376,32 @@ else {
       .find("p")
       .html(" " + strLocation + " " + strDate);
 
-    sessionStorage.setItem("location", strLocation);
-
-    // alert(location);
+    if (strLocation != localStorage.getItem("location") && confirm("Möchten Sie diesen Standort für die zukünftige Verwendung speichern?") == true) {
+      localStorage.setItem("location", strLocation);
+      sessionStorage.setItem("location", strLocation);
+    } else {
+      sessionStorage.setItem("location", strLocation);
+    }
 
     //window.location.href = href + "?location=" + strLocation;
     //window.location.replace(href + "?location=" + strLocation);
     location.replace(href + "?location=" + strLocation);
-    
+  });
 
+  $(document).on("click", "#next_button", function (e) {
+    e.preventDefault();
+
+    var href = $(this).attr("href");
+
+    // var strLocation = $(this).html();
+    // $("div.shopify-section.shopify-section-group-header-group")
+    //   .not(".section-header")
+    //   .find("p")
+    //   .html(" " + strLocation + " " + strDate);
+
+    //window.location.href = href + "?location=" + strLocation;
+    //window.location.replace(href + "?location=" + strLocation);
+    location.replace(href + "?location=" + localStorage.getItem("location"));
   });
 
   // Shopify.onCartUpdate = function(cart) {

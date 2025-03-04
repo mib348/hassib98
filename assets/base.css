@@ -3544,14 +3544,14 @@ html, body{overflow-x:hidden !important;}
 .cart__dynamic-checkout-buttons{display:none;}
 #badge-counter {
     display: none;
-    padding:10px 20px;
+    /* padding:10px 20px; */
     vertical-align:bottom;
 }
 /* Success Badge (Green) */
 .text-bg-success {
   background-color: #008000 !important; /* Bootstrap's success color */
   border-color: #008000 !important; /* Bootstrap's success color */
-  padding:12px 20px !important;
+  /* padding:12px 20px !important; */
 }
 
 /* Danger Badge (Red) */
