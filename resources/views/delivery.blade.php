@@ -84,7 +84,7 @@
                                                 data-bs-target="#collapse{{ $orderCounter }}"
                                                 aria-expanded="false"
                                                 aria-controls="collapse{{ $orderCounter }}">
-                                            {{ $orderCounter . ". ORDER" }}
+                                            {{ $orderCounter . ". ORDER" }} {{ isset($arrOrder['shipping']['zip']) ? $arrOrder['shipping']['zip'] : '' }}
                                         </button>
                                     </h5>
                                 </div>
