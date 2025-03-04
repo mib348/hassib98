@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
     const buttonPreOrder = document.querySelector('.preorderbtn');
+    if (localStorage.getItem("location") != null && sessionStorage.getItem("location") == null) {
+      sessionStorage.setItem("location", localStorage.getItem("location"));
+    }
     const strLocation = sessionStorage.getItem("location") || "";
 
     $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
