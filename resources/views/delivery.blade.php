@@ -79,10 +79,10 @@
                             <div class="accordion-item {{ $strDelivered }}" data-order_id="{{ $nOrderId }}">
                                 <div class="accordion-header" id="heading{{ $orderCounter }}">
                                     <h5 class="mb-0 ">
-                                        <button class="accordion-button bg-light d-block text-center fw-bold"
+                                        <button class="accordion-button bg-light d-block text-center fw-bold collapsed"
                                                 data-bs-toggle="collapse"
                                                 data-bs-target="#collapse{{ $orderCounter }}"
-                                                aria-expanded="@if($orderCounter == 1) true @else false @endif"
+                                                aria-expanded="false"
                                                 aria-controls="collapse{{ $orderCounter }}">
                                             {{ $orderCounter . ". ORDER" }}
                                         </button>
@@ -90,7 +90,7 @@
                                 </div>
 
                                 <div id="collapse{{ $orderCounter }}"
-                                     class="accordion-collapse collapse @if($orderCounter == 1) show @endif"
+                                     class="accordion-collapse collapse"
                                      aria-labelledby="heading{{ $orderCounter }}"
                                      data-bs-parent="#accordion">
                                     <div class="accordion-body">
@@ -243,6 +243,52 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFGRlqpzt4EZKMT9f65pHWsI_hza6QNQ0&libraries=places"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
+        // Save current page scroll position before reload
+        $(window).on('beforeunload', function() {
+            localStorage.setItem('scrollPosition', $(window).scrollTop());
+        });
+
+        // Function to store open accordion items
+        function storeAccordionState() {
+            var openItems = [];
+            $('.accordion-collapse.show').each(function() {
+                openItems.push($(this).attr('id'));
+            });
+            localStorage.setItem('openAccordionItems', JSON.stringify(openItems));
+        }
+
+        // Function to restore open accordion items
+        function restoreAccordionState() {
+            var openItems = localStorage.getItem('openAccordionItems');
+            if (openItems) {
+                try {
+                    openItems = JSON.parse(openItems);
+                    // Open saved accordion items
+                    openItems.forEach(function(itemId) {
+                        $('#' + itemId).addClass('show');
+                        $('[data-bs-target="#' + itemId + '"]').attr('aria-expanded', 'true').removeClass('collapsed');
+                    });
+                } catch (e) {
+                    console.error("Error parsing stored accordion state:", e);
+                }
+            } else {
+                // If no stored state, open first item by default (initial page load only)
+                $('#collapse1').addClass('show');
+                $('[data-bs-target="#collapse1"]').attr('aria-expanded', 'true');
+            }
+
+            // Restore scroll position
+            var scrollPosition = localStorage.getItem('scrollPosition');
+            if (scrollPosition) {
+                $(window).scrollTop(scrollPosition);
+            }
+        }
+
+        // Listen for accordion changes to store state
+        $(document).on('shown.bs.collapse hidden.bs.collapse', '.accordion-collapse', function() {
+            storeAccordionState();
+        });
+
         function initMap() {
             $(document).on('click', '.fulfillment_button', function() {
                 var button = $(this);
@@ -381,11 +427,16 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
+            // Restore accordion state after DOM is fully loaded
+            restoreAccordionState();
         });
 
+        // Modified reload interval to store state before refresh
         setInterval(function() {
-            window.location.reload();
-        }, 60000); // 1 minute in milliseconds
-    </script>
+            storeAccordionState();
+
+                }, 60000); // 1 minute in milliseconds            window.location.reload();
+
+</script>
 
 @endsection
