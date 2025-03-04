@@ -106,10 +106,10 @@
     z-index: 1000; /* Adjust z-index as needed */
   }
 
-  .homedeliverytimebtn, .homedeliverytimebtn:hover, .homedeliverydatebtn, .liefergebietbtn, .liefergebietbtn:hover {
+  .homedeliverytimebtn, .homedeliverytimebtn:hover, .homedeliverydatebtn, .liefergebietbtn, .liefergebietbtn:hover, .zip_code_field, .zip_code_field:hover, .save-zip-btn {
     background-color: rgba(0, 0, 0, 0.1) !important;
     color: rgb(255, 255, 255) !important;
-    margin-left: 20px !important;
+    /* margin-left: 20px !important; */
     border-style: solid !important;
     border-color: rgb(255, 255, 255) !important;
     border-width: 2px !important;
@@ -121,6 +121,39 @@
     font-family: inherit !important;
     line-height:1 !important;
     margin-top: -2px !important;
+  }
+
+  .zip_code_field, .zip_code_field:hover {
+    padding: 10px 0px !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    margin-right: 0 !important;
+    border-right: none !important;
+    cursor: text !important;
+    border-right: 2px solid white !important;
+    text-align:center;
+  }
+  
+  .zip_code_field::placeholder{
+    color:whitesmoke !important;
+  }
+  
+  .zip_code_field.disabled {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    color: white !important;
+    cursor: pointer;
+  }
+
+  .save-zip-btn {
+    margin-left: 0 !important;
+    padding: 12.5px 16px !important;
+    border-left: none !important;
+    cursor: pointer;
+    display:none;
+  }
+  
+  .zip-code-group {
+    display: inline-flex;
+    align-items: center;
   }
 
   .liefergebietbtn, .liefergebietbtn:hover{
@@ -143,25 +176,80 @@
     color: lightgray;
   }
   .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
+
+  .calltoactionhero{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+
+  @media screen and (max-width: 768px) {
+    .zip_code_field{
+      margin-left:0px !important;
+    }
+    .zip-code-group {
+      order: 1;
+      width:100%;
+      text-align:center;
+      display: inline-flex;
+      align-items: center;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-content: center;
+      justify-content: center;
+      margin-left:0px;
+    }
+    
+    .homedeliverydatebtn {
+      order: 2;
+    }
+    
+    .homedeliverytimebtn_portion  {
+      order: 3;
+    }
+    
+    .calltoactionhero {
+      display: flex;
+      /* flex-direction: column; */
+      gap: 10px;
+    }
+    
+    /* Reset margin for better mobile layout */
+    .zip-code-group, .homedeliverydatebtn  , .homedeliverytimebtn_portion {
+      margin-left: 0 !important;
+      /* margin-top: 5px !important; */
+    }
+  }
 </style>
 
 {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<a data-pf-type="Button2" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 homedeliverydatebtn show-button">Datum</a>
-<div class="dropdown homedeliverytimebtn_portion">
-  <button
-    data-pf-type="Button2"
-    class="btn btn-secondary dropdown-toggle hVSHHp pf-17_ pf-button-3 homedeliverytimebtn show-button"
-    type="button"
-    id="homedeliverytimebtn"
-    aria-haspopup="true"
-    aria-expanded="false"
-  >
-    Zeitfenster
-  </button>
-  <div class="dropdown-menu homedeliverytimebtn_dropdown_menu" aria-labelledby="homedeliverytimebtn">
-    <a class="dropdown-item station" href="/pages/datum">{{ location }}</a>
+<div class="calltoactionhero">  
+  <a data-pf-type="Button2" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 homedeliverydatebtn show-button">Datum</a>
+  <div class="dropdown homedeliverytimebtn_portion">
+    <button
+      data-pf-type="Button2"
+      class="btn btn-secondary dropdown-toggle hVSHHp pf-17_ pf-button-3 homedeliverytimebtn show-button"
+      type="button"
+      id="homedeliverytimebtn"
+      aria-haspopup="true"
+      aria-expanded="false"
+    >
+      Zeitfenster
+    </button>
+    <div class="dropdown-menu homedeliverytimebtn_dropdown_menu" aria-labelledby="homedeliverytimebtn">
+      <a class="dropdown-item station" href="/pages/datum">{{ location }}</a>
+    </div>
+  </div>
+  <div class="zip-code-group">
+    <input type="text" name="zip_code" id="zip_code" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 zip_code_field" placeholder="Postleitzahl eingeben"/>
+    <button type="button" id="save-zip-btn" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 save-zip-btn">Speichern</button>
   </div>
 </div>
 
@@ -173,6 +261,11 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+  // Arrays to store the zip codes
+  window.numericZipCodes = [];
+  window.completeZipCodes = [];
+  window.bAllowRedirect = true;
+
 
   dropdownToggles.forEach(function (toggle) {
     toggle.addEventListener('click', function (e) {
@@ -303,6 +396,10 @@ function isSameDayInGermany(dateText) {
 }
 
 function redirect(dateText, timeSlot){
+    if(localStorage.getItem("user_zip_code") == null || !localStorage.getItem("user_zip_code")){
+      alert("Bitte geben Sie die Postleitzahl ein");
+      return false;
+    }
     $.ajax({
         url: "https://dev.sushi.catering/updateSelectedDate/" + dateText,
         type: "GET",
@@ -379,6 +476,8 @@ function HideTimeSlot(data){
       }
   });
 }
+
+
 
 let pageFullyLoaded = false;
 
@@ -466,8 +565,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 const currentMinutes = parseInt(dateObj.minute, 10);
                 const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
-                if (data.note)
+                if (data.note){
                     $("#note").html(data.note);
+                    $("#note").css('display','inline');
+                    $("#loading_icon").hide();
+                }
+
+                // Select all elements with class 'zipcode' and iterate through them
+                $('.zipcode').each(function() {
+                  // Get the text content of the element
+                  const zipCodeText = $(this).text().trim();
+                  
+                  // Extract complete zip code (with city)
+                  completeZipCodes.push(zipCodeText);
+                  
+                  // Extract numeric part of the zip code using regex
+                  const match = zipCodeText.match(/(\d+)/);
+                  if (match) {
+                    numericZipCodes.push(match[0]);
+                  }
+                });
+                // // Display the results
+                // console.log('Numeric Zip Codes:', numericZipCodes);
+                // console.log('Complete Zip Codes:', completeZipCodes);
               
                 // // Handle location_toggle state
                 if (data.is_active === 'Y') {
@@ -507,6 +627,82 @@ window.onload = function() {
 
         const randomNum = Math.random();
 
+         // Initialize zip code field and save button
+        const $zipCodeField = $(".zip_code_field");
+        const $saveZipBtn = $("#save-zip-btn");
+        let originalValue = "";   
+        
+        // Function to update UI based on saved zip code
+        function updateZipCodeUI() {
+          const currentSavedZip = localStorage.getItem("user_zip_code");
+          
+          if (currentSavedZip) {
+              $zipCodeField.val(currentSavedZip);
+              originalValue = currentSavedZip;
+              $zipCodeField.addClass("disabled");
+              $zipCodeField.attr("readonly", true);
+              $saveZipBtn.hide();
+            
+          } else {
+              $zipCodeField.val("");
+              originalValue = "";
+              $zipCodeField.removeClass("disabled");
+              $zipCodeField.attr("readonly", false);
+              $saveZipBtn.show();
+          }
+          
+          // Always show the input field, but with different states
+          $zipCodeField.show();
+        }
+               
+        // Initial UI setup
+        updateZipCodeUI();
+        
+        // Save button click handler using document.on
+        $(document).on("click", "#save-zip-btn", function() {
+            const zipCode = $zipCodeField.val().trim();
+            if (zipCode) {
+                // Check if the entered zip code is in our delivery area
+                if (numericZipCodes.includes(zipCode)) {
+                    localStorage.setItem("user_zip_code", zipCode);
+                    bAllowRedirect = true;
+                    updateZipCodeUI();
+                } else {
+                    alert('Entschuldigung, wir liefern nicht an diese Postleitzahl:'+ zipCode);
+                    $zipCodeField.val('');
+                    bAllowRedirect = false;
+                    // // Show SweetAlert message if zip code is not in delivery area
+                    // Swal.fire({
+                    //     title: 'Liefergebiet',
+                    //     text: `Entschuldigung, wir liefern nicht an diese Postleitzahl: ${zipCode}`,
+                    //     icon: 'error',
+                    //     confirmButtonText: 'OK',
+                    //     confirmButtonColor: '#3085d6'
+                    // });
+                }
+            }
+        });
+        
+        // Allow editing saved zip code - just make it editable on click
+        $(document).on("click", ".zip_code_field", function() {
+            if ($(this).hasClass("disabled")) {
+                $(this).removeClass("disabled");
+                $(this).attr("readonly", false);
+                // Don't show save button yet, only when value changes
+                originalValue = $(this).val();
+            }
+        });
+        
+        // Show save button only when value actually changes
+        $(document).on("input", ".zip_code_field", function() {
+            const currentValue = $(this).val();
+            if (currentValue !== originalValue) {
+                $saveZipBtn.show();
+            } else {
+                $saveZipBtn.hide();
+            }
+        });
+      
         $(document).on('click', '.liefergebietbtn', function() {
           $(this).parent().find('.dropdown-menu').toggleClass('show');
         });
@@ -561,7 +757,8 @@ window.onload = function() {
                     if($(this).hasClass("disabled"))
                       return
                     else
-                      redirect(sessionStorage.getItem("date"), $(this).data("time_slot_start_time"));
+                      if(bAllowRedirect)
+                        redirect(sessionStorage.getItem("date"), $(this).data("time_slot_start_time"));
                 }
             }
             else {
