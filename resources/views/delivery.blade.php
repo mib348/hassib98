@@ -235,6 +235,14 @@
             </div>
         </div>
     </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="combined_google_map">
+
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -425,17 +433,79 @@
             });
         }
 
+        function initCombinedMap() {
+            var combinedMapDiv = document.querySelector('.combined_google_map');
+            if (!combinedMapDiv) return;
+            if (!combinedMapDiv.style.height) { combinedMapDiv.style.height = '400px'; }
+
+            var map = new google.maps.Map(combinedMapDiv, {
+                center: { lat: 0, lng: 0 },
+                zoom: 15  // Same zoom level as individual maps
+            });
+
+            var bounds = new google.maps.LatLngBounds();
+            var geocoder = new google.maps.Geocoder();
+            var markersToProcess = [];
+
+            document.querySelectorAll('.map_button').forEach(function(button) {
+                var latitude = parseFloat(button.getAttribute('data-latitude'));
+                var longitude = parseFloat(button.getAttribute('data-longitude'));
+                var address = button.getAttribute('data-address');
+
+                if (!isNaN(latitude) && !isNaN(longitude)) {
+                    // Handle coordinate-based locations
+                    var position = { lat: latitude, lng: longitude };
+                    var marker = new google.maps.Marker({
+                        position: position,
+                        map: map
+                    });
+                    bounds.extend(position);
+                } else if (address) {
+                    // Handle address-based locations
+                    markersToProcess.push(new Promise((resolve) => {
+                        geocoder.geocode({ 'address': address }, function(results, status) {
+                            if (status === 'OK') {
+                                var location = results[0].geometry.location;
+                                var marker = new google.maps.Marker({
+                                    position: location,
+                                    map: map
+                                });
+                                bounds.extend(location);
+                            }
+                            resolve();
+                        });
+                    }));
+                }
+            });
+
+            // Wait for all geocoding to complete, then fit bounds
+            Promise.all(markersToProcess).then(() => {
+                if (!bounds.isEmpty()) {
+                    map.fitBounds(bounds);
+
+                    // Add a listener for when the bounds are set and ensure consistent zoom
+                    google.maps.event.addListenerOnce(map, 'bounds_changed', function() {
+                        if (map.getZoom() > 15) {
+                            map.setZoom(15); // Match the individual maps' zoom level
+                        }
+                    });
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
             // Restore accordion state after DOM is fully loaded
             restoreAccordionState();
+            initCombinedMap();
         });
 
         // Modified reload interval to store state before refresh
         setInterval(function() {
             storeAccordionState();
+            window.location.reload();
 
-                }, 60000); // 1 minute in milliseconds            window.location.reload();
+        }, 60000); // 1 minute in milliseconds
 
 </script>
 
