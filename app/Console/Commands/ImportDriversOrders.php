@@ -33,10 +33,11 @@ class ImportDriversOrders extends Command
             // Format dates for Shopify GraphQL API (Uses ISO8601 format)
             // Adding 'Z' to ensure UTC timezone is explicitly specified to avoid ambiguity
             $createdAtMin = $startOfWeek->toIso8601String();
-            $createdAtMax = $now->toIso8601String();
+            // $createdAtMax = $now->toIso8601String();
+            $createdAtMax = now()->addDays(7)->toIso8601String();
 
             $this->info("Fetching orders created between {$createdAtMin} and {$createdAtMax}");
-            $this->info("Filtering for orders with location 'Delivery'");
+            // $this->info("Filtering for orders with location 'Delivery'");
 
             $allOrders = []; // Array to hold all orders
             $cursor = null; // Initial cursor for pagination
@@ -155,7 +156,7 @@ class ImportDriversOrders extends Command
                         // Format order data to match REST API format that importOrders expects
                         $order = [
                             'id' => preg_replace('/^gid:\/\/shopify\/Order\//', '', $node['id']),
-                            'order_number' => explode('#', $node['name'])[1],
+                            'order_number' => str_contains($node['name'], '#') ? explode('#', $node['name'])[1] : $node['name'],
                             'total_price' => $node['totalPriceSet']['shopMoney']['amount'],
                             'email' => $node['email'],
                             'financial_status' => $node['displayFinancialStatus'],
@@ -305,8 +306,8 @@ class ImportDriversOrders extends Command
                     $allOrders = array_merge($allOrders, $orders);
 
                     // Log the current number of orders fetched
-                    Log::info('Fetched ' . count($orders) . ' orders matching delivery. Total so far: ' . count($allOrders));
-                    $this->info('Fetched ' . count($orders) . ' orders matching delivery. Total so far: ' . count($allOrders)) . PHP_EOL;
+                    Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
+                    $this->info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders)) . PHP_EOL;
                 }
 
                 // Check if there are more pages
@@ -320,10 +321,10 @@ class ImportDriversOrders extends Command
             } while ($hasNextPage && $cursor);
 
             if (count($allOrders) > 0) {
-                $this->info("Importing " . count($allOrders) . " orders matching delivery");
+                $this->info("Importing " . count($allOrders) . " orders");
                 $this->importOrders($api, $allOrders);
             } else {
-                $this->info("No orders found matching delivery");
+                $this->info("No orders found");
             }
 
         } catch (\Throwable $th) {
