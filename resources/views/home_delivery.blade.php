@@ -20,6 +20,7 @@
                             <th>Timezone 3<br>Order limit: {{ $arrLocation->time3_order_limit }}</th>
                             <th>Timezone 4<br>Order limit: {{ $arrLocation->time4_order_limit }}</th>
                             <th>Timezone 5<br>Order limit: {{ $arrLocation->time5_order_limit }}</th>
+                            <th>Total Orders</th>
                         </tr>
                     </thead>
                     <tbody>

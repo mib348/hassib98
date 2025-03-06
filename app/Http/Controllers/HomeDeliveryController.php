@@ -36,6 +36,7 @@ class HomeDeliveryController extends Controller
         $arrOrdersList = [];
 
         foreach ($dates as $date => $day_name) {
+            $nTotalOrders = 0;
             $counter_Tz1 = $counter_Tz2 = $counter_Tz3 = $counter_Tz4 = $counter_Tz5 = 0;
             $arrOrdersList[$day_name]['tz1_orders'] = [];
             $arrOrdersList[$day_name]['tz2_orders'] = [];
@@ -84,6 +85,12 @@ class HomeDeliveryController extends Controller
                 // }
             }
 
+            $nTotalOrders += $counter_Tz1;
+            $nTotalOrders += $counter_Tz2;
+            $nTotalOrders += $counter_Tz3;
+            $nTotalOrders += $counter_Tz4;
+            $nTotalOrders += $counter_Tz5;
+
             $html .= "<tr>";
             $html .= "<th>" . $day_name . " " . $date . "</th>";
             $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz1_orders']) . "'>" . $counter_Tz1 . "</a></td>";
@@ -91,12 +98,13 @@ class HomeDeliveryController extends Controller
             $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz3_orders']) . "'>" . $counter_Tz3 . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz4_orders']) . "'>" . $counter_Tz4 . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter'  data-orders='" . json_encode($arrOrdersList[$day_name]['tz5_orders']) . "'>" . $counter_Tz5 . "</a></td>";
+            $html .= "<td><a class='text-decoration-none'>" . $nTotalOrders . "</a></td>";
             $html .= "</tr>";
         }
 
         // dd($arrOrdersList);
 
-        return view('home_delivery', ['arrLocation' => $arrLocation, 'html' => $html]);
+        return view('home_delivery', ['arrLocation' => $arrLocation, 'html' => $html, 'nTotalOrders' => $nTotalOrders]);
     }
 
     /**
