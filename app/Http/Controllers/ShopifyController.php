@@ -579,7 +579,7 @@ class ShopifyController extends Controller
             $content = str_replace("{% endfor %}{% endpaginate %}", "{% endif %}{% endfor %}{% endpaginate %}", $content);
 
             $content = str_replace("{% if product.metafields.custom['date_and_quantity'] != null %}Verfügbare Anzahl:{% endif %}", "Verfügbare Anzahl:", $content);
-            $content = str_replace("{% for value in product.metafields.custom['date_and_quantity'].value  %}<li class=\"sc-dNsUpz eAuVCY metafield-list.single_line_text_field\">{{value}}</li>{% endfor %}", "{{ qtyValue }}", $content);
+            $content = str_replace("{% for value in product.metafields.custom['date_and_quantity'].value  %}<li class=\"sc-fbKhWw bnrVBh metafield-list.single_line_text_field\">{{value}}</li>{% endfor %}", "{{ qtyValue }}", $content);
 
             $content = str_replace('data-variants-continue="{% for variant in product.variants %}{% if variant.inventory_policy == \'continue\' %}{{ variant.id | append: " " }}{% endif %}{% endfor %}"', "", $content);
             $content = str_replace('max="{%- if product.selected_or_first_available_variant.inventory_quantity > 0 -%}{{ product.selected_or_first_available_variant.inventory_quantity }}{%- else -%}50{%- endif -%}"', 'max="{{ qtyValue }}"', $content);
