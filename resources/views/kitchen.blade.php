@@ -286,7 +286,7 @@
                 <table class="table table-bordered table-hover table-vcenter table-condensed">
                     <thead>
                         <tr>
-                            <th colspan="100" class="text-center">Home Delivery Total Orders</th>
+                            <th colspan="100" class="text-center bg-secondary">Home Delivery Total Orders</th>
                         </tr>
                     </thead>
                     <tbody>
