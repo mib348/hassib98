@@ -27,6 +27,7 @@ class DeliveryController extends Controller
         foreach ($arrTimezones as $arrTimezone) {
             //preorders
             $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
+            // $arrOrders = Orders::whereIn('date', ['2025-03-05', '2025-03-06', '2025-03-07'])
                                 ->where('location', 'Delivery')
                                 ->whereNull(['cancel_reason', 'cancelled_at'])
                                 ->where('line_items', 'like', '%"name": "timeslot", "value": "' . $arrTimezone[0] . '"%')
