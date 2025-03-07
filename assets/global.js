@@ -22,8 +22,8 @@ if (localStorage.getItem("uuid") == null) {
 
 document.addEventListener('DOMContentLoaded', function() {
     if (window.location.pathname === "/pages/order-menue") {
-        $(".order_qty").find("input").attr("max", 99);
-        $(".qty_portion").hide();
+        // $(".order_qty").find("input").attr("max", 99);
+        // $(".qty_portion").hide();
         history.pushState(null, null, window.location.href); // Push current state to history
 
         window.onpopstate = function(event) {
@@ -214,9 +214,28 @@ if (window.location.pathname === "/pages/bestellen") {
   }
 } 
 else if(window.location.pathname === "/cart"){
+  window.min_order_qty = 0;
   // if(window.location.pathname === "/cart"){
       if(sessionStorage.getItem("location") == "Delivery"){
           $(".incorrent_item_agree_cb_portion").hide();
+
+          $.ajax({
+                type: "GET",
+                url: "https://dev.sushi.catering/getLocations/Delivery",
+                async: false,
+                cache: false,
+                // data: {
+                //     items: JSON.stringify(response.items)
+                // },
+                dataType: "json",
+                success: function(data) {
+                  min_order_qty = data.min_order_limit;
+                    //window.location.href = "/checkout";
+                },
+                error: function() {
+                    console.log('Cart Check Delivery Inventory api error');
+                }
+            });
       }
   // }
   
@@ -435,7 +454,8 @@ else {
         e.preventDefault();
         var el = $(this);
         var b_allowed = true;
-    
+        let order_qty = 0;
+      
         $.ajax({
           type: "GET",
           url: window.Shopify.routes.root + "cart.js",
@@ -446,8 +466,11 @@ else {
             $.each(response.items, function (index, product) {
                 dateArray.push(product.properties.date);
                 var stored_qty = parseInt(product.properties.max_quantity, 10);
-                if(sessionStorage.getItem("location") == "Delivery")
+              
+                if(sessionStorage.getItem("location") == "Delivery"){
                   stored_qty = 99;
+                  order_qty += product.quantity;
+                }
               
                 if (product.quantity >= stored_qty) {
                     $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
@@ -483,6 +506,13 @@ else {
                   alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
                   b_allowed = false;
                 }
+            }
+            else{
+               if(min_order_qty > 0 && order_qty < min_order_qty){
+                 alert('Die Mindestlieferbestellmenge sollte betragen: ' + min_order_qty);
+                 b_allowed = false;
+                 return false;
+               }
             }
     
             if (!$('#agree').is(':checked')) {
