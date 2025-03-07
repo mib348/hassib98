@@ -75,6 +75,7 @@ class LocationsTextController extends Controller
         $arrLocation->first_additional_inventory_end_time = $request->input('first_additional_inventory_end_time');
         $arrLocation->second_additional_inventory_end_time = $request->input('second_additional_inventory_end_time');
         $arrLocation->preorder_end_time_home_delivery = $request->input('preorder_end_time_home_delivery');
+        $arrLocation->min_order_limit = $request->input('min_order_limit');
         $arrLocation->address = $request->input('address');
         $arrLocation->maps_directions = $request->input('maps_directions');
         $arrLocation->longitude = $request->input('longitude');
@@ -117,9 +118,15 @@ class LocationsTextController extends Controller
             $preorder_end_time_home_delivery = substr($arrLocation['preorder_end_time_home_delivery'], 0, 5); // HH:MM
 
             $html = "<tr>";
-                $html .= "<td>" . $arrLocation['name'];
                 if($arrLocation['name'] == 'Delivery') {
-                    $html .= "<br><br><p class='mb-0'>Timezone 1</p>
+                    $html .= "<td>" . $arrLocation['name'] . "<br><p class='mb-0'>Min Order Qty Limit</p>" . '<input type="number" name="min_order_limit" id="min_order_limit" value="' . $arrLocation['min_order_limit'] . '" class="form-control w-25" />';
+                }
+                else{
+                    $html .= "<td>" . $arrLocation['name'];
+                }
+
+                if($arrLocation['name'] == 'Delivery') {
+                    $html .= "<br><p class='mb-0'>Timezone 1</p>
                     <p class='mb-0'>Order Limit:</p>
                     <input type='number' name='time_order_limit' value='" . $arrLocation['time_order_limit'] . "' class='form-control w-25' />";
                 }
@@ -140,7 +147,7 @@ class LocationsTextController extends Controller
                 $html .= "<tr>";
                     $html .= "<td><p class='mb-0'>Timezone 3</p>
                                 <p class='mb-0'>Order Limit:</p>
-                                <input type='number' name='time3_order_limit' value='" . $arrLocation['time3_order_limit'] . "' class='form-control w-25' />        
+                                <input type='number' name='time3_order_limit' value='" . $arrLocation['time3_order_limit'] . "' class='form-control w-25' />
                             </td>";
                     $html .= "<td><input type='time' id='start_time3' name='start_time3' value='" . $startTime3 . "' class='form-control'/></td>";
                     $html .= "<td><input type='time' id='end_time3' name='end_time3' value='" . $endTime3 . "' class='form-control'/></td>";
@@ -207,6 +214,7 @@ class LocationsTextController extends Controller
 
             return response()->json([
                 'html' => $html,
+                'min_order_limit' => $arrLocation['min_order_limit'],
                 'address' => $arrLocation['address'],
                 'maps_directions' => $arrLocation['maps_directions'],
                 'longitude' => $arrLocation['longitude'],
