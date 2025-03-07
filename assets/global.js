@@ -221,9 +221,27 @@ if (window.location.pathname === "/pages/bestellen") {
   }
 } 
 else if(window.location.pathname === "/cart"){
-
+  window.min_order_limit = 0;
   if(sessionStorage.getItem("location") == "Delivery"){
       $(".incorrent_item_agree_cb_portion").hide();
+
+      $.ajax({
+          type: "GET",
+          url: "https://app.sushi.catering/getLocations/Delivery",
+          async: false,
+          cache: false,
+          // data: {
+          //     items: JSON.stringify(response.items)
+          // },
+          dataType: "json",
+          success: function(data) {
+            min_order_limit = data.min_order_limit;
+              //window.location.href = "/checkout";
+          },
+          error: function() {
+              console.log('Cart Check Delivery Inventory api error');
+          }
+      });
   }
   
   $.ajax({
@@ -439,24 +457,59 @@ else {
   //   alert('There are now ' + cart.item_count + ' items in the cart.');
   // };  
 
+  function comparePrices(minOrderLimit, currentTotal) {
+      // Remove currency symbols and whitespace, replace comma with dot
+      const minOrder = parseFloat(minOrderLimit.replace(',', '.'));
+      const total = parseFloat(currentTotal.match(/\d+,\d+/)[0].replace(',', '.'));
+  
+      console.log('Minimum order:', minOrder);
+      console.log('Current total:', total);
+
+      if(minOrder > 0 && total < minOrder)
+        return true;
+      else 
+        return false;
+    
+      // return {
+      //     isValid: total >= minOrder,
+      //     difference: (minOrder - total).toFixed(2)
+      // };
+  }
+
     $(document).on("click", "#checkout", function (e) {
         e.preventDefault();
         var el = $(this);
         var b_allowed = true;
+        let order_price = 0;
     
         $.ajax({
           type: "GET",
           url: window.Shopify.routes.root + "cart.js",
           dataType: "json",
           success: function (response) {
+
+            if(sessionStorage.getItem("location") == "Delivery"){
+                // const minOrderLimit = "4,96";
+                const currentTotal = $(".totals__total-value").html();
+    
+                //on home delivery the order amount must be bigger than x otherwise error must be thrown. i want to be able to choose x in the admin unter location delivery. can you please add this feature? you must check in cart if orderamount is big enough to enter checkout please.
+                const result = comparePrices(min_order_limit, currentTotal);
+                if (result == true) {
+                    alert('Die Mindestlieferbestellmenge sollte betragen: €' + min_order_limit + ' EUR');
+                    return false;
+                }
+            }
+            
             var dateArray = [];
             // console.log(response);
             $.each(response.items, function (index, product) {
                 dateArray.push(product.properties.date);
                 var stored_qty = parseInt(product.properties.max_quantity, 10);
 
-                if(sessionStorage.getItem("location") == "Delivery")
+                if(sessionStorage.getItem("location") == "Delivery"){
                   stored_qty = 99;
+                  // order_qty += product.quantity;
+                }
               
                 if (product.quantity >= stored_qty) {
                     $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
@@ -498,10 +551,18 @@ else {
                   b_allowed = false;
                 }
             }
+            // else{
+            //    if(min_order_limit > 0 && order_qty < min_order_limit){
+            //      alert('Die Mindestlieferbestellmenge sollte betragen: ' + min_order_limit);
+            //      b_allowed = false;
+            //      return false;
+            //    }
+            // }
     
             if (!$('#agree').is(':checked')) {
               alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
               b_allowed = false;
+              return false;
             }
     
             // if (!$('#third_party').is(':checked')) {
