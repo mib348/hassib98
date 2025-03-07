@@ -119,7 +119,7 @@ class LocationsTextController extends Controller
 
             $html = "<tr>";
                 if($arrLocation['name'] == 'Delivery') {
-                    $html .= "<td>" . $arrLocation['name'] . "<br><p class='mb-0'>Min Order Qty Limit</p>" . '<input type="number" name="min_order_limit" id="min_order_limit" value="' . $arrLocation['min_order_limit'] . '" class="form-control w-25" />';
+                    $html .= "<td>" . $arrLocation['name'] . "<br><p class='mb-0'>Min Order Qty Limit</p>" . '<input type="text" name="min_order_limit" id="min_order_limit" value="' . $arrLocation['min_order_limit'] . '" class="form-control w-25" />';
                 }
                 else{
                     $html .= "<td>" . $arrLocation['name'];
