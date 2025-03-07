@@ -85,7 +85,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
       {% assign locations_array = location_metaobject | split: ',' %}
 
       {% for location in locations_array %}
-      {% if location == "Additional Inventory" or location == "Default Menu" %}
+      {% if location == "Additional Inventory" or location == "Default Menu" or location == "Delivery" %}
       {% continue %}
       {% endif %}
       <a class="dropdown-item station" href="/pages/datum">{{ location }}</a>
@@ -98,7 +98,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
 </div></div></div></div></div></div></div></div></div></div><script>
     !function(){
       window.__pagefly_page_setting__ = {"pageTitle":"bestellen","pageType":"page","pageId":"2b3914e7-ba44-4d36-81e3-3d7b5a3e0e5a","lazyLoad":false,"forceByPassGoogleLightHouse":false,"imageLazyLoad":false,"nativeImageLazyLoad":true,"useThemeJQ":false,"sectionRootType":"Section","trackingIDs":[]};
-      window.__pagefly_setting__&&(window.__pagefly_setting2__=window.__pagefly_setting__),window.__pagefly_setting__={"baseURL":"https://apps.pagefly.io","analyticsURL":"https://analytics.pagefly.io","isBackend":false,"cdnURL":"https://cdn.pagefly.io","pageflyVersion":"4.21.5","shopDomain":"dc9ef9.myshopify.com","elementData":{},"shopifyProxyPath":"/apps/pagefly"},window.__pagefly_setting2__&&(window.__pagefly_setting__=function _(d,b){let c={...d||{}};for(let a of Object.keys(b))b[a]instanceof Object&&(Array.isArray(b[a])&&c[a]?Object.assign(b[a],[...b[a],...c[a]]):Object.assign(b[a],_(c[a],b[a])));return Object.assign(c||{},b),c}(__pagefly_setting2__,__pagefly_setting__),delete window.__pagefly_setting2__),window.__pagefly_setting__.moneyFormat={{shop.money_format|json}}}();
+      window.__pagefly_setting__&&(window.__pagefly_setting2__=window.__pagefly_setting__),window.__pagefly_setting__={"baseURL":"https://apps.pagefly.io","analyticsURL":"https://analytics.pagefly.io","isBackend":false,"cdnURL":"https://cdn.pagefly.io","pageflyVersion":"4.21.6","shopDomain":"dc9ef9.myshopify.com","elementData":{},"shopifyProxyPath":"/apps/pagefly"},window.__pagefly_setting2__&&(window.__pagefly_setting__=function _(d,b){let c={...d||{}};for(let a of Object.keys(b))b[a]instanceof Object&&(Array.isArray(b[a])&&c[a]?Object.assign(b[a],[...b[a],...c[a]]):Object.assign(b[a],_(c[a],b[a])));return Object.assign(c||{},b),c}(__pagefly_setting2__,__pagefly_setting__),delete window.__pagefly_setting2__),window.__pagefly_setting__.moneyFormat={{shop.money_format|json}}}();
     </script>
 {% schema %}
 {

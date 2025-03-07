@@ -16,10 +16,15 @@ if (localStorage.getItem("uuid") == null) {
   localStorage.setItem("uuid", uuid);
 }
 
+// if (localStorage.getItem("location") != null && sessionStorage.getItem("location") == null) {
+//   sessionStorage.setItem("location", localStorage.getItem("location"));
+// }
+
 document.addEventListener('DOMContentLoaded', function() {
     if (window.location.pathname === "/pages/order-menue") {
         history.pushState(null, null, window.location.href); // Push current state to history
 
+                // alert('from push state');
         window.onpopstate = function(event) {
             sessionStorage.clear();
 
@@ -28,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
               url: window.Shopify.routes.root + "cart/clear.js",
               dataType: "json",
               success: function (response) {
+                // alert('from cart');
                 window.location.href = "/pages/bestellen";
                },
               error: function (xhr, status, error) {
@@ -152,17 +158,35 @@ if (window.location.pathname === "/pages/order-menue" || (window.location.pathna
       // If 'date' does not exist in sessionStorage, set it to today's date
       sessionStorage.setItem("date", getFormattedDate());
   }
+
+  // alert('from session storage');
+  const queryParams = new URLSearchParams(window.location.search);
+  if(queryParams.get('location') && sessionStorage.getItem("location") == null){
+    sessionStorage.setItem("location", queryParams.get('location'));
+  }
+  // alert(sessionStorage.getItem("location"));
 }
 
 
 if (window.jQuery) {
   let $ = window.jQuery;
+  
+  //skip inventory handling for Orders of Location: Delivery
+  if (window.location.pathname === "/pages/order-menue") {
+    if(sessionStorage.getItem("location") == "Delivery"){
+      $(".order_qty").find("input").attr("max", 99);
+      $(".qty_portion").hide();
+      // alert('from Delivery page');
+    }
+  }
+  
   // if (window.history && window.history.pushState) {
   //     window.history.pushState('', null, window.location.pathname);
   //     $(window).on('popstate', function() {
   //         sessionStorage.clear();
   //     });
   // }
+
 
 //when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
 if (window.location.pathname === "/pages/bestellen") {
@@ -197,6 +221,11 @@ if (window.location.pathname === "/pages/bestellen") {
   }
 } 
 else if(window.location.pathname === "/cart"){
+
+  if(sessionStorage.getItem("location") == "Delivery"){
+      $(".incorrent_item_agree_cb_portion").hide();
+  }
+  
   $.ajax({
       type: "GET",
       url: window.Shopify.routes.root + "cart.js",
@@ -309,8 +338,10 @@ else {
         sessionStorage.getItem("location") == null &&
         sessionStorage.getItem("date") == null
       ) {
+        alert('location & date empty');
         window.location.href = "/pages/bestellen";
       } else if (sessionStorage.getItem("location") == null) {
+        alert('location empty');
         window.location.href = "/pages/bestellen";
       } else if (sessionStorage.getItem("date") == null) {
         window.location.replace("/pages/datum");
@@ -423,6 +454,10 @@ else {
             $.each(response.items, function (index, product) {
                 dateArray.push(product.properties.date);
                 var stored_qty = parseInt(product.properties.max_quantity, 10);
+
+                if(sessionStorage.getItem("location") == "Delivery")
+                  stored_qty = 99;
+              
                 if (product.quantity >= stored_qty) {
                     $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
                     $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').prop('disabled', true);
@@ -451,9 +486,17 @@ else {
               b_allowed = false;
             }
     
-            if (!$('#incorrent_item_agree').is(':checked')) {
-              alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
-              b_allowed = false;
+            // if (!$('#incorrent_item_agree').is(':checked')) {
+            //   alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
+            //   b_allowed = false;
+            // }
+
+            if(sessionStorage.getItem("location") != "Delivery"){
+                // $(".incorrent_item_agree_cb_portion").hide();
+                if (!$('#incorrent_item_agree').is(':checked')) {
+                  alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
+                  b_allowed = false;
+                }
             }
     
             if (!$('#agree').is(':checked')) {
@@ -465,6 +508,11 @@ else {
             //   alert("Um zur Kasse zu gehen, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen.");
             //   b_allowed = false;
             // }
+
+            if(sessionStorage.getItem("location") == "Delivery"){
+              b_allowed = false;
+              window.location.href = "/checkout";              
+            }
 
             
 

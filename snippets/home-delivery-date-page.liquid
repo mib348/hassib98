@@ -1,0 +1,853 @@
+<style>
+    /* Minimal button styles (similar to Bootstrap 4) */
+  .btn {
+    display: inline-block;
+    font-weight: 400;
+    color: #212529;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    background-color: transparent;
+    border: 1px solid transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    border-radius: 0.25rem;
+    cursor: pointer;
+  }
+
+  .btn-secondary {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+  }
+  .btn-secondary:hover {
+    color: #fff;
+    background-color: #5a6268;
+    border-color: #545b62;
+  }
+
+  /* Dropdown wrapper */
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+
+  /* .dropdown-toggle gets the caret arrow */
+  .dropdown-toggle::after {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: 0.255em;
+    vertical-align: 0.255em;
+    content: "";
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-left: 0.3em solid transparent;
+    /* "currentColor" means the arrow will match .btn text color (#fff). */
+    border-top-color: currentColor;
+  }
+
+  /* The dropdown menu */
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    /* left: 0; */
+    left: 17.5%;
+    min-width: 10rem;
+    padding: 0.5rem 0;
+    margin: 0.125rem 0 0;
+    font-size: 1rem;
+    color: #212529;
+    text-align: left;
+    list-style: none;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 0.25rem;
+    display: none; /* hidden by default */
+    z-index: 1000;  /* ensure it's above other elements */
+  }
+  .dropdown-menu.show {
+    display: block;
+  }
+
+  /* Items inside the dropdown menu */
+  .dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.25rem 1.5rem;
+    clear: both;
+    font-weight: 400;
+    color: #212529;
+    text-align: inherit;
+    white-space: nowrap;
+    background: 0 0;
+    border: 0;
+    text-decoration: none;
+  }
+  .dropdown-item:hover,
+  .dropdown-item:focus {
+    color: #16181b;
+    background-color: #f8f9fa;
+    text-decoration: none;
+  }
+  .dropdown-item.disabled,
+  .dropdown-item:disabled {
+    color: #6c757d;
+    pointer-events: none;
+    background-color: transparent;
+  }
+
+  .ui-datepicker {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000; /* Adjust z-index as needed */
+  }
+
+  .homedeliverytimebtn, .homedeliverytimebtn:hover, .homedeliverydatebtn, .liefergebietbtn, .liefergebietbtn:hover, .zip_code_field, .zip_code_field:hover, .save-zip-btn {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: rgb(255, 255, 255) !important;
+    /* margin-left: 20px !important; */
+    border-style: solid !important;
+    border-color: rgb(255, 255, 255) !important;
+    border-width: 2px !important;
+    border: 2px solid #fff !important;
+    padding: 12px 20px !important;
+    border-radius:0px !important;
+    font-weight: inherit !important;;
+    font-family: inherit !important;;
+    font-size: inherit !important;;
+    line-height:1 !important;
+    margin-top: -2px !important;
+  }
+
+  .homedeliverytimebtn, .homedeliverytimebtn:hover, .homedeliverydatebtn, .zip_code_field, .zip_code_field:hover, .save-zip-btn{
+    font-weight: 100;
+    font-family: "Bebas Neue";
+    font-size: 21px;
+    background-color: black !important;
+  }
+
+  .zip_code_field, .zip_code_field:hover {
+    padding: 10px 0px !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    margin-right: 0 !important;
+    border-right: none !important;
+    cursor: text !important;
+    border-right: 2px solid white !important;
+    text-align:center;
+  }
+  
+  .zip_code_field::placeholder{
+    color:whitesmoke !important;
+  }
+  
+  .zip_code_field.disabled {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    color: white !important;
+    cursor: pointer;
+  }
+
+  .save-zip-btn {
+    margin-left: 0 !important;
+    padding: 12.5px 16px !important;
+    border-left: none !important;
+    cursor: pointer;
+    display:none;
+  }
+  
+  .zip-code-group {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .liefergebietbtn, .liefergebietbtn:hover{
+    padding: 8px !important;
+    background-color: white !important;
+    color: black !important;
+    margin-right: -5px !important;;
+    margin-bottom: -0.5px !important;;
+  }
+
+  /* Add this CSS to make the dropdown scrollable */
+  .dropdown-menu {
+    max-height: 200px;
+    /* Adjust the height as needed */
+    overflow-y: auto;
+    font-size: inherit !important;
+  }
+
+  .dropdown-item.disabled, .dropdown-item:disabled{
+    color: lightgray;
+  }
+  .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
+
+  .calltoactionhero{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+
+  @media screen and (max-width: 768px) {
+    .zip_code_field{
+      margin-left:0px !important;
+    }
+    .zip-code-group {
+      order: 1;
+      width:100%;
+      text-align:center;
+      display: inline-flex;
+      align-items: center;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-content: center;
+      justify-content: center;
+      margin-left:0px;
+    }
+    
+    .homedeliverydatebtn {
+      order: 2;
+    }
+    
+    .homedeliverytimebtn_portion  {
+      order: 3;
+    }
+    
+    .calltoactionhero {
+      display: flex;
+      /* flex-direction: column; */
+      gap: 10px;
+    }
+    
+    /* Reset margin for better mobile layout */
+    .zip-code-group, .homedeliverydatebtn  , .homedeliverytimebtn_portion {
+      margin-left: 0 !important;
+      /* margin-top: 5px !important; */
+    }
+  }
+</style>
+
+{{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div class="calltoactionhero">  
+  <a data-pf-type="Button2" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 homedeliverydatebtn show-button">Datum</a>
+  <div class="dropdown homedeliverytimebtn_portion">
+    <button
+      data-pf-type="Button2"
+      class="btn btn-secondary dropdown-toggle hVSHHp pf-17_ pf-button-3 homedeliverytimebtn show-button"
+      type="button"
+      id="homedeliverytimebtn"
+      aria-haspopup="true"
+      aria-expanded="false"
+    >
+      Zeitfenster
+    </button>
+    <div class="dropdown-menu homedeliverytimebtn_dropdown_menu" aria-labelledby="homedeliverytimebtn">
+      <a class="dropdown-item station" href="/pages/datum">{{ location }}</a>
+    </div>
+  </div>
+  <div class="zip-code-group">
+    <input type="text" name="zip_code" id="zip_code" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 zip_code_field" placeholder="Postleitzahl eingeben"/>
+    <button type="button" id="save-zip-btn" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 save-zip-btn">Speichern</button>
+  </div>
+</div>
+
+<div id="datepicker"></div>
+<br>
+<br>
+<br>
+
+<script>
+  sessionStorage.setItem("location", 'Delivery');
+document.addEventListener('DOMContentLoaded', function () {
+  var dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+  // Arrays to store the zip codes
+  window.numericZipCodes = [];
+  window.completeZipCodes = [];
+  window.bAllowRedirect = true;
+
+
+  dropdownToggles.forEach(function (toggle) {
+    toggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var dropdownMenu = toggle.nextElementSibling;
+      if (!dropdownMenu) return;
+      dropdownMenu.classList.toggle('show');
+    });
+  });
+
+  // Close dropdown if user clicks outside
+  document.addEventListener('click', function (e) {
+    dropdownToggles.forEach(function (toggle) {
+      var dropdownMenu = toggle.nextElementSibling;
+      if (
+        dropdownMenu &&
+        dropdownMenu.classList.contains('show') &&
+        !toggle.contains(e.target) &&
+        !dropdownMenu.contains(e.target)
+      ) {
+        dropdownMenu.classList.remove('show');
+      }
+    });
+  });
+});
+</script>
+
+<script>
+
+function formatTimeTo12Hour(time) {
+  // Convert "HH:MM" into 24-hour format string like "17:00"
+  const [hours, minutes] = time.split(':');
+  const date = new Date();
+  date.setHours(hours, minutes);
+  
+  // Use hour12: false => e.g. "17:00"
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+
+function toggleButton() {
+  // Get the current time in Germany (24-hour format)
+  const now = new Date();
+  const options = {
+      timeZone: 'Europe/Berlin',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour12: false
+  };
+
+  const formatter = new Intl.DateTimeFormat([], options);
+  const parts = formatter.formatToParts(now);
+
+  let dateObj = {};
+  parts.forEach(({ type, value }) => {
+      dateObj[type] = value;
+  });
+
+  // Construct a Date in Germany's time zone
+  const timeGermany = new Date(
+    `${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}`
+  );
+  const currentHours = timeGermany.getHours();
+  const currentMinutes = timeGermany.getMinutes();
+  const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+  // Select all slots via jQuery
+  const $timeSlots = $('.time_slot');
+  const userSelectedDate = sessionStorage.getItem("date");
+
+  if(preorder_end_time_home_delivery)
+    var slotTime_preorder = preorder_end_time_home_delivery;
+  else 
+      return;  
+
+  const [slotHours, slotMins] = slotTime_preorder.split(':').map(Number);
+  const slotTime_preorder_InMinutes = slotHours * 60 + slotMins;
+  
+  if (currentTimeInMinutes > slotTime_preorder_InMinutes) {
+      var minDate = 1;
+  }
+  else
+      var minDate = 0;
+        return minDate;
+}
+
+function isSameDayInGermany(dateText) {
+  // If no date has been chosen yet, treat it as not "today"
+  if (!dateText) return false;
+  
+  // dateText from datepicker is "dd-mm-yy" or "dd-mm-yyyy"
+  const [day, month, year] = dateText.split('-').map(Number);
+  const selectedDateLocal = new Date(year, month - 1, day);
+
+  // Current date/time in Germany
+  const now = new Date();
+  const options = {
+    timeZone: 'Europe/Berlin',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour12: false
+  };
+  const formatter = new Intl.DateTimeFormat([], options);
+  const parts = formatter.formatToParts(now);
+
+  let dateObj = {};
+  parts.forEach(({ type, value }) => {
+    dateObj[type] = value;
+  });
+
+  // "Today" (midnight) in Germany's local date
+  const todayInGermany = new Date(`${dateObj.year}-${dateObj.month}-${dateObj.day}T00:00:00`);
+
+  return (
+    selectedDateLocal.getFullYear() === todayInGermany.getFullYear() &&
+    selectedDateLocal.getMonth() === todayInGermany.getMonth() &&
+    selectedDateLocal.getDate() === todayInGermany.getDate()
+  );
+}
+
+function redirect(dateText, timeSlot){
+    if(localStorage.getItem("user_zip_code") == null || !localStorage.getItem("user_zip_code")){
+      alert("Bitte geben Sie die Postleitzahl ein");
+      return false;
+    }
+    $.ajax({
+        url: "https://app.sushi.catering/updateSelectedDate/" + dateText,
+        type: "GET",
+        data: { "uuid": localStorage.getItem("uuid") },
+        cache: false,
+        async: false,
+        dataType: "json",
+        success: function(data) {
+                window.location.href = "/pages/order-menue?location=Delivery&timeslot=" + timeSlot + "&immediate_inventory=N&no_station=N&additional_inventory=N&additional_inventory_time=N&uuid=" + localStorage.getItem("uuid");
+        },
+        error: function(request, status, error) {
+            alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+            console.log('Set selected date error:', error);
+        }
+    });
+}
+
+function HideTimeSlot(data){
+  // Select all slots via jQuery
+  const $timeSlots = $('.time_slot');
+  const userSelectedDate = sessionStorage.getItem("date");
+
+  $timeSlots.each(function() {
+    const $slot = $(this);
+
+      if (data.tz1_orders_count >= data.time_order_limit && $slot.data("time_slot_start_time") == data.start_time) {
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
+      } else if($slot.data("time_slot_start_time") == data.start_time) {
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
+      }
+    
+      if (data.tz2_orders_count >= data.time2_order_limit && $slot.data("time_slot_start_time") == data.start_time2) {
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
+      } else if($slot.data("time_slot_start_time") == data.start_time2) {
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
+      }
+    
+      if (data.tz3_orders_count >= data.time3_order_limit && $slot.data("time_slot_start_time") == data.start_time3) {
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
+      } else if($slot.data("time_slot_start_time") == data.start_time3) {
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
+      }
+    
+      if (data.tz4_orders_count >= data.time4_order_limit && $slot.data("time_slot_start_time") == data.start_time4) {
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
+      } else if($slot.data("time_slot_start_time") == data.start_time4) {
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
+      }
+    
+      if (data.tz5_orders_count >= data.time5_order_limit && $slot.data("time_slot_start_time") == data.start_time5) {
+        $slot.attr('disabled', true);        
+        $slot.prop('disabled', true);        
+        $slot.addClass('disabled');
+      } else if($slot.data("time_slot_start_time") == data.start_time5) {
+        $slot.attr('disabled', false);        
+        $slot.prop('disabled', false);        
+        $slot.removeClass('disabled');
+      }
+  });
+}
+
+
+
+let pageFullyLoaded = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.body.addEventListener('click', function(e) {
+    if ((e.target.classList.contains('homedeliverytimebtn') || e.target.classList.contains('homedeliverydatebtn')) && !pageFullyLoaded) {
+      e.preventDefault(); // Prevent navigation if page hasn't fully loaded
+      // Optionally, visually indicate that the link is disabled
+      e.target.style.pointerEvents = 'none';
+      e.target.style.opacity = '0.5';
+    } else {
+      // Optionally, reset visual changes if any were made
+      e.target.style.pointerEvents = '';
+      e.target.style.opacity = '';
+    }
+  });
+
+    const homedeliverytimebtn = document.querySelector('.homedeliverytimebtn');
+    const homedeliverydatebtn = document.querySelector('.homedeliverydatebtn');
+    sessionStorage.setItem("location", 'Delivery');
+    const strLocation = "Delivery";
+    window.preorder_end_time_home_delivery = null;
+
+    if (strLocation !== "") {
+        $.ajax({
+            url: `https://app.sushi.catering/getLocations/${strLocation}`,
+            type: "GET",
+            cache:true,
+            dataType: "json",
+            success: function(data) {
+                var html = '';
+                if(data.preorder_end_time_home_delivery)
+                    preorder_end_time_home_delivery = data.preorder_end_time_home_delivery;
+                if (data.start_time && data.end_time) {
+                    html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time_order_limit + `" data-total_orders_count="` + data.tz1_orders_count + `" data-time_slot_start_time="` + data.start_time + `">` + formatTimeTo12Hour(data.start_time) + ' - ' + formatTimeTo12Hour(data.end_time) + `</a>`;
+                    if (data.start_time2 && data.end_time2) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time2_order_limit + `" data-total_orders_count="` + data.tz2_orders_count + `" data-time_slot_start_time="` + data.start_time2 + `">` + formatTimeTo12Hour(data.start_time2) + ' - ' + formatTimeTo12Hour(data.end_time2) + `</a>`;
+                    }
+                    if (data.start_time3 && data.end_time3) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time3_order_limit + `" data-total_orders_count="` + data.tz3_orders_count + `" data-time_slot_start_time="` + data.start_time3 + `">` + formatTimeTo12Hour(data.start_time3) + ' - ' + formatTimeTo12Hour(data.end_time3) + `</a>`;
+                    }
+                    if (data.start_time4 && data.end_time4) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time4_order_limit + `" data-total_orders_count="` + data.tz4_orders_count + `" data-time_slot_start_time="` + data.start_time4 + `">` + formatTimeTo12Hour(data.start_time4) + ' - ' + formatTimeTo12Hour(data.end_time4) + `</a>`;
+                    }
+                    if (data.start_time5 && data.end_time5) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time5_order_limit + `" data-total_orders_count="` + data.tz5_orders_count + `" data-time_slot_start_time="` + data.start_time5 + `">` + formatTimeTo12Hour(data.start_time5) + ' - ' + formatTimeTo12Hour(data.end_time5) + `</a>`;
+                    }
+                } else {
+                    if (data.start_time) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time_order_limit + `" data-total_orders_count="` + data.tz1_orders_count + `" data-time_slot_start_time="` + data.start_time + `">` + formatTimeTo12Hour(data.start_time) + `</a>`;
+                    }
+                    if (data.start_time2) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time2_order_limit + `" data-total_orders_count="` + data.tz2_orders_count + `" data-time_slot_start_time="` + data.start_time2 + `">` + formatTimeTo12Hour(data.start_time2) + `</a>`;
+                    }
+                    if (data.start_time3) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time3_order_limit + `" data-total_orders_count="` + data.tz3_orders_count + `" data-time_slot_start_time="` + data.start_time3 + `">` + formatTimeTo12Hour(data.start_time3) + `</a>`;
+                    }
+                    if (data.start_time4) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time4_order_limit + `" data-total_orders_count="` + data.tz4_orders_count + `" data-time_slot_start_time="` + data.start_time4 + `">` + formatTimeTo12Hour(data.start_time4) + `</a>`;
+                    }
+                    if (data.start_time5) {
+                        html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time5_order_limit + `" data-total_orders_count="` + data.tz5_orders_count + `" data-time_slot_start_time="` + data.start_time5 + `">` + formatTimeTo12Hour(data.start_time5) + `</a>`;
+                    }
+                }
+                $(".homedeliverytimebtn_dropdown_menu").html(html);
+                // Get the current date and time in Germany
+                const now = new Date();
+                const options = {
+                    timeZone: 'Europe/Berlin',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                };
+                const formatter = new Intl.DateTimeFormat('en-GB', options); // 'en-GB' for 24-hour format
+                const parts = formatter.formatToParts(now);
+            
+                let dateObj = {};
+                parts.forEach(({ type, value }) => {
+                    dateObj[type] = value;
+                });
+            
+                let minDate = 0; // Default to today
+              
+                const currentHours = parseInt(dateObj.hour, 10);
+                const currentMinutes = parseInt(dateObj.minute, 10);
+                const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+                if (data.note){
+                    $("#note").html(data.note);
+                    $("#note").css('display','inline');
+                    $("#loading_icon").hide();
+                }
+
+                // Select all elements with class 'zipcode' and iterate through them
+                $('.zipcode').each(function() {
+                  // Get the text content of the element
+                  const zipCodeText = $(this).text().trim();
+                  
+                  // Extract complete zip code (with city)
+                  completeZipCodes.push(zipCodeText);
+                  
+                  // Extract numeric part of the zip code using regex
+                  const match = zipCodeText.match(/(\d+)/);
+                  if (match) {
+                    numericZipCodes.push(match[0]);
+                  }
+                });
+                // // Display the results
+                // console.log('Numeric Zip Codes:', numericZipCodes);
+                // console.log('Complete Zip Codes:', completeZipCodes);
+              
+                // // Handle location_toggle state
+                if (data.is_active === 'Y') {
+                //     //homedeliverytimebtn.classList.add('show-button');
+                    homedeliverydatebtn.classList.add('show-button');
+                    homedeliverytimebtn.classList.add('show-button');
+
+                //     //today order button aka immediate order button aka instant order button
+                //     if (data.start_time && data.end_time && data.is_active === 'Y') {
+                        toggleButton();
+                        setInterval(() => toggleButton(), 60000);                     
+                //     } else if (data.error) {
+                //         console.error('Error fetching location Settings:', data.error);
+                //     }
+
+                } 
+                else {
+                    homedeliverydatebtn.classList.remove('show-button');
+                    homedeliverytimebtn.classList.remove('show-button');
+                }        
+                
+                //$(".loading_icon").hide();
+            },
+            error: function(request, status, error) {
+                console.error('Error fetching location time:', error);
+            }
+        });
+    }
+});
+
+
+
+window.onload = function() {
+    pageFullyLoaded = true;
+    if (window.jQuery) {
+        let $ = window.jQuery;
+
+        const randomNum = Math.random();
+
+         // Initialize zip code field and save button
+        const $zipCodeField = $(".zip_code_field");
+        const $saveZipBtn = $("#save-zip-btn");
+        let originalValue = "";   
+        
+        // Function to update UI based on saved zip code
+        function updateZipCodeUI() {
+          const currentSavedZip = localStorage.getItem("user_zip_code");
+          
+          if (currentSavedZip) {
+              $zipCodeField.val(currentSavedZip);
+              originalValue = currentSavedZip;
+              $zipCodeField.addClass("disabled");
+              $zipCodeField.attr("readonly", true);
+              $saveZipBtn.hide();
+            
+          } else {
+              $zipCodeField.val("");
+              originalValue = "";
+              $zipCodeField.removeClass("disabled");
+              $zipCodeField.attr("readonly", false);
+              $saveZipBtn.show();
+          }
+          
+          // Always show the input field, but with different states
+          $zipCodeField.show();
+        }
+               
+        // Initial UI setup
+        updateZipCodeUI();
+        
+        // Save button click handler using document.on
+        $(document).on("click", "#save-zip-btn", function() {
+            const zipCode = $zipCodeField.val().trim();
+            if (zipCode) {
+                // Check if the entered zip code is in our delivery area
+                if (numericZipCodes.includes(zipCode)) {
+                    localStorage.setItem("user_zip_code", zipCode);
+                    bAllowRedirect = true;
+                    updateZipCodeUI();
+                } else {
+                    alert('Entschuldigung, wir liefern nicht an diese Postleitzahl:'+ zipCode);
+                    $zipCodeField.val('');
+                    bAllowRedirect = false;
+                    // // Show SweetAlert message if zip code is not in delivery area
+                    // Swal.fire({
+                    //     title: 'Liefergebiet',
+                    //     text: `Entschuldigung, wir liefern nicht an diese Postleitzahl: ${zipCode}`,
+                    //     icon: 'error',
+                    //     confirmButtonText: 'OK',
+                    //     confirmButtonColor: '#3085d6'
+                    // });
+                }
+            }
+        });
+        
+        // Allow editing saved zip code - just make it editable on click
+        $(document).on("click", ".zip_code_field", function() {
+            if ($(this).hasClass("disabled")) {
+                $(this).removeClass("disabled");
+                $(this).attr("readonly", false);
+                // Don't show save button yet, only when value changes
+                originalValue = $(this).val();
+            }
+        });
+        
+        // Show save button only when value actually changes
+        $(document).on("input", ".zip_code_field", function() {
+            const currentValue = $(this).val();
+            if (currentValue !== originalValue) {
+                $saveZipBtn.show();
+            } else {
+                $saveZipBtn.hide();
+            }
+        });
+      
+        $(document).on('click', '.liefergebietbtn', function() {
+          $(this).parent().find('.dropdown-menu').toggleClass('show');
+        });
+
+        // Add click handler to hide datepicker when clicking outside
+        $(document).on('click', function(e) {
+          // If the click is outside the datepicker and the datepicker is visible
+          if (!$(e.target).closest('#datepicker, .homedeliverydatebtn, .ui-datepicker, .ui-datepicker-header').length && $('#datepicker').is(':visible')) {
+            // Destroy the datepicker instead of just hiding it
+            $("#datepicker").datepicker("destroy");
+          }
+        });
+
+        $(".homedeliverytimebtn, .homedeliverydatebtn").each(function() {
+            // Reset any inline styles that might have been applied to indicate disabled state
+            this.style.pointerEvents = '';
+            this.style.opacity = '';
+        });
+
+        var button = $(".homedeliverydatebtn");
+        var buttonOffset = button.offset();
+        
+        // Calculate new top and left positions
+        var newTop = buttonOffset.top + button.outerHeight();
+        var newLeft = buttonOffset.left;
+        
+        // Apply the calculated positions
+        $("#datepicker").datepicker('hide');
+        // $("#datepicker").css('display', 'none');
+
+        // -------------------------------------------------------------
+        // Only these lines inside the click handler have been updated.
+        // -------------------------------------------------------------
+        $(document).on("click", ".time_slot, .homedeliverydatebtn", function(e){
+            e.preventDefault();
+
+            if($(this).hasClass("time_slot")) {
+                sessionStorage.setItem("time_slot", $(this).data("time_slot_start_time"));
+
+                // If date is not set, close time dropdown & open date
+                if(!sessionStorage.getItem("date")){
+                    // Close the dropdown if open
+                    let dropdownMenu = $(".homedeliverytimebtn_dropdown_menu");
+                    if (dropdownMenu.hasClass("show")) {
+                      dropdownMenu.removeClass("show");
+                    }
+                    // Now open the datepicker
+                    $(".homedeliverydatebtn").click();
+                    return;
+                }
+                else{
+                    if($(this).hasClass("disabled"))
+                      return
+                    else
+                      if(bAllowRedirect)
+                        redirect(sessionStorage.getItem("date"), $(this).data("time_slot_start_time"));
+                }
+            }
+            else {
+                    // If we do have a time_slot, proceed with normal flow
+                    // (the rest of the code remains unaltered)
+                    // Get today's date if needed, etc.
+                    // Then open the jQuery datepicker or redirect...
+                    
+                    // Get the offset of the button
+                    const buttonOffset = $(this).offset();
+                    const buttonHeight = $(this).outerHeight();
+                    
+                    // Calculate the new top and left positions for the datepicker
+                    const newTop = buttonOffset.top + buttonHeight;
+                    const newLeft = buttonOffset.left + 150;
+                
+                    // Get the current date and time in Germany
+                    const now = new Date();
+                    const options = {
+                        timeZone: 'Europe/Berlin',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    };
+                    const formatter = new Intl.DateTimeFormat('en-GB', options); // 'en-GB' for 24-hour format
+                    const parts = formatter.formatToParts(now);
+                
+                    let dateObj = {};
+                    parts.forEach(({ type, value }) => {
+                        dateObj[type] = value;
+                    });
+
+                    let minDate = toggleButton(); // Default to today
+                
+                    const currentHours = parseInt(dateObj.hour, 10);
+                    const currentMinutes = parseInt(dateObj.minute, 10);
+                    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+                
+                    // Initialize the datepicker
+                    $("#datepicker").datepicker({
+                        minDate: minDate,
+                        maxDate: '+6d',
+                        dateFormat: "dd-mm-yy",
+                        onSelect: function(dateText, inst) {
+                            sessionStorage.setItem("date", dateText);
+                            toggleButton();
+
+                            $(".location_bar_text").html("Delivery " + dateText);
+
+                            $.ajax({
+                                url: "https://app.sushi.catering/deliverySelectedDate/" + dateText,
+                                type: "GET",
+                                data: { "uuid": localStorage.getItem("uuid") },
+                                cache: false,
+                                async: false,
+                                dataType: "json",
+                                success: function(data) {
+                                  HideTimeSlot(data);
+                                },
+                                error: function(request, status, error) {
+                                    console.log('Set selected date error:', error);
+                                }
+                            });
+                        
+                            // if(!sessionStorage.getItem("time_slot")){
+                                $("#datepicker").datepicker("destroy");
+                                $(".homedeliverytimebtn").click();
+                                return;
+                            // }
+                            // else{
+                            //     redirect(dateText, sessionStorage.getItem("time_slot"));
+                            // }
+                        }
+                    }).datepicker('show');
+                    // $("#datepicker").css('display', 'block');
+                    
+                    $('.ui-datepicker').addClass('notranslate');
+            }
+        });
+        // -------------------------------------------------------------
+
+     }
+}
+</script>

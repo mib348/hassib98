@@ -3560,3 +3560,5 @@ html, body{overflow-x:hidden !important;}
   border-color: #FF0000 !important; /* Bootstrap's danger color */
   padding:12px 20px !important;
 }
+
+.homedeliverydatebtn, .homedeliverytimebtn {cursor:pointer !important;}
