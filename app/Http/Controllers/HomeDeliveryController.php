@@ -173,19 +173,20 @@ class HomeDeliveryController extends Controller
     }
 
 
-    public function FetchCurrentWeekDeliveryOrders(){
+    public function FetchCurrentWeekDeliveryOrders($date = null){
         try {
             $shop = Auth::user(); // Ensure you have a way to authenticate and set the current shop.
             if(!isset($shop) || !$shop)
                 $shop = User::find(env('db_shop_id', 1));
             $api = $shop->api(); // Get the API instance for the shop.
 
-            $now = Carbon::now();
-            $startOfWeek = $now->copy()->startOfWeek();
+            // $now = Carbon::now();
+            // $startOfWeek = $now->copy()->startOfWeek();
 
             // Format dates for Shopify GraphQL API (Uses ISO8601 format)
             // Adding 'Z' to ensure UTC timezone is explicitly specified to avoid ambiguity
-            $createdAtMin = $startOfWeek->toIso8601String();
+            // $createdAtMin = $startOfWeek->toIso8601String();
+            $createdAtMin = now()->toIso8601String();
             $createdAtMax = now()->addDays(7)->toIso8601String();
 
             // $createdAtMin = Carbon::parse($date, 'Europe/Berlin')->toIso8601String();
@@ -419,13 +420,13 @@ class HomeDeliveryController extends Controller
                                     }
                                 }
 
-                                // if (strtolower($attr['key']) === 'date') {
-                                //     $locationValue = $attr['value'];
-                                //     // Check if date is matching
-                                //     if ($locationValue == $date) {
-                                //         $matchesDate = true;
-                                //     }
-                                // }
+                                if (!empty($date) && strtolower($attr['key']) === 'date') {
+                                    $locationValue = $attr['value'];
+                                    // Check if date is matching
+                                    if ($locationValue == $date) {
+                                        $matchesDate = true;
+                                    }
+                                }
                             }
 
                             $processedLineItem = [
@@ -444,7 +445,13 @@ class HomeDeliveryController extends Controller
                         }
 
                         // Only include orders that have a line item matching our criteria
-                        if ($matchesDelivery) {
+                        if(!empty($date)){
+                            if($matchesDate && $matchesDelivery){
+                                $order['line_items'] = $lineItems;
+                                $orders[] = $order;
+                            }
+                        }
+                        else if ($matchesDelivery) {
                             $order['line_items'] = $lineItems;
                             $orders[] = $order;
                             // Log::info("Found matching order: {$node['name']} with Delivery");
