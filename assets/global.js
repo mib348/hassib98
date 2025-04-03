@@ -190,6 +190,9 @@ if (window.jQuery) {
 
 //when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
 if (window.location.pathname === "/pages/bestellen") {
+  if(sessionStorage.getItem("location") == "Delivery" )
+    sessionStorage.clear();
+  
   if (
     sessionStorage.getItem("location") == null &&
     sessionStorage.getItem("date") == null && localStorage.getItem("location") == null
@@ -451,6 +454,13 @@ else {
     //window.location.href = href + "?location=" + strLocation;
     //window.location.replace(href + "?location=" + strLocation);
     location.replace(href + "?location=" + localStorage.getItem("location"));
+  });
+
+  $(document).on("click", "#home_delivery_btn", function (e) {
+    e.preventDefault();
+
+    var href = $(this).attr("href");
+    location.replace(href);
   });
 
   // Shopify.onCartUpdate = function(cart) {
