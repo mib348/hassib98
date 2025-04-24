@@ -33,13 +33,54 @@ class ShopifyController extends Controller
     public function index()
     {
         $shop = Auth::user();
+        if (!$shop) {
+            // Handle case where user is not authenticated or not a shop
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
         $domain = $shop->getDomain()->toNative();
-        $shopApi = $shop->api()->rest('GET', '/admin/shop.json')['body']['shop'];
+        try {
+            // Make the API call
+            $response = $shop->api()->rest('GET', '/admin/shop.json');
+
+            // Check for general errors or non-200 status first
+            if ($response['errors'] || $response['status'] !== 200 || !isset($response['body'])) {
+                Log::error("Shopify API Error fetching shop data for {$domain}", ['response' => $response]);
+                return response()->json(['error' => 'Failed to fetch shop data from Shopify API'], $response['status'] >= 400 ? $response['status'] : 502);
+            }
+
+            // $response['body'] should be the ResponseAccess object
+            $body = $response['body'];
+
+            // Check if 'shop' key exists within the ResponseAccess object/container
+            // ResponseAccess implements ArrayAccess, so this should work
+            if (isset($body['shop'])) {
+                $shopApi = $body['shop']; // Access 'shop' key from the body
+
+                // Log the successful retrieval
+                Log::info("Shop {$domain}'s user object:" . json_encode($shop)); // Log the Auth::user() object
+                Log::info("Shop {$domain}'s API response data:" . json_encode($shopApi)); // Log the extracted shop data
+
+                // You can now use $shopApi
+                // Example: return the shop data
+                // return response()->json(['shop_data' => $shopApi]);
+
+            } else {
+                // Handle the case where 'shop' key is not in the response body
+                Log::warning("Shopify API response body missing 'shop' key for domain: {$domain}", ['response' => $response]);
+                return response()->json(['error' => 'Invalid response structure from Shopify API (missing shop data)'], 502);
+            }
+        }
+        catch (\Exception $e) {
+            // Catch potential exceptions during the API call
+            // Log::error("Exception fetching Shopify shop data for {$domain}: " . $e->getMessage());
+            return response()->json(['error' => 'An error occurred while communicating with Shopify'], 500);
+        }
+        // $shopApi = $shop->api()->rest('GET', '/admin/shop.json')['body']['shop'];
 
         // dd($shopApi);
 
-        Log::info("Shop {$domain}'s object:" . json_encode($shop));
-        Log::info("Shop {$domain}'s API object:" . json_encode($shopApi));
+        // Log::info("Shop {$domain}'s object:" . json_encode($shop));
+        // Log::info("Shop {$domain}'s API object:" . json_encode($shopApi));
 
         // $html = $this->getProductsList();
 
