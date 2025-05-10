@@ -445,6 +445,7 @@ else {
 
     //window.location.href = href + "?location=" + strLocation;
     //window.location.replace(href + "?location=" + strLocation);
+    sessionStorage.setItem("location", localStorage.getItem("location"));
     location.replace(href + "?location=" + localStorage.getItem("location"));
   });
 
