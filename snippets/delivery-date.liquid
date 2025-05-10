@@ -38,10 +38,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
     const buttonPreOrder = document.querySelector('.preorderbtn');
-    if (localStorage.getItem("location") != null && sessionStorage.getItem("location") == null) {
-      sessionStorage.setItem("location", localStorage.getItem("location"));
+    // if (localStorage.getItem("location") != null && sessionStorage.getItem("location") == null) {
+    //   sessionStorage.setItem("location", localStorage.getItem("location"));
+    // }
+    // const strLocation = sessionStorage.getItem("location") || "";
+
+    // --- Start of the refined location handling logic ---
+
+    let determinedLocation = null;
+
+    // 1. Try to get from localStorage
+    const lsLocation = localStorage.getItem("location");
+    if (lsLocation && lsLocation.trim() !== "") {
+        determinedLocation = lsLocation.trim();
+        // Ensure sessionStorage is also set if localStorage had it
+        if (sessionStorage.getItem("location") !== determinedLocation) {
+            sessionStorage.setItem("location", determinedLocation);
+            console.log("Location: Set from localStorage to sessionStorage:", determinedLocation);
+        }
     }
-    const strLocation = sessionStorage.getItem("location") || "";
+
+    // 2. If not in localStorage, try to get from sessionStorage (or if localStorage was different, sessionStorage now holds it)
+    if (!determinedLocation) {
+        const ssLocation = sessionStorage.getItem("location");
+        if (ssLocation && ssLocation.trim() !== "") {
+            determinedLocation = ssLocation.trim();
+            console.log("Location: Found in sessionStorage:", determinedLocation);
+        }
+    }
+
+    // 3. If not in localStorage or sessionStorage, try to get from URL parameters
+    if (!determinedLocation) {
+        const queryParams = new URLSearchParams(window.location.search);
+        const urlLocation = queryParams.get('location');
+        if (urlLocation && urlLocation.trim() !== "") {
+            determinedLocation = urlLocation.trim();
+            // Set it in sessionStorage for future use within the session
+            sessionStorage.setItem("location", determinedLocation);
+            console.log("Location: Set from URL param to sessionStorage:", determinedLocation);
+            // Optionally, if you want to persist it beyond the session via URL:
+            // localStorage.setItem("location", determinedLocation);
+        }
+    }
+
+    // At this point, determinedLocation holds the best guess for location, or null
+
+    // Final check and assignment to strLocation for existing code compatibility
+    const strLocation = determinedLocation || "";
 
     $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
     
