@@ -1,0 +1,22 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "5f7e03bd03e092b7fa86eef4e66b202d"
+name = "Dev Sushi Catering"
+handle = "dev-sushi-catering"
+application_url = "https://dev.sushi.catering/"
+embedded = true
+
+[build]
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2024-01"
+
+[auth]
+redirect_urls = [
+  "https://dev.sushi.catering/authenticate",
+  "https://laravelshopifypartnerapp.test/authenticate"
+]
+
+[pos]
+embedded = false
