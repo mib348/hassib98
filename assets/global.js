@@ -21,6 +21,37 @@ if (localStorage.getItem("uuid") == null) {
 // }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Track critical pages and clear cart when navigating away
+    var criticalPaths = ["/pages/order-menue", "/cart"];
+    if (criticalPaths.indexOf(window.location.pathname) !== -1) {
+        sessionStorage.setItem("onCriticalPage", "1");
+        // Clear cart on page unload with sendBeacon or fallback
+        var clearCartBeacon = function() {
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
+            } else {
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
+                xhr.send();
+            }
+        };
+        window.addEventListener("pagehide", clearCartBeacon);
+        window.addEventListener("beforeunload", clearCartBeacon);
+    } else if (sessionStorage.getItem("onCriticalPage") === "1") {
+        sessionStorage.removeItem("onCriticalPage");
+        // Clear cart via AJAX
+        $.ajax({
+            type: "POST",
+            url: window.Shopify.routes.root + "cart/clear.js",
+            dataType: "json",
+            success: function(response) {
+                console.log("Cart cleared after navigating away from critical page");
+            },
+            error: function(xhr, status, error) {
+                console.log("Cart clear error:", error);
+            }
+        });
+    }
     if (window.location.pathname === "/pages/order-menue") {
         history.pushState(null, null, window.location.href); // Push current state to history
 
