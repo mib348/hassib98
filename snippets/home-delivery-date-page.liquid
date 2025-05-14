@@ -695,11 +695,13 @@ window.onload = function() {
         
         // Allow editing saved zip code - just make it editable on click
         $(document).on("click", ".zip_code_field", function() {
-            if ($(this).hasClass("disabled")) {
-                $(this).removeClass("disabled");
-                $(this).attr("readonly", false);
-                // Don't show save button yet, only when value changes
-                originalValue = $(this).val();
+            const $this = $(this); // Cache jQuery object
+            if ($this.hasClass("disabled")) {
+                $this.removeClass("disabled");
+                $this.attr("readonly", false);
+                // Explicitly focus the input field to help trigger the keyboard on mobile
+                $this.focus();
+                originalValue = $this.val(); // Update originalValue after making it editable
             }
         });
         
