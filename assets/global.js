@@ -20,64 +20,126 @@ if (localStorage.getItem("uuid") == null) {
 // }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Track critical pages and clear cart only when navigating to non-critical pages
-    var criticalPaths = ["/pages/order-menue", "/cart"];
-    var currentPath = window.location.pathname;
+    console.log('[Cart Manager] Page loaded:', window.location.pathname);
     
-    // Check if we're on a critical page
-    if (criticalPaths.indexOf(currentPath) !== -1) {
-        // Store current critical page in session
-        sessionStorage.setItem("previousCriticalPage", currentPath);
+    // Define critical paths that need cart preservation
+    const CRITICAL_PATHS = ['/pages/order-menue', '/cart', '/checkout'];
+    const currentPath = window.location.pathname;
+    
+    // Simple helper to check if a path is critical
+    const isPathCritical = (path) => {
+        const isCritical = CRITICAL_PATHS.includes(path);
+        console.log('[Cart Manager] Checking if path is critical:', path, isCritical);
+        return isCritical;
+    };
+
+    // Simple helper to clear cart
+    const clearCart = () => {
+        console.log('[Cart Manager] Clearing cart...');
+        return $.ajax({
+            type: "POST",
+            url: window.Shopify.routes.root + "cart/clear.js",
+            dataType: "json"
+        }).then(() => {
+            console.log('[Cart Manager] Cart cleared successfully');
+        }).catch(error => {
+            console.error('[Cart Manager] Failed to clear cart:', error);
+        });
+    };
+
+    // Handle navigation between pages
+    if (isPathCritical(currentPath)) {
+        console.log('[Cart Manager] On critical path, setting up navigation handlers');
         
-        // Setup handlers for when user leaves the page
-        var clearCartBeacon = function() {
-            // Get the new URL if it's available (might not be in all browsers)
-            var nextPageUrl = '';
-            if (document.activeElement && document.activeElement.href) {
-                nextPageUrl = document.activeElement.href;
-            }
-            
-            // Don't clear if navigating to another critical page
-            var isNavigatingToCriticalPage = false;
-            if (nextPageUrl) {
-                var urlObj = new URL(nextPageUrl);
-                isNavigatingToCriticalPage = criticalPaths.indexOf(urlObj.pathname) !== -1;
-            }
-            
-            if (!isNavigatingToCriticalPage) {
-                // Clear cart via beacon or XHR
-                if (navigator.sendBeacon) {
-                    navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
+        // Single handler for both unload events
+        const handleNavigation = (event) => {
+            // Get target URL if available
+            const targetUrl = document.activeElement?.href;
+            if (targetUrl) {
+                const targetPath = new URL(targetUrl).pathname;
+                console.log('[Cart Manager] Navigation detected. Target:', targetPath);
+                
+                // Only clear if navigating to non-critical path
+                if (!isPathCritical(targetPath)) {
+                    console.log('[Cart Manager] Navigating to non-critical path, clearing cart');
+                    // Use sendBeacon for more reliable delivery during page unload
+                    if (navigator.sendBeacon) {
+                        navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
+                        console.log('[Cart Manager] Cart clear request sent via beacon');
+                    } else {
+                        // Fallback to sync XHR
+                        const xhr = new XMLHttpRequest();
+                        xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
+                        xhr.send();
+                        console.log('[Cart Manager] Cart clear request sent via sync XHR');
+                    }
                 } else {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
-                    xhr.send();
+                    console.log('[Cart Manager] Navigating to critical path, preserving cart');
                 }
-                sessionStorage.removeItem("previousCriticalPage");
             }
         };
-        
-        window.addEventListener("pagehide", clearCartBeacon);
-        window.addEventListener("beforeunload", clearCartBeacon);
-    } else {
-        // We're on a non-critical page - check if we came from a critical page
-        var previousPage = sessionStorage.getItem("previousCriticalPage");
-        if (previousPage) {
-            sessionStorage.removeItem("previousCriticalPage");
-            // Clear cart via AJAX since we navigated away from a critical page
-            $.ajax({
-                type: "POST",
-                url: window.Shopify.routes.root + "cart/clear.js",
-                dataType: "json",
-                success: function(response) {
-                    console.log("Cart cleared after navigating away from critical page");
-                },
-                error: function(xhr, status, error) {
-                    console.log("Cart clear error:", error);
-                }
-            });
-        }
+
+        window.addEventListener('pagehide', handleNavigation);
+        window.addEventListener('beforeunload', handleNavigation);
+        console.log('[Cart Manager] Navigation handlers attached');
     }
+
+    // Handle checkout button click
+    $(document).on("click", "#checkout", function(e) {
+        console.log('[Cart Manager] Checkout button clicked');
+        e.preventDefault();
+        
+        // Validate cart before proceeding
+        $.ajax({
+            type: "GET",
+            url: window.Shopify.routes.root + "cart.js",
+            dataType: "json",
+            success: function(cart) {
+                console.log('[Cart Manager] Cart validation started');
+                
+                // Check delivery minimum if applicable
+                if (sessionStorage.getItem("location") === "Delivery") {
+                    const currentTotal = $(".totals__total-value").html();
+                    if (comparePrices(min_order_limit, currentTotal)) {
+                        console.log('[Cart Manager] Delivery minimum not met');
+                        alert('Die Mindestlieferbestellmenge sollte betragen: €' + min_order_limit + ' EUR');
+                        return;
+                    }
+                }
+                
+                // Validate all items have same date
+                const dates = cart.items.map(item => item.properties.date);
+                const allSameDate = dates.every(date => date === dates[0]);
+                if (!dates.length || !allSameDate) {
+                    console.log('[Cart Manager] Date validation failed:', dates);
+                    alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
+                    return;
+                }
+
+                // Check agreements
+                if (sessionStorage.getItem("location") !== "Delivery" && !$('#incorrent_item_agree').is(':checked')) {
+                    console.log('[Cart Manager] Item agreement not checked');
+                    alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
+                    return;
+                }
+
+                if (!$('#agree').is(':checked')) {
+                    console.log('[Cart Manager] Terms agreement not checked');
+                    alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
+                    return;
+                }
+
+                // All validations passed, proceed to checkout
+                console.log('[Cart Manager] All validations passed, proceeding to checkout');
+                window.location.href = "/checkout";
+            },
+            error: function(error) {
+                console.error('[Cart Manager] Failed to validate cart:', error);
+                alert('Es gab einen Fehler bei der Überprüfung Ihres Warenkorbs. Bitte versuchen Sie es erneut.');
+            }
+        });
+    });
+
     if (window.location.pathname === "/pages/order-menue") {
         // $(".order_qty").find("input").attr("max", 99);
         // $(".qty_portion").hide();
@@ -537,170 +599,6 @@ else {
       // };
   }
   
-    $(document).on("click", "#checkout", function (e) {
-        e.preventDefault();
-        var el = $(this);
-        var b_allowed = true;
-        let order_price = 0;
-
-        $.ajax({
-          type: "GET",
-          url: window.Shopify.routes.root + "cart.js",
-          dataType: "json",
-          success: function (response) {
-
-            if(sessionStorage.getItem("location") == "Delivery"){
-                // const minOrderLimit = "4,96";
-                const currentTotal = $(".totals__total-value").html();
-    
-                //on home delivery the order amount must be bigger than x otherwise error must be thrown. i want to be able to choose x in the admin unter location delivery. can you please add this feature? you must check in cart if orderamount is big enough to enter checkout please.
-                const result = comparePrices(min_order_limit, currentTotal);
-                if (result == true) {
-                    alert('Die Mindestlieferbestellmenge sollte betragen: €' + min_order_limit + ' EUR');
-                    return false;
-                }
-            }
-                
-            var dateArray = [];
-            // console.log(response);
-            $.each(response.items, function (index, product) {
-                dateArray.push(product.properties.date);
-                var stored_qty = parseInt(product.properties.max_quantity, 10);
-              
-                if(sessionStorage.getItem("location") == "Delivery"){
-                  stored_qty = 99;
-                  // order_price += product.quantity;
-                }
-              
-                if (product.quantity >= stored_qty) {
-                    $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').attr('disabled', true);
-                    $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest('button[name="plus"]').prop('disabled', true);
-                }
-                if (product.quantity > stored_qty) {
-                  b_allowed = false;
-                  if (!$( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ).closest(".cart-item__quantity").find("small.lowstock").length) {
-                    $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ) .closest(".cart-item__quantity") .append( '<small class="lowstock" style="color:red;">Es sind nur ' + stored_qty + " Artikel verfügbar</small>" );
-
-                    var elementTop = $( 'input.quantity__input[data-quantity-variant-id="' + product.id + '"]' ).closest(".cart-item__quantity").offset().top;
-                    window.scrollTo({
-                        top: elementTop - 150,
-                        behavior: "smooth"
-                    });
-                  }
-                }
-            });
-    
-            // Checking for all items having the same date
-            var allSameDate = dateArray.every((val, i, arr) => val === arr[0]);
-    
-            //console.log(dateArray);
-    
-            if (!allSameDate) {
-              alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
-              b_allowed = false;
-            }
-
-            if(sessionStorage.getItem("location") != "Delivery"){
-                // $(".incorrent_item_agree_cb_portion").hide();
-                if (!$('#incorrent_item_agree').is(':checked')) {
-                  alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
-                  b_allowed = false;
-                }
-            }
-            // else{
-            //    if(min_order_limit > 0 && order_price < min_order_limit){
-            //      alert('Die Mindestlieferbestellmenge sollte betragen: ' + min_order_limit);
-            //      b_allowed = false;
-            //      return false;
-            //    }
-            // }
-    
-            if (!$('#agree').is(':checked')) {
-              alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
-              b_allowed = false;
-              return false;
-            }
-    
-            // if (!$('#third_party').is(':checked')) {
-            //   alert("Um zur Kasse zu gehen, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen.");
-            //   b_allowed = false;
-            // }
-
-            if(sessionStorage.getItem("location") == "Delivery"){
-              b_allowed = false;
-              window.location.href = "/checkout";              
-            }
-
-            
-
-    // console.log(b_allowed);
-              if (b_allowed){
-                  let items = response.items;
-                  //check product available quantity
-                  $.ajax({
-                        type: "POST",
-                        url: "https://dev.sushi.catering/api/checkCartProductsQty",
-                        async: false,
-                        cache: false,
-                        data: {
-                            items: JSON.stringify(response.items)
-                        },
-                        dataType: "json",
-                        success: function(response) {                    
-                            // Check if any product quantity is zero
-                            var products = response;
-                            var allProductsAvailable = true;
-                            for (var i = 0; i < products.length; i++) {
-                                if (products[i].qty == 0) {
-                                    alert(products[i].name + ' ist Ausverkauft');
-                                    // Check if the message has already been appended
-                                    if (!$( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").find("small.soldout").length) {
-                                        $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ) .closest(".cart-item__quantity") .append( '<small class="soldout" style="color:red;">Ausverkauft</small>' );
-                                    }
-                                    allProductsAvailable = false;
-
-                                    var elementTop = $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").offset().top;
-                                    window.scrollTo({
-                                        top: elementTop - 150,
-                                        behavior: "smooth"
-                                    });
-                                }
-                                else if (products[i].qty < items[i].quantity) {
-                                    alert('Für ' + products[i].name + ' sind nur noch ' + products[i].qty + ' Artikel übrig');
-                                    if (!$( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").find("small.soldout").length) {
-                                        $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ) .closest(".cart-item__quantity") .append( '<small class="soldout" style="color:red;">' + products[i].qty + ' Produkte verfügbar</small>' );
-                                    }
-                                    allProductsAvailable = false;
-
-                                    var elementTop = $( 'input.quantity__input[data-quantity-variant-id="' + products[i].variant_id + '"]' ).closest(".cart-item__quantity").offset().top;
-                                    window.scrollTo({
-                                        top: elementTop - 150,
-                                        behavior: "smooth"
-                                    });
-                                }
-                            }
-                    
-                            // Block further execution if any product quantity is zero
-                            if (!allProductsAvailable) {
-                                console.log("Some product quantities are zero. Further execution blocked.");
-                                return;
-                            }
-
-                            console.log(allProductsAvailable);
-                    
-                            window.location.href = "/checkout";
-                        },
-                        error: function() {
-                            console.log('Cart quantity fetch error');
-                        }
-                    });
-                    
-
-              } 
-          }
-        });
-    });
-    
 
 }
 
