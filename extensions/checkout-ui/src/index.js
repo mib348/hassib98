@@ -46,6 +46,52 @@ function AppLogic(root, api, targetName, components) {
   console.log(`[Checkout UI Ext - ${targetName}] API settings:`, api.settings);
   console.log(`[Checkout UI Ext - ${targetName}] API app context:`, api.app);
   console.log(`[Checkout UI Ext - ${targetName}] Root object (raw):`, root);
+  
+  // Detect mobile devices through user agent when viewport API is unavailable
+  function isMobileDevice() {
+    try {
+      // Ensure navigator is available before trying to access userAgent
+      if (typeof navigator !== 'undefined' && navigator.userAgent) {
+        const userAgent = navigator.userAgent || navigator.vendor || (typeof window !== 'undefined' ? window.opera : '');
+        console.log(`[Checkout UI Ext - ${targetName}] User agent: ${userAgent}`);
+        
+        // Check for common mobile device indicators in user agent
+        const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
+        const isMobile = mobileRegex.test(userAgent);
+        console.log(`[Checkout UI Ext - ${targetName}] isMobile from user agent: ${isMobile}`);
+        return isMobile;
+      } else {
+        console.warn(`[Checkout UI Ext - ${targetName}] Navigator or userAgent not available for device detection.`);
+        return false; // Default to not mobile if navigator is unavailable
+      }
+    } catch (error) {
+      console.error(`[Checkout UI Ext - ${targetName}] Error in isMobileDevice detection:`, error);
+      return false; // Default to not mobile in case of any error
+    }
+  }
+
+  // Store mobile detection result
+  const isMobile = isMobileDevice();
+  console.log(`[Checkout UI Ext - ${targetName}] Is mobile device: ${isMobile}`);
+  
+  // Check for viewport API specifically
+  if (api.viewport) {
+    console.log(`[Checkout UI Ext - ${targetName}] Viewport API is available`);
+    console.log(`[Checkout UI Ext - ${targetName}] Viewport API type:`, typeof api.viewport);
+    console.log(`[Checkout UI Ext - ${targetName}] Viewport API keys:`, Object.keys(api.viewport));
+    
+    if (api.viewport.current) {
+      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT is available`);
+      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT type:`, typeof api.viewport.current);
+      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT keys:`, Object.keys(api.viewport.current));
+      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT width:`, api.viewport.current.width);
+      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT isSmall:`, api.viewport.current.isSmall);
+    } else {
+      console.warn(`[Checkout UI Ext - ${targetName}] Viewport CURRENT is NOT available`);
+    }
+  } else {
+    console.warn(`[Checkout UI Ext - ${targetName}] Viewport API is NOT available`);
+  }
 
   if (root && typeof root === 'object') {
     const rootKeys = Object.keys(root);
@@ -123,36 +169,53 @@ function AppLogic(root, api, targetName, components) {
 
   // --- Viewport State & Subscription ---
   function classifyViewport(viewport) {
-    // Always default to 'large' layout unless explicitly a very small screen
-    // Previous logic was too aggressive in classifying as 'small'
-    if (viewport.isSmall && viewport.width < 640) return 'small';
+    console.log(`[Checkout UI Ext - ${targetName}] Classifying viewport:`, JSON.stringify(viewport));
+    
+    // More aggressive mobile detection - better to show mobile layout on smaller devices
+    if (viewport.isSmall || (viewport.width && viewport.width < 768)) {
+      console.log(`[Checkout UI Ext - ${targetName}] Viewport classified as 'small' (mobile) - width: ${viewport.width}, isSmall: ${viewport.isSmall}`);
+      return 'small';
+    }
+    console.log(`[Checkout UI Ext - ${targetName}] Viewport classified as 'large' (desktop) - width: ${viewport.width}, isSmall: ${viewport.isSmall}`);
     return 'large';
   }
   
-  let currentViewportSize = 'large'; 
+  // Default to 'large' since we're targeting desktop primarily
+  let currentViewportSize = 'large';
+  let hasViewportAPI = false;
 
-  if (api.viewport && api.viewport.current) {
-    console.log(`[Checkout UI Ext - ${targetName}] Raw api.viewport.current:`, JSON.parse(JSON.stringify(api.viewport.current))); // Log raw viewport data
-    currentViewportSize = classifyViewport(api.viewport.current);
-    console.log(`[Checkout UI Ext - ${targetName}] Initial viewport size from api.viewport.current: ${currentViewportSize}`);
-  } else {
-    console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.current not available at initialization. Defaulting viewport size to "large".`);
-  }
+  if (api.viewport) {
+    hasViewportAPI = true;
+    if (api.viewport.current) {
+      console.log(`[Checkout UI Ext - ${targetName}] Raw api.viewport.current:`, JSON.parse(JSON.stringify(api.viewport.current)));
+      currentViewportSize = classifyViewport(api.viewport.current);
+      console.log(`[Checkout UI Ext - ${targetName}] Initial viewport size from api.viewport.current: ${currentViewportSize}`);
+    } else {
+      console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.current not available at initialization. Defaulting viewport size to "large".`);
+    }
 
-  if (api.viewport && typeof api.viewport.subscribe === 'function') {
-    api.viewport.subscribe((newViewport) => {
-      const newSizeClass = classifyViewport(newViewport);
-      if (newSizeClass !== currentViewportSize) {
-        console.log(`[Checkout UI Ext - ${targetName}] Viewport changed from ${currentViewportSize} to ${newSizeClass}`);
-        currentViewportSize = newSizeClass;
-        if (!isLoading || (isLoading && !showError)) {
-           console.log(`[Checkout UI Ext - ${targetName}] Re-rendering due to viewport change.`);
-           renderApp();
+    if (typeof api.viewport.subscribe === 'function') {
+      console.log(`[Checkout UI Ext - ${targetName}] Setting up viewport subscription`);
+      api.viewport.subscribe((newViewport) => {
+        console.log(`[Checkout UI Ext - ${targetName}] Viewport changed:`, JSON.stringify(newViewport));
+        const newSizeClass = classifyViewport(newViewport);
+        if (newSizeClass !== currentViewportSize) {
+          console.log(`[Checkout UI Ext - ${targetName}] Viewport size class changed from ${currentViewportSize} to ${newSizeClass}`);
+          currentViewportSize = newSizeClass;
+          if (!isLoading || (isLoading && !showError)) {
+             console.log(`[Checkout UI Ext - ${targetName}] Re-rendering due to viewport change.`);
+             renderApp();
+          }
+        } else {
+          console.log(`[Checkout UI Ext - ${targetName}] Viewport changed but size class remains ${currentViewportSize}`);
         }
-      }
-    });
+      });
+    } else {
+      console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.subscribe is not available. Viewport changes will not trigger re-renders.`);
+    }
   } else {
-    console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.subscribe is not available. Viewport changes will not trigger re-renders.`);
+    console.warn(`[Checkout UI Ext - ${targetName}] Viewport API is NOT available. Using fixed layout.`);
+    hasViewportAPI = false;
   }
 
   function initializeAndFetch() {
@@ -267,6 +330,18 @@ function AppLogic(root, api, targetName, components) {
   function renderApp() {
     console.log(`[Checkout UI Ext - ${targetName}] renderApp CALLED. isLoading: ${isLoading}, showError: ${showError}`);
 
+    // Special handling for customer account extension (order status page)
+    if (targetName === "customer-account.order-status.block.render" && !hasViewportAPI) {
+      // When viewport API is not available, use our user agent detection
+      if (isMobile) {
+        console.log(`[Checkout UI Ext - ${targetName}] Customer account context on MOBILE device detected without viewport API, using mobile layout.`);
+        currentViewportSize = 'small';
+      } else {
+        console.log(`[Checkout UI Ext - ${targetName}] Customer account context on DESKTOP device detected without viewport API, using desktop layout.`);
+        currentViewportSize = 'large';
+      }
+    }
+
     if (!root || typeof root.appendChild !== 'function') {
         console.error(`[Checkout UI Ext - ${targetName}] CRITICAL: root object is not available or does not support appendChild. Cannot render UI.`);
         if (typeof Text !== 'undefined') {
@@ -335,6 +410,8 @@ function AppLogic(root, api, targetName, components) {
       if (arrLocation?.name !== 'Delivery' && stationFlag !== 'Y') {
         if (orderNumber) {
           // Container with QR code and text
+          console.log(`[Checkout UI Ext - ${targetName}] Rendering QR code section. Current viewport size: ${currentViewportSize}, hasViewportAPI: ${hasViewportAPI}`);
+          
           appContainer.appendChild(
             root.createComponent(
               BlockStack, 
@@ -346,80 +423,152 @@ function AppLogic(root, api, targetName, components) {
                 background: 'surface'  // White background
               },
               [
-                // Use InlineLayout for precise column control
-                root.createComponent(
-                  InlineLayout,
-                  {
-                    spacing: 'loose',
-                    columns: ['40%', '60%'],  // QR code takes 40%, text takes 60%
-                    blockAlignment: 'start'
-                  },
-                  [
-                    // QR Code (left column)
-                    root.createComponent(
-                      QRCode,
-                      {
-                        content: orderNumber.toString(),
-                        size: 'large',
-                        accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
-                      }
-                    ),
-                    
-                    // Text content (right column) using TextBlock for multiline text
-                    root.createComponent(
-                      BlockStack,
-                      {
-                        spacing: 'tight'
-                      },
-                      [
-                        root.createComponent(
-                          TextBlock,
-                          { 
-                            size: 'medium',
-                            inlineAlignment: 'start' // Right-aligned text
-                          },
-                          'Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.'
-                        ),
-                        root.createComponent(
-                          TextBlock,
-                          { 
-                            size: 'medium',
-                            inlineAlignment: 'start' // Right-aligned text
-                          },
-                          'Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.'
-                        ),
-                        root.createComponent(
-                          TextBlock,
-                          { 
-                            size: 'medium',
-                            inlineAlignment: 'start' // Right-aligned text
-                          },
-                          [
-                            'Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.',
-                          ]
-                        ),
-                        root.createComponent(
-                          TextBlock,
-                          { 
-                            size: 'medium',
-                            inlineAlignment: 'start' // Right-aligned text
-                          },
-                          [
-                            'Fragen und Antworten rund um deine Bestellung findest du ',
-                            root.createComponent(
-                              Link,
-                              {
-                                to: 'https://sushi.catering/pages/faq',
-                                external: true
-                              },
-                              'hier'
-                            ),
-                            '.'
-                          ]
-                        )
-                      ]
-                    )
-                  ]
+                // Choose layout based on viewport API availability and size
+                ((hasViewportAPI && currentViewportSize === 'small') || (!hasViewportAPI && currentViewportSize === 'small'))
+                ? (
+                  // Mobile layout (stacked)
+                  console.log(`[Checkout UI Ext - ${targetName}] Using MOBILE layout for QR code`),
+                  root.createComponent(
+                    BlockStack,
+                    {
+                      spacing: 'loose'
+                    },
+                    [
+                      // QR Code centered and full width
+                      root.createComponent(
+                        BlockStack,
+                        {
+                          inlineAlignment: 'center',
+                          padding: ['base', 'none', 'base', 'none'],
+                          maxInlineSize: '100%'
+                        },
+                        [
+                          root.createComponent(
+                            View,
+                            {
+                              padding: 'base',
+                              background: 'surface'
+                            },
+                            [
+                              root.createComponent(
+                                QRCode,
+                                {
+                                  content: orderNumber.toString(),
+                                  size: 'extraLarge',
+                                  accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
+                                }
+                              )
+                            ]
+                          )
+                        ]
+                      ),
+                      
+                      // Text content below QR code
+                      root.createComponent(
+                        BlockStack,
+                        {
+                          spacing: 'tight'
+                        },
+                        [
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            'Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.'
+                          ),
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            'Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.'
+                          ),
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            'Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.'
+                          ),
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            [
+                              'Fragen und Antworten rund um deine Bestellung findest du ',
+                              root.createComponent(
+                                Link,
+                                {
+                                  to: 'https://sushi.catering/pages/faq',
+                                  external: true
+                                },
+                                'hier'
+                              ),
+                              '.'
+                            ]
+                          )
+                        ]
+                      )
+                    ]
+                  )
+                )
+                : // Desktop layout (side-by-side)
+                (
+                  console.log(`[Checkout UI Ext - ${targetName}] Using DESKTOP layout for QR code`),
+                  root.createComponent(
+                    InlineLayout,
+                    {
+                      spacing: 'loose',
+                      columns: ['40%', '60%'],  // QR code takes 40%, text takes 60%
+                      blockAlignment: 'start'
+                    },
+                    [
+                      // QR Code (left column)
+                      root.createComponent(
+                        QRCode,
+                        {
+                          content: orderNumber.toString(),
+                          size: 'large',
+                          accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
+                        }
+                      ),
+                      
+                      // Text content (right column)
+                      root.createComponent(
+                        BlockStack,
+                        {
+                          spacing: 'tight'
+                        },
+                        [
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            'Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.'
+                          ),
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            'Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.'
+                          ),
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            'Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.'
+                          ),
+                          root.createComponent(
+                            TextBlock,
+                            { size: 'medium', inlineAlignment: 'start' },
+                            [
+                              'Fragen und Antworten rund um deine Bestellung findest du ',
+                              root.createComponent(
+                                Link,
+                                {
+                                  to: 'https://sushi.catering/pages/faq',
+                                  external: true
+                                },
+                                'hier'
+                              ),
+                              '.'
+                            ]
+                          )
+                        ]
+                      )
+                    ]
+                  )
                 )
               ]
             )
