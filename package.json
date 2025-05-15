@@ -10,7 +10,10 @@
     "generate": "shopify app generate",
     "deploy": "shopify app deploy"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@shopify/checkout-ui-extensions": "^0.27.3",
+    "qrcode": "^1.5.4"
+  },
   "trustedDependencies": [
     "@shopify/plugin-cloudflare"
   ],

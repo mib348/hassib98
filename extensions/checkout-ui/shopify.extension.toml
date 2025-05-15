@@ -5,29 +5,38 @@
 # https://shopify.dev/docs/api/usage/versioning
 api_version = "2025-04"
 
+# Top-level capabilities (should apply to all extensions unless overridden)
+[capabilities]
+api_access = true
+network_access = true
+
 [[extensions]]
-name = "checkout-ui"
-handle = "checkout-ui"
+name = "checkout-ui-thank-you"
+handle = "checkout-ui-thank-you"
 type = "ui_extension"
-
-
-# Controls where in Shopify your extension will be injected,
-# and the file that contains your extension’s source code. Learn more:
-# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/extension-targets-overview
+# Capabilities for thank-you extension (inherits from top-level if not specified here)
+# If specific overrides were needed, they would go here like:
+# [extensions.capabilities]
+# network_access = true 
 
 [[extensions.targeting]]
-module = "./src/Checkout.js"
-target = "purchase.checkout.block.render"
+module = "./src/index.js"
+target = "purchase.thank-you.block.render"
+export = "thankYouExtension"
 
-[extensions.capabilities]
-# Gives your extension access to directly query Shopify’s storefront API.
-# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#api-access
-api_access = true
+[[extensions]]
+name = "checkout-ui-order-status"
+handle = "checkout-ui-order-status"
+type = "ui_extension"
+# Explicitly define capabilities for the order-status extension
+[extensions.capabilities] # This defines capabilities specifically for this [[extensions]] block
+api_access = true       # Keeping api_access as well, though network_access is the one from error
+network_access = true
 
-# Gives your extension access to make external network calls, using the
-# JavaScript `fetch()` API. Learn more:
-# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#network-access
-# network_access = true
+[[extensions.targeting]]
+module = "./src/index.js"
+target = "customer-account.order-status.block.render"
+export = "orderStatusExtension"
 
 # Loads metafields on checkout resources, including the cart,
 # products, customers, and more. Learn more:
