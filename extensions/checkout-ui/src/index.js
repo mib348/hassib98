@@ -181,37 +181,37 @@ function AppLogic(root, api, targetName, components) {
   }
   
   // Default to 'large' since we're targeting desktop primarily
-  let currentViewportSize = 'large';
+  let currentViewportSize = 'large'; 
   let hasViewportAPI = false;
 
   if (api.viewport) {
     hasViewportAPI = true;
     if (api.viewport.current) {
       console.log(`[Checkout UI Ext - ${targetName}] Raw api.viewport.current:`, JSON.parse(JSON.stringify(api.viewport.current)));
-      currentViewportSize = classifyViewport(api.viewport.current);
-      console.log(`[Checkout UI Ext - ${targetName}] Initial viewport size from api.viewport.current: ${currentViewportSize}`);
-    } else {
-      console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.current not available at initialization. Defaulting viewport size to "large".`);
-    }
+    currentViewportSize = classifyViewport(api.viewport.current);
+    console.log(`[Checkout UI Ext - ${targetName}] Initial viewport size from api.viewport.current: ${currentViewportSize}`);
+  } else {
+    console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.current not available at initialization. Defaulting viewport size to "large".`);
+  }
 
     if (typeof api.viewport.subscribe === 'function') {
       console.log(`[Checkout UI Ext - ${targetName}] Setting up viewport subscription`);
-      api.viewport.subscribe((newViewport) => {
+    api.viewport.subscribe((newViewport) => {
         console.log(`[Checkout UI Ext - ${targetName}] Viewport changed:`, JSON.stringify(newViewport));
-        const newSizeClass = classifyViewport(newViewport);
-        if (newSizeClass !== currentViewportSize) {
+      const newSizeClass = classifyViewport(newViewport);
+      if (newSizeClass !== currentViewportSize) {
           console.log(`[Checkout UI Ext - ${targetName}] Viewport size class changed from ${currentViewportSize} to ${newSizeClass}`);
-          currentViewportSize = newSizeClass;
-          if (!isLoading || (isLoading && !showError)) {
-             console.log(`[Checkout UI Ext - ${targetName}] Re-rendering due to viewport change.`);
-             renderApp();
-          }
+        currentViewportSize = newSizeClass;
+        if (!isLoading || (isLoading && !showError)) {
+           console.log(`[Checkout UI Ext - ${targetName}] Re-rendering due to viewport change.`);
+           renderApp();
+        }
         } else {
           console.log(`[Checkout UI Ext - ${targetName}] Viewport changed but size class remains ${currentViewportSize}`);
-        }
-      });
-    } else {
-      console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.subscribe is not available. Viewport changes will not trigger re-renders.`);
+      }
+    });
+  } else {
+    console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.subscribe is not available. Viewport changes will not trigger re-renders.`);
     }
   } else {
     console.warn(`[Checkout UI Ext - ${targetName}] Viewport API is NOT available. Using fixed layout.`);
@@ -412,62 +412,59 @@ function AppLogic(root, api, targetName, components) {
           // Container with QR code and text
           console.log(`[Checkout UI Ext - ${targetName}] Rendering QR code section. Current viewport size: ${currentViewportSize}, hasViewportAPI: ${hasViewportAPI}`);
           
+          const shouldShowMobileLayout = ((hasViewportAPI && currentViewportSize === 'small') || (!hasViewportAPI && currentViewportSize === 'small'));
+          console.log(`[Checkout UI Ext - ${targetName}] shouldShowMobileLayout determined as: ${shouldShowMobileLayout}`);
+
           appContainer.appendChild(
             root.createComponent(
-              BlockStack, 
+              BlockStack, // This is the outerQRSectionContainer
               {
-                spacing: 'base',
-                padding: 'base',
-                border: 'base',
-                borderRadius: 'base',
+            spacing: 'base',
+                padding: shouldShowMobileLayout ? 'none' : 'base', // Conditional padding
+            border: 'base',
+            borderRadius: 'base',
                 background: 'surface'  // White background
               },
               [
                 // Choose layout based on viewport API availability and size
-                ((hasViewportAPI && currentViewportSize === 'small') || (!hasViewportAPI && currentViewportSize === 'small'))
+                shouldShowMobileLayout
                 ? (
                   // Mobile layout (stacked)
                   console.log(`[Checkout UI Ext - ${targetName}] Using MOBILE layout for QR code`),
                   root.createComponent(
-                    BlockStack,
+                    BlockStack, // mobileMainStack
                     {
                       spacing: 'loose'
                     },
                     [
                       // QR Code centered and full width
                       root.createComponent(
-                        BlockStack,
+                        BlockStack, // mobileQRCodeContainer
                         {
                           inlineAlignment: 'center',
-                          padding: ['base', 'none', 'base', 'none'],
-                          maxInlineSize: '100%'
+                          maxInlineSize: '100%',
+                          background: 'surface',
+                          padding: 'none',
+                          margin: 'none'
                         },
                         [
                           root.createComponent(
-                            View,
+                            QRCode,
                             {
-                              padding: 'base',
-                              background: 'surface'
-                            },
-                            [
-                              root.createComponent(
-                                QRCode,
-                                {
-                                  content: orderNumber.toString(),
-                                  size: 'extraLarge',
-                                  accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
-                                }
-                              )
-                            ]
+                              content: orderNumber.toString(),
+                              size: 'fill',
+                              accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
+                            }
                           )
                         ]
                       ),
                       
                       // Text content below QR code
                       root.createComponent(
-                        BlockStack,
+                        BlockStack, // mobileTextContainer
                         {
-                          spacing: 'tight'
+                          spacing: 'tight',
+                          padding: 'base' // Added padding for mobile text
                         },
                         [
                           root.createComponent(
@@ -521,9 +518,9 @@ function AppLogic(root, api, targetName, components) {
                       root.createComponent(
                         QRCode,
                         {
-                          content: orderNumber.toString(),
+            content: orderNumber.toString(),
                           size: 'large',
-                          accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
+            accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
                         }
                       ),
                       
