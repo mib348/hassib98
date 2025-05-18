@@ -14,10 +14,10 @@ network_access = true
 name = "checkout-ui-thank-you"
 handle = "checkout-ui-thank-you"
 type = "ui_extension"
-# Capabilities for thank-you extension (inherits from top-level if not specified here)
-# If specific overrides were needed, they would go here like:
-# [extensions.capabilities]
-# network_access = true 
+# Explicitly define capabilities for the thank-you extension
+[extensions.capabilities]
+api_access = true
+network_access = true
 
 [[extensions.targeting]]
 module = "./src/index.js"
@@ -29,8 +29,8 @@ name = "checkout-ui-order-status"
 handle = "checkout-ui-order-status"
 type = "ui_extension"
 # Explicitly define capabilities for the order-status extension
-[extensions.capabilities] # This defines capabilities specifically for this [[extensions]] block
-api_access = true       # Keeping api_access as well, though network_access is the one from error
+[extensions.capabilities]
+api_access = true
 network_access = true
 
 [[extensions.targeting]]
