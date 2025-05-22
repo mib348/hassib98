@@ -682,6 +682,8 @@
 
                         video.onloadedmetadata = function(e) {
                             video.play();
+                            // Enable capture button only when camera is active
+                            $('#capture-btn').prop('disabled', false);
                         };
                     })
                     .catch(function(err) {
@@ -710,6 +712,8 @@
 
                                 video.onloadedmetadata = function(e) {
                                     video.play();
+                                    // Enable capture button only when camera is active
+                                    $('#capture-btn').prop('disabled', false);
                                 };
                             })
                             .catch(function(fallbackErr) {
@@ -733,16 +737,24 @@
 
                                         video.onloadedmetadata = function(e) {
                                             video.play();
+                                            // Enable capture button only when camera is active
+                                            $('#capture-btn').prop('disabled', false);
                                         };
                                     })
                                     .catch(function(basicErr) {
                                         $('#submission-message').html('<div class="alert alert-danger">Camera access error. Please allow camera access and try again. Error: ' + basicErr.message + '</div>');
+                                        // Disable both capture and submit buttons if camera access fails
+                                        $('#capture-btn').prop('disabled', true);
+                                        $('#submit-image').prop('disabled', true);
                                     });
                             });
                     });
             } else {
                 console.error('getUserMedia not supported');
                 $('#submission-message').html('<div class="alert alert-danger">Camera access is not supported by your browser or the page is not loaded in a secure context (HTTPS).</div>');
+                // Disable both capture and submit buttons if camera is not supported
+                $('#capture-btn').prop('disabled', true);
+                $('#submit-image').prop('disabled', true);
             }
         }
 
@@ -759,6 +771,13 @@
         // Capture image from camera
         function captureImage() {
             const video = document.getElementById('camera-preview');
+
+            // Check if camera stream exists and is active
+            if (!cameraStream || !cameraStream.active || !video.srcObject) {
+                $('#submission-message').html('<div class="alert alert-danger">Camera not available. Please allow camera access and try again.</div>');
+                return;
+            }
+
             const canvas = document.createElement('canvas');
             const capturedImage = document.getElementById('captured-image');
 
@@ -767,6 +786,12 @@
             const videoHeight = video.videoHeight;
 
             console.log('Video dimensions for capture:', videoWidth, 'x', videoHeight);
+
+            // If video dimensions are zero, camera is not ready
+            if (videoWidth === 0 || videoHeight === 0) {
+                $('#submission-message').html('<div class="alert alert-danger">Camera not ready. Please try again.</div>');
+                return;
+            }
 
             // Set canvas to the native resolution of the video
             canvas.width = videoWidth;
@@ -801,6 +826,12 @@
             // Convert canvas to data URL with maximum quality
             capturedImageData = canvas.toDataURL('image/jpeg', 1.0);
 
+            // Verify that we have valid image data
+            if (!capturedImageData || capturedImageData === 'data:,') {
+                $('#submission-message').html('<div class="alert alert-danger">Failed to capture image. Please try again.</div>');
+                return;
+            }
+
             // Display captured image
             capturedImage.src = capturedImageData;
             capturedImage.style.display = 'block';
@@ -821,7 +852,7 @@
         function resetCameraUI() {
             $('#camera-preview').show();
             $('#captured-image').hide();
-            $('#capture-btn').show();
+            $('#capture-btn').show().prop('disabled', true); // Start with capture button disabled until camera is ready
             $('#retake-btn').hide();
             $('#submit-image').prop('disabled', true).html('<i class="fa-solid fa-paper-plane"></i> <span>Submit</span>');
             $('#submission-message').html('');
@@ -830,8 +861,8 @@
 
         // Submit the captured image
         function submitImage() {
-            if (!capturedImageData) {
-                $('#submission-message').html('<div class="alert alert-danger">No image captured. Please capture an image first.</div>');
+            if (!capturedImageData || capturedImageData === 'data:,') {
+                $('#submission-message').html('<div class="alert alert-danger">No valid image captured. Please capture an image first.</div>');
                 return;
             }
 
