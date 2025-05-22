@@ -1,8 +1,101 @@
 @extends('shopify-app::layouts.default')
 
 @section('styles')
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/fontawesome.min.css" integrity="sha512-v8QQ0YQ3H4K6Ic3PJkym91KoeNT5S3PnDKvqnwqFD1oiqIl653crGZplPdU5KKtHjO0QKcQ2aUlQZYjHczkmGw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/solid.min.css" integrity="sha512-DzC7h7+bDlpXPDQsX/0fShhf1dLxXlHuhPBkBo/5wJWRoTU6YL7moeiNoej6q3wh5ti78C57Tu1JwTNlcgHSjg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <style>
-    .order_counter, .items_counter{cursor: pointer;}
+    .order_counter, .items_counter, .view_images{cursor: pointer;}
+    /* Lightbox styles */
+    .lightbox {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.9);
+        touch-action: none;
+    }
+    .lightbox-container {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        width: 100%;
+        padding: 20px 0;
+    }
+    .lightbox-content {
+        display: block;
+        width: 95%;
+        max-height: 80vh;
+        object-fit: contain;
+        margin: 0 auto;
+    }
+    .lightbox-caption {
+        color: white;
+        padding: 10px;
+        text-align: center;
+        width: 90%;
+        position: relative;
+        margin-top: 15px;
+        background-color: rgba(0,0,0,0.7);
+        border-radius: 5px;
+    }
+    .lightbox-close {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        color: white;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 10000;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .lightbox-content {
+            width: 98%;
+            max-height: 70vh;
+        }
+        .lightbox-caption {
+            font-size: 14px;
+            padding: 8px;
+            width: 95%;
+            margin-top: 10px;
+        }
+        .lightbox-close {
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+        }
+        .lightbox-container {
+            padding: 10px 0;
+        }
+    }
+
+    /* Shopify admin embedded app adjustments */
+    @media (min-height: 600px) and (max-height: 900px) {
+        .lightbox-container {
+            padding: 15px 0;
+        }
+        .lightbox-content {
+            max-height: 80vh;
+            width: 98%;
+        }
+        .lightbox-caption {
+            margin-top: 10px;
+        }
+    }
+
+    .no-images {
+        color: #888;
+        font-style: italic;
+    }
 </style>
 @endsection
 
@@ -48,6 +141,7 @@
                             <th>Cancelled</th>
                             <th>Refunded</th>
                             <th>Items Sold</th>
+                            <th>Driver<br>Images</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -94,6 +188,15 @@
       </div>
     </div>
   </div>
+
+<!-- Lightbox Modal for Images -->
+<div id="images-lightbox" class="lightbox">
+    <span class="lightbox-close">&times;</span>
+    <div class="lightbox-container">
+        <img class="lightbox-content" id="lightbox-img">
+        <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -206,7 +309,8 @@
                 autoWidth: false,
                 columnDefs: [
                     { type: 'date-de', targets: 0 }  // Apply our new sorting method
-                ]
+                ],
+                unsortable: [10]
             });
 
 
@@ -241,6 +345,64 @@
                     html += '</ul>';
                     $("#orders_list").html(html); // display the sorted list
                     $("#orders_list_modal").modal('show');
+                });
+
+                // Modified to directly open lightbox instead of modal
+                $(document).on('click', '.view_images', function(e) {
+                    // Check if a location is selected
+                    var selectedLocation = $("#strFilterLocation").val();
+                    if (!selectedLocation) {
+                        alert('Please select a location first to view driver images.');
+                        return;
+                    }
+
+                    var images = $(this).attr('data-images');
+                    // Parse the images data
+                    const imagesArray = JSON.parse(images);
+                    console.log(imagesArray);
+
+                    // Check if there are any images
+                    if (imagesArray.length === 0) {
+                        alert('No driver images available for this date and location.');
+                        return;
+                    }
+
+                    // Get the first image (should be the only one per location/date)
+                    var image = imagesArray[0];
+
+                    // Preload the image to get its natural dimensions
+                    var preloadImg = new Image();
+                    preloadImg.onload = function() {
+                        console.log('Image natural dimensions:', this.naturalWidth, 'x', this.naturalHeight);
+
+                        // Show image directly in lightbox
+                        $("#lightbox-img").attr('src', image.image_url);
+                        $("#lightbox-caption").html('Location: ' + image.location + ' - ' + image.date + '<br>Uploaded on: ' + image.created_at);
+                        $("#images-lightbox").fadeIn(300);
+                        $('body').css('overflow', 'hidden'); // Prevent scrolling when lightbox is open
+                    };
+                    preloadImg.src = image.image_url;
+                });
+
+                // Close lightbox
+                $(".lightbox-close").on('click', function() {
+                    $("#images-lightbox").fadeOut();
+                    $('body').css('overflow', 'auto'); // Re-enable scrolling
+                });
+
+                // Close on ESC key
+                $(document).on('keydown', function(e) {
+                    if (e.keyCode === 27) { // ESC key
+                        $(".lightbox-close").trigger('click');
+                    }
+                });
+
+                // Add tap/touch support for mobile - single tap to close
+                $("#images-lightbox").on('click touchend', function(e) {
+                    // Only close if clicking on the background (not the image or caption)
+                    if (e.target === this) {
+                        $(".lightbox-close").trigger('click');
+                    }
                 });
 
                 $(document).on('click', '#personal_notepad_save_btn', function(e){

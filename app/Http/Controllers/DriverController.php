@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Orders;
+use App\Models\DriverFulfilledStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class DriverController extends Controller
 {
@@ -31,6 +34,11 @@ class DriverController extends Controller
             return view('drivers', ['arrData' => [], 'arrTotalOrders' => []]);
         }
 
+        // Get fulfilled locations for today
+        $currentDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
+        $fulfilledLocations = DriverFulfilledStatus::where('date', $currentDate)
+                                                ->pluck('location')
+                                                ->toArray();
 
         foreach ($arrLocations as $arrLocation) {
             if ($arrLocation && !empty($arrLocation->name)) {
@@ -48,6 +56,8 @@ class DriverController extends Controller
                 if (!isset($arrData[$location_name]['location_data'])) {
                     $arrData[$location_name]['location_data'] = $arrLocation;
                     $arrTotalOrders[$location_name]['total_orders_count'] = 0;
+                    // Add fulfilled flag
+                    $arrData[$location_name]['is_fulfilled'] = in_array($location_name, $fulfilledLocations);
                 }
 
                 $bItemsFound = false;
@@ -159,7 +169,59 @@ class DriverController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        try {
+            // Validate request data
+            $request->validate([
+                'location' => 'required|string',
+                'image' => 'required|string',
+            ], [
+                'location.required' => 'Location is required',
+                'image.required' => 'Photo is required',
+            ]);
+
+            // Get current date and day
+            $currentDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
+            $currentDay = Carbon::now('Europe/Berlin')->format('l');
+
+            // Process the base64 image
+            $image = $request->input('image');
+            $image = str_replace('data:image/jpeg;base64,', '', $image);
+            $image = str_replace(' ', '+', $image);
+            $imageData = base64_decode($image);
+
+            // Generate unique filename
+            $imageName = Str::slug($request->location) . '-' . $currentDate . '-' . Str::random(10) . '.jpg';
+            $storagePath = 'public/driver_location/' . $imageName;
+
+            // Store the image
+            Storage::put($storagePath, $imageData);
+            $imageUrl = Storage::url('driver_location/' . $imageName);
+
+            // Create database record
+            $fulfillment = new DriverFulfilledStatus();
+            $fulfillment->location = $request->location;
+            $fulfillment->date = $currentDate;
+            $fulfillment->day = $currentDay;
+            $fulfillment->image_name = $imageName;
+            // $fulfillment->image_path = $storagePath;
+            $fulfillment->image_url = $imageUrl;
+            $fulfillment->save();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Location marked as fulfilled successfully',
+                'data' => [
+                    'image_url' => $imageUrl,
+                    'location' => $request->location,
+                    'date' => $currentDate
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to mark location as fulfilled: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
