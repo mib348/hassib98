@@ -25,6 +25,9 @@
     .location-10 { background-color: #deb887 !important; /* Burlywood */ }
     .location-11 { background-color: #ffdead !important; /* Navajo White */ }
     .location-12 { background-color: #b0e0e6 !important; /* Powder Blue */ }
+    .bg-success-subtle {
+        background-color: #32cd32 !important; /* Changed to lime green */
+    }
     button::after {
         position: absolute;
         z-index: 100;
@@ -353,7 +356,14 @@
                                     @endfor
                                 </div>
 
-
+                                @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <h6>FULFILLMENT ATTACHED PHOTO</h6>
+                                        <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                    </div>
+                                </div>
+                                @endif
 
                             </div>
                         </div>
@@ -604,6 +614,8 @@
 
         // Start camera stream
         function startCamera() {
+            resetCameraUI(); // Reset UI elements to their initial state
+
             // Set higher constraints for full HD
             const highResConstraints = {
                 video: {
@@ -793,13 +805,7 @@
 
         // Retake image
         function retakeImage() {
-            // Reset UI for new capture
-            $('#camera-preview').show();
-            $('#captured-image').hide();
-            $('#capture-btn').show();
-            $('#retake-btn').hide();
-            $('#submit-image').prop('disabled', true);
-            capturedImageData = null;
+            resetCameraUI();
         }
 
         // Reset camera UI to initial state
@@ -808,7 +814,7 @@
             $('#captured-image').hide();
             $('#capture-btn').show();
             $('#retake-btn').hide();
-            $('#submit-image').prop('disabled', true);
+            $('#submit-image').prop('disabled', true).html('<i class="fa-solid fa-paper-plane"></i> <span>Submit</span>');
             $('#submission-message').html('');
             capturedImageData = null;
         }
@@ -852,6 +858,27 @@
                             })
                             .removeClass('bg-light')
                             .addClass('bg-success-subtle');
+
+                        // Add the confirmation image to the location section
+                        const accordionId = $('button.accordion-button')
+                            .filter(function() {
+                                return $(this).text().indexOf(locationName) !== -1;
+                            })
+                            .attr('data-bs-target');
+
+                        const accordionBody = $(accordionId).find('.accordion-body');
+
+                        // Check if we already have a FULFILLMENT ATTACHED PHOTO section
+                        if (accordionBody.find('h6:contains("FULFILLMENT ATTACHED PHOTO")').length === 0 && response.data && response.data.image_url) {
+                            accordionBody.append(`
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <h6>FULFILLMENT ATTACHED PHOTO</h6>
+                                        <img src="${response.data.image_url}" class="img-fluid img-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                    </div>
+                                </div>
+                            `);
+                        }
 
                         $('#submission-message').html('<div class="alert alert-success">Location marked as fulfilled successfully!</div>');
                             // Close modal after delay
