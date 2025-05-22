@@ -56,8 +56,16 @@ class DriverController extends Controller
                 if (!isset($arrData[$location_name]['location_data'])) {
                     $arrData[$location_name]['location_data'] = $arrLocation;
                     $arrTotalOrders[$location_name]['total_orders_count'] = 0;
-                    // Add fulfilled flag
+                    // Add fulfilled flag and get image if fulfilled
                     $arrData[$location_name]['is_fulfilled'] = in_array($location_name, $fulfilledLocations);
+
+                    // Get fulfillment image if exists
+                    if ($arrData[$location_name]['is_fulfilled']) {
+                        $fulfillment = DriverFulfilledStatus::where('location', $location_name)
+                                        ->where('date', $currentDate)
+                                        ->first();
+                        $arrData[$location_name]['fulfillment_image'] = $fulfillment ? $fulfillment->image_url : null;
+                    }
                 }
 
                 $bItemsFound = false;
