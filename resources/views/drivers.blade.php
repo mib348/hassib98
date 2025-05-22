@@ -157,6 +157,15 @@
     .modal-dialog-camera {
         max-width: 800px;
     }
+    /* Fulfillment image thumbnail size for desktop */
+    @media (min-width: 768px) {
+        .fulfillment-thumbnail {
+            max-width: 300px;
+            height: auto;
+            margin: 0;
+            display: block;
+        }
+    }
     @media (max-width: 850px) {
         .modal-dialog-camera {
             max-width: 95%;
@@ -360,7 +369,7 @@
                                 <div class="row mt-3">
                                     <div class="col-12">
                                         <h6>FULFILLMENT ATTACHED PHOTO</h6>
-                                        <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                        <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
                                     </div>
                                 </div>
                                 @endif
@@ -874,7 +883,7 @@
                                 <div class="row mt-3">
                                     <div class="col-12">
                                         <h6>FULFILLMENT ATTACHED PHOTO</h6>
-                                        <img src="${response.data.image_url}" class="img-fluid img-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                        <img src="${response.data.image_url}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
                                     </div>
                                 </div>
                             `);
