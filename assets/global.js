@@ -21,64 +21,126 @@ if (localStorage.getItem("uuid") == null) {
 // }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // // Track critical pages and clear cart only when navigating to non-critical pages
-    // var criticalPaths = ["/pages/order-menue", "/cart", "/checkouts", '/order'];
-    // var currentPath = window.location.pathname;
+    console.log('[Cart Manager] Page loaded:', window.location.pathname);
     
-    // // Check if we're on a critical page
-    // if (criticalPaths.indexOf(currentPath) !== -1) {
-    //     // Store current critical page in session
-    //     sessionStorage.setItem("previousCriticalPage", currentPath);
+    // Define critical paths that need cart preservation
+    const CRITICAL_PATHS = ['/pages/order-menue', '/cart', '/checkout'];
+    const currentPath = window.location.pathname;
+    
+    // Simple helper to check if a path is critical
+    const isPathCritical = (path) => {
+        const isCritical = CRITICAL_PATHS.includes(path);
+        console.log('[Cart Manager] Checking if path is critical:', path, isCritical);
+        return isCritical;
+    };
+
+    // Simple helper to clear cart
+    const clearCart = () => {
+        console.log('[Cart Manager] Clearing cart...');
+        return $.ajax({
+            type: "POST",
+            url: window.Shopify.routes.root + "cart/clear.js",
+            dataType: "json"
+        }).then(() => {
+            console.log('[Cart Manager] Cart cleared successfully');
+        }).catch(error => {
+            console.error('[Cart Manager] Failed to clear cart:', error);
+        });
+    };
+
+    // Handle navigation between pages
+    if (isPathCritical(currentPath)) {
+        console.log('[Cart Manager] On critical path, setting up navigation handlers');
         
-    //     // Setup handlers for when user leaves the page
-    //     var clearCartBeacon = function() {
-    //         // Get the new URL if it's available (might not be in all browsers)
-    //         var nextPageUrl = '';
-    //         if (document.activeElement && document.activeElement.href) {
-    //             nextPageUrl = document.activeElement.href;
-    //         }
-            
-    //         // Don't clear if navigating to another critical page
-    //         var isNavigatingToCriticalPage = false;
-    //         if (nextPageUrl) {
-    //             var urlObj = new URL(nextPageUrl);
-    //             isNavigatingToCriticalPage = criticalPaths.indexOf(urlObj.pathname) !== -1;
-    //         }
-            
-    //         if (!isNavigatingToCriticalPage) {
-    //             // Clear cart via beacon or XHR
-    //             if (navigator.sendBeacon) {
-    //                 navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
-    //             } else {
-    //                 var xhr = new XMLHttpRequest();
-    //                 xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
-    //                 xhr.send();
-    //             }
-    //             sessionStorage.removeItem("previousCriticalPage");
-    //         }
-    //     };
+        // Single handler for both unload events
+        const handleNavigation = (event) => {
+            // Get target URL if available
+            const targetUrl = document.activeElement?.href;
+            if (targetUrl) {
+                const targetPath = new URL(targetUrl).pathname;
+                console.log('[Cart Manager] Navigation detected. Target:', targetPath);
+                
+                // Only clear if navigating to non-critical path
+                if (!isPathCritical(targetPath)) {
+                    console.log('[Cart Manager] Navigating to non-critical path, clearing cart');
+                    // Use sendBeacon for more reliable delivery during page unload
+                    if (navigator.sendBeacon) {
+                        navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
+                        console.log('[Cart Manager] Cart clear request sent via beacon');
+                    } else {
+                        // Fallback to sync XHR
+                        const xhr = new XMLHttpRequest();
+                        xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
+                        xhr.send();
+                        console.log('[Cart Manager] Cart clear request sent via sync XHR');
+                    }
+                } else {
+                    console.log('[Cart Manager] Navigating to critical path, preserving cart');
+                }
+            }
+        };
+
+        window.addEventListener('pagehide', handleNavigation);
+        window.addEventListener('beforeunload', handleNavigation);
+        console.log('[Cart Manager] Navigation handlers attached');
+    }
+
+    // Handle checkout button click
+    $(document).on("click", "#checkout", function(e) {
+        console.log('[Cart Manager] Checkout button clicked');
+        e.preventDefault();
         
-    //     window.addEventListener("pagehide", clearCartBeacon);
-    //     window.addEventListener("beforeunload", clearCartBeacon);
-    // } else {
-    //     // We're on a non-critical page - check if we came from a critical page
-    //     var previousPage = sessionStorage.getItem("previousCriticalPage");
-    //     if (previousPage) {
-    //         sessionStorage.removeItem("previousCriticalPage");
-    //         // Clear cart via AJAX since we navigated away from a critical page
-    //         $.ajax({
-    //             type: "POST",
-    //             url: window.Shopify.routes.root + "cart/clear.js",
-    //             dataType: "json",
-    //             success: function(response) {
-    //                 console.log("Cart cleared after navigating away from critical page");
-    //             },
-    //             error: function(xhr, status, error) {
-    //                 console.log("Cart clear error:", error);
-    //             }
-    //         });
-    //     }
-    // }
+        // Validate cart before proceeding
+        $.ajax({
+            type: "GET",
+            url: window.Shopify.routes.root + "cart.js",
+            dataType: "json",
+            success: function(cart) {
+                console.log('[Cart Manager] Cart validation started');
+                
+                // Check delivery minimum if applicable
+                if (sessionStorage.getItem("location") === "Delivery") {
+                    const currentTotal = $(".totals__total-value").html();
+                    if (comparePrices(min_order_limit, currentTotal)) {
+                        console.log('[Cart Manager] Delivery minimum not met');
+                        alert('Die Mindestlieferbestellmenge sollte betragen: €' + min_order_limit + ' EUR');
+                        return;
+                    }
+                }
+                
+                // Validate all items have same date
+                const dates = cart.items.map(item => item.properties.date);
+                const allSameDate = dates.every(date => date === dates[0]);
+                if (!dates.length || !allSameDate) {
+                    console.log('[Cart Manager] Date validation failed:', dates);
+                    alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
+                    return;
+                }
+
+                // Check agreements
+                if (sessionStorage.getItem("location") !== "Delivery" && !$('#incorrent_item_agree').is(':checked')) {
+                    console.log('[Cart Manager] Item agreement not checked');
+                    alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
+                    return;
+                }
+
+                if (!$('#agree').is(':checked')) {
+                    console.log('[Cart Manager] Terms agreement not checked');
+                    alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
+                    return;
+                }
+
+                // All validations passed, proceed to checkout
+                console.log('[Cart Manager] All validations passed, proceeding to checkout');
+                window.location.href = "/checkout";
+            },
+            error: function(error) {
+                console.error('[Cart Manager] Failed to validate cart:', error);
+                alert('Es gab einen Fehler bei der Überprüfung Ihres Warenkorbs. Bitte versuchen Sie es erneut.');
+            }
+        });
+    });
+
     if (window.location.pathname === "/pages/order-menue") {
         history.pushState(null, null, window.location.href); // Push current state to history
 
