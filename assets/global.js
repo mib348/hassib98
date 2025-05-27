@@ -21,64 +21,64 @@ if (localStorage.getItem("uuid") == null) {
 // }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Track critical pages and clear cart only when navigating to non-critical pages
-    var criticalPaths = ["/pages/order-menue", "/cart"];
-    var currentPath = window.location.pathname;
+    // // Track critical pages and clear cart only when navigating to non-critical pages
+    // var criticalPaths = ["/pages/order-menue", "/cart", "/checkouts", '/order'];
+    // var currentPath = window.location.pathname;
     
-    // Check if we're on a critical page
-    if (criticalPaths.indexOf(currentPath) !== -1) {
-        // Store current critical page in session
-        sessionStorage.setItem("previousCriticalPage", currentPath);
+    // // Check if we're on a critical page
+    // if (criticalPaths.indexOf(currentPath) !== -1) {
+    //     // Store current critical page in session
+    //     sessionStorage.setItem("previousCriticalPage", currentPath);
         
-        // Setup handlers for when user leaves the page
-        var clearCartBeacon = function() {
-            // Get the new URL if it's available (might not be in all browsers)
-            var nextPageUrl = '';
-            if (document.activeElement && document.activeElement.href) {
-                nextPageUrl = document.activeElement.href;
-            }
+    //     // Setup handlers for when user leaves the page
+    //     var clearCartBeacon = function() {
+    //         // Get the new URL if it's available (might not be in all browsers)
+    //         var nextPageUrl = '';
+    //         if (document.activeElement && document.activeElement.href) {
+    //             nextPageUrl = document.activeElement.href;
+    //         }
             
-            // Don't clear if navigating to another critical page
-            var isNavigatingToCriticalPage = false;
-            if (nextPageUrl) {
-                var urlObj = new URL(nextPageUrl);
-                isNavigatingToCriticalPage = criticalPaths.indexOf(urlObj.pathname) !== -1;
-            }
+    //         // Don't clear if navigating to another critical page
+    //         var isNavigatingToCriticalPage = false;
+    //         if (nextPageUrl) {
+    //             var urlObj = new URL(nextPageUrl);
+    //             isNavigatingToCriticalPage = criticalPaths.indexOf(urlObj.pathname) !== -1;
+    //         }
             
-            if (!isNavigatingToCriticalPage) {
-                // Clear cart via beacon or XHR
-                if (navigator.sendBeacon) {
-                    navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
-                } else {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
-                    xhr.send();
-                }
-                sessionStorage.removeItem("previousCriticalPage");
-            }
-        };
+    //         if (!isNavigatingToCriticalPage) {
+    //             // Clear cart via beacon or XHR
+    //             if (navigator.sendBeacon) {
+    //                 navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
+    //             } else {
+    //                 var xhr = new XMLHttpRequest();
+    //                 xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
+    //                 xhr.send();
+    //             }
+    //             sessionStorage.removeItem("previousCriticalPage");
+    //         }
+    //     };
         
-        window.addEventListener("pagehide", clearCartBeacon);
-        window.addEventListener("beforeunload", clearCartBeacon);
-    } else {
-        // We're on a non-critical page - check if we came from a critical page
-        var previousPage = sessionStorage.getItem("previousCriticalPage");
-        if (previousPage) {
-            sessionStorage.removeItem("previousCriticalPage");
-            // Clear cart via AJAX since we navigated away from a critical page
-            $.ajax({
-                type: "POST",
-                url: window.Shopify.routes.root + "cart/clear.js",
-                dataType: "json",
-                success: function(response) {
-                    console.log("Cart cleared after navigating away from critical page");
-                },
-                error: function(xhr, status, error) {
-                    console.log("Cart clear error:", error);
-                }
-            });
-        }
-    }
+    //     window.addEventListener("pagehide", clearCartBeacon);
+    //     window.addEventListener("beforeunload", clearCartBeacon);
+    // } else {
+    //     // We're on a non-critical page - check if we came from a critical page
+    //     var previousPage = sessionStorage.getItem("previousCriticalPage");
+    //     if (previousPage) {
+    //         sessionStorage.removeItem("previousCriticalPage");
+    //         // Clear cart via AJAX since we navigated away from a critical page
+    //         $.ajax({
+    //             type: "POST",
+    //             url: window.Shopify.routes.root + "cart/clear.js",
+    //             dataType: "json",
+    //             success: function(response) {
+    //                 console.log("Cart cleared after navigating away from critical page");
+    //             },
+    //             error: function(xhr, status, error) {
+    //                 console.log("Cart clear error:", error);
+    //             }
+    //         });
+    //     }
+    // }
     if (window.location.pathname === "/pages/order-menue") {
         history.pushState(null, null, window.location.href); // Push current state to history
 
