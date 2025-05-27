@@ -86,6 +86,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Final check and assignment to strLocation for existing code compatibility
     const strLocation = determinedLocation || "";
 
+    // Disable PreOrder button initially
+    if (buttonPreOrder) {
+        buttonPreOrder.style.pointerEvents = 'none';
+        buttonPreOrder.style.opacity = '0.5';
+        // buttonPreOrder.setAttribute('disabled', 'disabled');
+    }
+    // Disable TodayOrder button initially if it exists and is relevant for this logic
+    if (buttonTodayOrder) {
+        buttonTodayOrder.style.pointerEvents = 'none';
+        buttonTodayOrder.style.opacity = '0.5';
+        // buttonTodayOrder.setAttribute('disabled', 'disabled');
+    }
+
     $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
     
     function toggleButton(startTime, endTime) {
@@ -247,9 +260,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 }        
                 
                 //$(".loading_icon").hide();
+
+                // Enable PreOrder button now that data is loaded
+                if (buttonPreOrder) {
+                    buttonPreOrder.style.pointerEvents = '';
+                    buttonPreOrder.style.opacity = '';
+                    // buttonPreOrder.removeAttribute('disabled');
+                }
+                // Enable TodayOrder button if applicable
+                if (buttonTodayOrder) {
+                     buttonTodayOrder.style.pointerEvents = '';
+                     buttonTodayOrder.style.opacity = '';
+                    // buttonTodayOrder.removeAttribute('disabled');
+                }
             },
             error: function(request, status, error) {
                 console.error('Error fetching location time:', error);
+                // Optionally, keep the buttons disabled or inform the user
+                if (buttonPreOrder) {
+                    buttonPreOrder.style.pointerEvents = ''; // Or keep disabled
+                    buttonPreOrder.style.opacity = '';     // Or keep disabled
+                }
+                if (buttonTodayOrder) {
+                    buttonTodayOrder.style.pointerEvents = ''; // Or keep disabled
+                    buttonTodayOrder.style.opacity = '';     // Or keep disabled
+                }
             }
         });
     }
@@ -391,6 +426,33 @@ window.onload = function() {
                 maxDate: '+6d',
                 dateFormat: "dd-mm-yy",
                 onSelect: function(dateText, inst) {
+                    // Check if selected dateText is in the past
+                    const todayFormatted = $.datepicker.formatDate('dd-mm-yy', new Date());
+                    const selectedDateParts = dateText.split('-');
+                    const todayParts = todayFormatted.split('-');
+                    const selectedDateObj = new Date(selectedDateParts[2], selectedDateParts[1] - 1, selectedDateParts[0]);
+                    const todayDateObj = new Date(todayParts[2], todayParts[1] - 1, todayParts[0]);
+                    todayDateObj.setHours(0,0,0,0); // Normalize today to midnight
+
+                    if (selectedDateObj < todayDateObj) {
+                        console.warn("Selected date (" + dateText + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
+                        sessionStorage.clear();
+                        $.ajax({
+                            type: "POST",
+                            url: window.Shopify.routes.root + "cart/clear.js",
+                            dataType: "json",
+                            async: false, // Crucial for completing before redirect
+                            success: function () {
+                                window.location.href = "/pages/bestellen";
+                            },
+                            error: function (xhr, status, error) {
+                                console.error("Cart clear error during past date selection in delivery-date.liquid:", error);
+                                window.location.href = "/pages/bestellen"; // Still redirect
+                            }
+                        });
+                        return; // Stop further execution in onSelect
+                    }
+
                     sessionStorage.setItem("date", dateText);
                 
                     // Get today's date and format it as 'yyyy-mm-dd'

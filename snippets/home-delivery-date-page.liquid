@@ -238,7 +238,7 @@
 
 {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer="defer"></script>
 
 <div class="calltoactionhero">  
   <a data-pf-type="Button2" class="sc-brPMkR hVSHHp pf-15_ pf-button-3 homedeliverydatebtn show-button">Datum</a>
@@ -351,10 +351,12 @@ function toggleButton() {
   const $timeSlots = $('.time_slot');
   const userSelectedDate = sessionStorage.getItem("date");
 
-  if(preorder_end_time_home_delivery)
-    var slotTime_preorder = preorder_end_time_home_delivery;
-  else 
-      return;  
+  if(window.preorder_end_time_home_delivery)
+    var slotTime_preorder = window.preorder_end_time_home_delivery;
+  else {
+      console.warn("toggleButton: preorder_end_time_home_delivery not available. Defaulting minDate to 1 (tomorrow).");
+      return 1;
+  }
 
   const [slotHours, slotMins] = slotTime_preorder.split(':').map(Number);
   const slotTime_preorder_InMinutes = slotHours * 60 + slotMins;
@@ -406,6 +408,33 @@ function isSameDayInGermany(dateText) {
 }
 
 function redirect(dateText, timeSlot){
+    // Check if dateText is in the past
+    const todayFormatted = $.datepicker.formatDate('dd-mm-yy', new Date());
+    const selectedDateParts = dateText.split('-');
+    const todayParts = todayFormatted.split('-');
+    const selectedDateObj = new Date(selectedDateParts[2], selectedDateParts[1] - 1, selectedDateParts[0]);
+    const todayDateObj = new Date(todayParts[2], todayParts[1] - 1, todayParts[0]);
+    todayDateObj.setHours(0,0,0,0); // Normalize today to midnight
+
+    if (selectedDateObj < todayDateObj) {
+        console.warn("Attempting to redirect with a past date (" + dateText + "). Clearing session, cart, and redirecting to /pages/bestellen.");
+        sessionStorage.clear();
+        $.ajax({
+            type: "POST",
+            url: window.Shopify.routes.root + "cart/clear.js",
+            dataType: "json",
+            async: false, // Crucial for completing before redirect
+            success: function () {
+                window.location.href = "/pages/bestellen";
+            },
+            error: function (xhr, status, error) {
+                console.error("Cart clear error during past date check in redirect function (home-delivery-date-page.liquid):", error);
+                window.location.href = "/pages/bestellen"; // Still redirect
+            }
+        });
+        return false; // Stop further execution of redirect
+    }
+
     if(localStorage.getItem("user_zip_code") == null || !localStorage.getItem("user_zip_code")){
       alert("Bitte geben Sie die Postleitzahl ein");
       return false;
@@ -511,6 +540,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const strLocation = "Delivery";
     window.preorder_end_time_home_delivery = null;
 
+    // Disable 'Datum' button initially
+    if (homedeliverydatebtn) {
+        homedeliverydatebtn.style.pointerEvents = 'none';
+        homedeliverydatebtn.style.opacity = '0.5';
+        // Optionally, add a disabled attribute if it helps with styling or other logic
+        // homedeliverydatebtn.setAttribute('disabled', 'disabled');
+    }
+
     if (strLocation !== "") {
         $.ajax({
             url: `https://dev.sushi.catering/getLocations/${strLocation}`,
@@ -520,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
             success: function(data) {
                 var html = '';
                 if(data.preorder_end_time_home_delivery)
-                    preorder_end_time_home_delivery = data.preorder_end_time_home_delivery;
+                    window.preorder_end_time_home_delivery = data.preorder_end_time_home_delivery; // Ensure window scope
                 if (data.start_time && data.end_time) {
                     html += `<a class="dropdown-item time_slot" href="javascript:void(0);" data-total_orders_limit = "` + data.time_order_limit + `" data-total_orders_count="` + data.tz1_orders_count + `" data-time_slot_start_time="` + data.start_time + `">` + formatTimeTo12Hour(data.start_time) + ' - ' + formatTimeTo12Hour(data.end_time) + `</a>`;
                     if (data.start_time2 && data.end_time2) {
@@ -620,9 +657,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 }        
                 
                 //$(".loading_icon").hide();
+
+                // Enable 'Datum' button now that data is loaded
+                if (homedeliverydatebtn) {
+                    homedeliverydatebtn.style.pointerEvents = '';
+                    homedeliverydatebtn.style.opacity = '';
+                    // Optionally, remove disabled attribute
+                    // homedeliverydatebtn.removeAttribute('disabled');
+                }
             },
             error: function(request, status, error) {
                 console.error('Error fetching location time:', error);
+                // Optionally, keep the button disabled or inform the user
+                if (homedeliverydatebtn) {
+                    // You might want to leave it disabled or provide a message
+                    // For now, let's re-enable it but log the error clearly.
+                    homedeliverydatebtn.style.pointerEvents = '';
+                    homedeliverydatebtn.style.opacity = '';
+                }
             }
         });
     }
@@ -815,6 +867,33 @@ window.onload = function() {
                         maxDate: '+6d',
                         dateFormat: "dd-mm-yy",
                         onSelect: function(dateText, inst) {
+                            // Check if selected dateText is in the past
+                            const todayFormatted = $.datepicker.formatDate('dd-mm-yy', new Date());
+                            const selectedDateParts = dateText.split('-');
+                            const todayParts = todayFormatted.split('-');
+                            const selectedDateObj = new Date(selectedDateParts[2], selectedDateParts[1] - 1, selectedDateParts[0]);
+                            const todayDateObj = new Date(todayParts[2], todayParts[1] - 1, todayParts[0]);
+                            todayDateObj.setHours(0,0,0,0); // Normalize today to midnight
+
+                            if (selectedDateObj < todayDateObj) {
+                                console.warn("Selected date (" + dateText + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
+                                sessionStorage.clear();
+                                $.ajax({
+                                    type: "POST",
+                                    url: window.Shopify.routes.root + "cart/clear.js",
+                                    dataType: "json",
+                                    async: false, // Crucial for completing before redirect
+                                    success: function () {
+                                        window.location.href = "/pages/bestellen";
+                                    },
+                                    error: function (xhr, status, error) {
+                                        console.error("Cart clear error during past date selection in home-delivery-date-page.liquid:", error);
+                                        window.location.href = "/pages/bestellen"; // Still redirect
+                                    }
+                                });
+                                return; // Stop further execution in onSelect
+                            }
+
                             sessionStorage.setItem("date", dateText);
                             toggleButton();
 

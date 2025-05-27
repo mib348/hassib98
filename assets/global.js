@@ -263,16 +263,38 @@ function getFormattedDate() {
     return `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
 }
 
-if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null && localStorage.getItem("location") == null)) {
+if (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null && localStorage.getItem("location") == null)) {
   // Check if the session storage 'date' exists and is not null
   if (sessionStorage.getItem("date") !== null) {
       const storedDate = sessionStorage.getItem("date");
       const todayDate = getFormattedDate();
   
       // Compare the stored date with today's date
-      if (new Date(storedDate.split('-').reverse().join('-')) < new Date(todayDate.split('-').reverse().join('-'))) {
-          // Update to today's date if stored date is less
-          sessionStorage.setItem("date", todayDate);
+      const storedDateParts = storedDate.split('-');
+      const todayDateParts = todayDate.split('-');
+
+      const storedDateObj = new Date(storedDateParts[2], storedDateParts[1] - 1, storedDateParts[0]);
+      const todayDateObj = new Date(todayDateParts[2], todayDateParts[1] - 1, todayDateParts[0]);
+      todayDateObj.setHours(0,0,0,0); // Normalize today to midnight
+
+      if (storedDateObj < todayDateObj) {
+          console.warn("Stored date in sessionStorage (" + storedDate + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
+          sessionStorage.clear();
+          $.ajax({
+              type: "POST",
+              url: window.Shopify.routes.root + "cart/clear.js",
+              dataType: "json",
+              async: false, // Crucial for completing before redirect
+              success: function () {
+                  window.location.href = "/pages/bestellen";
+              },
+              error: function (xhr, status, error) {
+                  console.error("Cart clear error during past date handling in global.js:", error);
+                  window.location.href = "/pages/bestellen"; // Still redirect
+              }
+          });
+          // Use a return or throw to stop further script execution in this context if necessary.
+          // For now, the redirect will stop it.
       }
   } else {
       // If 'date' does not exist in sessionStorage, set it to today's date
@@ -452,8 +474,25 @@ else if(window.location.pathname === "/cart"){
     
       Promise.all(removalPromises).then(function(results) {
         console.log('All removable items have been removed:', results);
-        if(bReload === true)
-          window.location.reload(); // Reload the page
+        if(bReload === true) { // If any past date products were found and removed
+          console.warn("Past date products found in cart and removed. Clearing session, cart, and redirecting to /pages/bestellen.");
+          sessionStorage.clear();
+          // Cart items were already cleared by individual removeProductFromCart calls.
+          // To be absolutely sure the cart is empty if bReload is true:
+          $.ajax({
+              type: "POST",
+              url: window.Shopify.routes.root + "cart/clear.js",
+              dataType: "json",
+              async: false, // Crucial for completing before redirect
+              success: function () {
+                  window.location.href = "/pages/bestellen";
+              },
+              error: function (xhr, status, error) {
+                  console.error("Cart clear error after removing past date products:", error);
+                  window.location.href = "/pages/bestellen"; // Still redirect
+              }
+          });
+        }
       }).catch(function(error) {
         console.error('An error occurred while removing items:', error);
       });
