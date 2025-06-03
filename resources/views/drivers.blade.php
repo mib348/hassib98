@@ -86,25 +86,25 @@
         position: relative;
         z-index: 100;
     }
-    /* Larger capture buttons for mobile */
-    @media (max-width: 768px) {
-        #camera-container {
-            max-height: 50vh; /* Reduced height to ensure buttons are visible */
-        }
-        #capture-btn, #retake-btn {
-            font-size: 1.5rem;
-            padding: 12px 20px;
-            border-radius: 50%;
-            width: 70px;
-            height: 70px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-            position: relative;
-            bottom: 0;
-        }
+            /* Larger capture buttons for mobile */
+        @media (max-width: 768px) {
+            #camera-container {
+                max-height: 50vh; /* Reduced height to ensure buttons are visible */
+            }
+            #capture-btn, #retake-btn, #upload-btn {
+                font-size: 1.5rem;
+                padding: 12px 20px;
+                border-radius: 50%;
+                width: 70px;
+                height: 70px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 10px auto;
+                box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+                position: relative;
+                bottom: 0;
+            }
         #capture-btn {
             background-color: #dc3545;
             border-color: #dc3545;
@@ -113,9 +113,9 @@
             transform: scale(0.95);
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
-        #capture-btn i, #retake-btn i {
-            font-size: 2rem;
-        }
+                    #capture-btn i, #retake-btn i, #upload-btn i {
+                font-size: 2rem;
+            }
         .camera-controls {
             position: relative;
             margin-top: 10px;
@@ -204,7 +204,7 @@
         .camera-controls {
             margin-top: 10px;
         }
-        #capture-btn, #retake-btn {
+        #capture-btn, #retake-btn, #upload-btn {
             width: 60px;
             height: 60px;
             margin-bottom: 5px;
@@ -399,10 +399,14 @@
                         <i class="fa-solid fa-camera"></i>
                     </div>
                     <input type="hidden" id="location-input">
+                    <input type="file" id="file-input" accept="image/*" style="display: none;">
                 </div>
                 <div class="camera-controls">
                     <button id="capture-btn" class="btn btn-primary">
                         <i class="fa-solid fa-camera"></i> <span class="d-none d-md-inline">Capture</span>
+                    </button>
+                    <button id="upload-btn" class="btn btn-info">
+                        <i class="fa-solid fa-upload"></i> <span class="d-none d-md-inline">Upload</span>
                     </button>
                     <button id="retake-btn" class="btn btn-secondary" style="display:none;">
                         <i class="fa-solid fa-rotate"></i> <span class="d-none d-md-inline">Retake</span>
@@ -607,6 +611,21 @@
             // Retake button click handler
             $('#retake-btn').on('click', function() {
                 retakeImage();
+            });
+
+            // Upload button click handler
+            $('#upload-btn').on('click', function() {
+                $('#file-input').click();
+            });
+
+            // File input change handler
+            $('#file-input').on('change', function(e) {
+                const file = e.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    handleFileUpload(file);
+                } else if (file) {
+                    $('#submission-message').html('<div class="alert alert-danger">Please select a valid image file.</div>');
+                }
             });
 
             // Submit button click handler
@@ -839,6 +858,7 @@
 
             // Show retake button and enable submit
             $('#capture-btn').hide();
+            $('#upload-btn').hide();
             $('#retake-btn').show();
             $('#submit-image').prop('disabled', false);
         }
@@ -846,6 +866,49 @@
         // Retake image
         function retakeImage() {
             resetCameraUI();
+            startCamera();
+        }
+
+        // Handle file upload
+        function handleFileUpload(file) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const capturedImage = document.getElementById('captured-image');
+                const video = document.getElementById('camera-preview');
+
+                // Validate the result
+                if (!e.target.result || e.target.result === 'data:,') {
+                    $('#submission-message').html('<div class="alert alert-danger">Failed to read image file. Please try again.</div>');
+                    return;
+                }
+
+                // Set the captured image data
+                capturedImageData = e.target.result;
+
+                // Display uploaded image
+                capturedImage.src = capturedImageData;
+                capturedImage.style.display = 'block';
+                video.style.display = 'none';
+
+                // Update UI buttons
+                $('#capture-btn').hide();
+                $('#upload-btn').hide();
+                $('#retake-btn').show();
+                $('#submit-image').prop('disabled', false);
+
+                // Clear any previous messages
+                $('#submission-message').html('');
+
+                // Stop camera stream as we have an image
+                stopCamera();
+            };
+
+            reader.onerror = function() {
+                $('#submission-message').html('<div class="alert alert-danger">Error reading image file. Please try again.</div>');
+            };
+
+            reader.readAsDataURL(file);
         }
 
         // Reset camera UI to initial state
@@ -853,9 +916,11 @@
             $('#camera-preview').show();
             $('#captured-image').hide();
             $('#capture-btn').show().prop('disabled', true); // Start with capture button disabled until camera is ready
+            $('#upload-btn').show();
             $('#retake-btn').hide();
             $('#submit-image').prop('disabled', true).html('<i class="fa-solid fa-paper-plane"></i> <span>Submit</span>');
             $('#submission-message').html('');
+            $('#file-input').val(''); // Clear file input
             capturedImageData = null;
         }
 

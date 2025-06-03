@@ -193,12 +193,30 @@ class DriverController extends Controller
 
             // Process the base64 image
             $image = $request->input('image');
-            $image = str_replace('data:image/jpeg;base64,', '', $image);
+
+            // Extract the image format and data
+            if (preg_match('/^data:image\/(\w+);base64,/', $image, $matches)) {
+                $imageType = $matches[1]; // jpg, jpeg, png, etc.
+                $image = substr($image, strpos($image, ',') + 1);
+            } else {
+                $imageType = 'jpg'; // default fallback
+                $image = str_replace(['data:image/jpeg;base64,', 'data:image/jpg;base64,', 'data:image/png;base64,'], '', $image);
+            }
+
             $image = str_replace(' ', '+', $image);
             $imageData = base64_decode($image);
 
-            // Generate unique filename
-            $imageName = Str::slug($request->location) . '-' . $currentDate . '-' . Str::random(10) . '.jpg';
+            // Validate the decoded image data
+            if ($imageData === false || empty($imageData)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid image data provided'
+                ], 400);
+            }
+
+            // Generate unique filename with correct extension
+            $extension = $imageType === 'jpeg' ? 'jpg' : $imageType;
+            $imageName = Str::slug($request->location) . '-' . $currentDate . '-' . Str::random(10) . '.' . $extension;
             $storagePath = 'public/driver_location/' . $imageName;
 
             // Store the image
