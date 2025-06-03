@@ -313,7 +313,8 @@ window.onload = function() {
                 async: false,
                 dataType: "json",
                 success: function(data) {
-                    window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+                    // Include the date in the URL for immediate orders
+                    window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
                 },
                 error: function(request, status, error) {
                     alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
