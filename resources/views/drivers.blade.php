@@ -122,6 +122,10 @@
             bottom: auto;
             left: auto;
             right: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
         }
         .modal-dialog-camera {
             display: flex;
@@ -207,7 +211,7 @@
         #capture-btn, #retake-btn, #upload-btn {
             width: 60px;
             height: 60px;
-            margin-bottom: 5px;
+            margin: 0 5px 5px 5px;
         }
         .camera-overlay {
             font-size: 2rem;
