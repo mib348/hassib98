@@ -472,10 +472,26 @@
         }
 
         // Set up reload interval with preserved state
-        var reloadTimer = setInterval(function() {
-            storeAccordionState();
-            window.location.reload();
-        }, 60000); // 1 minute in milliseconds
+        var reloadTimer;
+        var reloadInterval = 60000; // 1 minute in milliseconds
+
+        function startReloadTimer() {
+            if (reloadTimer) clearInterval(reloadTimer);
+            reloadTimer = setInterval(function() {
+                storeAccordionState();
+                window.location.reload();
+            }, reloadInterval);
+        }
+
+        function pauseReloadTimer() {
+            if (reloadTimer) {
+                clearInterval(reloadTimer);
+                reloadTimer = null;
+            }
+        }
+
+        // Start the timer initially
+        startReloadTimer();
 
         // Listen for accordion changes to store state
         $(document).on('shown.bs.collapse hidden.bs.collapse', '.accordion-collapse', function() {
@@ -633,10 +649,16 @@
                 submitImage();
             });
 
-            // Modal close event - cleanup camera resources
+            // Modal show event - pause reload timer
+            $('#cameraModal').on('show.bs.modal', function() {
+                pauseReloadTimer();
+            });
+
+            // Modal close event - cleanup camera resources and resume reload timer
             $('#cameraModal').on('hidden.bs.modal', function() {
                 stopCamera();
                 resetCameraUI();
+                startReloadTimer();
             });
         }
 
@@ -933,7 +955,10 @@
 
             const locationName = $('#location-input').val();
 
-            // Show loading state IMMEDIATELY
+            // Hide all buttons and show loading state IMMEDIATELY
+            $('#capture-btn').hide();
+            $('#upload-btn').hide();
+            $('#retake-btn').hide();
             $('#submit-image').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Wait...');
             // Clear any previous submission messages
             $('#submission-message').html('');
@@ -998,7 +1023,8 @@
                         }
                         // $('#submission-message').html('<div class="alert alert-danger">' + errorMessage + '</div>');
                         $('#submission-message').html('<div class="alert alert-danger">Error</div>');
-                        // Re-enable submit button on error
+                        // Re-enable buttons on error
+                        $('#retake-btn').show();
                         $('#submit-image').prop('disabled', false).html('<i class="fa-solid fa-paper-plane"></i> Submit');
                     }
                 });
