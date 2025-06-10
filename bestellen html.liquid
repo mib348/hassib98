@@ -64,7 +64,9 @@
     {% assign location_metaobject = location_metaobject | replace: '[', '' | replace: ']', '' | replace: '"', '' %}
     {% assign locations_array = location_metaobject | split: ',' %}
 
-    {% for location in locations_array %}
+    {% assign sorted_locations = locations_array | sort_natural %}
+
+    {% for location in sorted_locations %}
       {% if location == "Additional Inventory" %}
         {% continue %}
       {% endif %}
