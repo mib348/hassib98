@@ -26,8 +26,17 @@
     <div class="row">
         <div class="col-md-12">
             <form id="locations_text_form">
-                <div class="form-group">
-                    <label class="label fw-bold font-bold" for="strFilterLocation">Filter Location</label>
+                <div class="row align-items-center mb-2">
+                    <div class="col-6">
+                        <label class="label fw-bold font-bold" for="strFilterLocation">Filter Location</label>
+                    </div>
+                    <div class="col-6 text-end">
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addLocationModal">
+                            <i class="fas fa-plus"></i> Add Location
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group mb-3">
                     <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                         <option value="" selected>--- Select Location ---</option>
                         @foreach($arrLocations as $location)
@@ -35,7 +44,7 @@
                         @endforeach
                     </select>
                 </div>
-                <br>
+
                 <div class="table-responsive">
                     <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                         <thead>
@@ -170,79 +179,79 @@
     </div>
 </div>
 
+<!-- Add Location Modal -->
+<div class="modal fade" id="addLocationModal" tabindex="-1" aria-labelledby="addLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addLocationModalLabel">Add New Location</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addLocationForm">
+                    <div class="form-group">
+                        <label for="newLocationName" class="form-label">Location Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newLocationName" name="location_name" required placeholder="Enter location name">
+                        <div class="invalid-feedback" id="locationNameError"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveLocationBtn">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    Save Location
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')
     @parent
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/js/bootstrap-timepicker.min.js"></script>
 
-
     <script>
-        // Assuming 'app' is already initialized and available
-        // var actions = window['app-bridge'].actions;
+        // Shopify App Bridge configuration for header buttons
+        var actions = window['app-bridge'].actions;
         var Button = actions.Button;
         var TitleBar = actions.TitleBar;
-        var Redirect = actions.Redirect; // Ensure Redirect is defined
+        var Redirect = actions.Redirect;
 
-        // // Create a button for 'Products'
-        // var productsButton = Button.create(app, { label: 'Products' });
-        // productsButton.subscribe(Button.Action.CLICK, function() {
-        //     var redirect = Redirect.create(app);
-        //     redirect.dispatch(Redirect.Action.APP, '/products');
-        //     // Add your logic for when the 'Products' button is clicked
-        // });
-
-        // Create a button for 'Orders'
+        // Create header buttons for navigation
         var ordersButton = Button.create(app, { label: 'Location Order Overview' });
         ordersButton.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
             redirect.dispatch(Redirect.Action.APP, '/orders');
-            // Add your logic for when the 'Orders' button is clicked
         });
 
-        // // Create a button for 'Operation'
-        // var operationdays = Button.create(app, { label: 'Operation Days' });
-        // operationdays.subscribe(Button.Action.CLICK, function() {
-        //     var redirect = Redirect.create(app);
-        //     redirect.dispatch(Redirect.Action.APP, '/operationdays');
-        //     // Add your logic for when the 'Operation' button is clicked
-        // });
-
-
-        // Create a button for 'Location Products'
         var location_products = Button.create(app, { label: 'Location Products' });
         location_products.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
             redirect.dispatch(Redirect.Action.APP, '/location_products');
-            // Add your logic for when the 'Operation' button is clicked
         });
 
-        // Create a button for 'Locations Revenue'
         var locations_revenue = Button.create(app, { label: 'Locations Revenue' });
         locations_revenue.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
             redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
-            // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
-        // Create a button for 'Kitchen'
         var kitchen = Button.create(app, { label: 'Kitchen' });
         kitchen.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
             redirect.dispatch(Redirect.Action.APP, '/kitchen_admin');
-            // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
-        // Create a button for 'Home Delivery Overview'
         var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
         homedeliveryButton.subscribe(Button.Action.CLICK, function() {
             var redirect = Redirect.create(app);
             redirect.dispatch(Redirect.Action.APP, '/home_delivery');
-            // Add your logic for when the 'Orders' button is clicked
         });
 
-
-        // Update the title bar with the new buttons
+        // Update the title bar with buttons
         var titleBar = TitleBar.create(app, {
             title: 'Location Settings',
             buttons: {
@@ -254,14 +263,7 @@
 
     <script type="text/javascript">
     	$(function(){
-    	    //   window.table = jQuery('.js-dataTable-full').DataTable({
-    	    //       pageLength: 10,
-    	    //       lengthMenu: [[5, 10, 20], [5, 10, 20]],
-    	    //       order:[[0, 'desc']],
-            //       columnDefs: [{ orderable: false, targets: 0 }, { orderable: false, targets: 1 }],
-    	    //       autoWidth: false
-    	    //   });
-
+              // Handle filter location change
               $(document).on('change', '#strFilterLocation', function(e){
                 if($(this).val() == ""){
                     $("#save_btn").hide();
@@ -294,16 +296,11 @@
                 LoadList();
               });
 
+              // Handle save location text data
               $(document).on('click', '#save_btn', function(e){
                 $.ajax({
                     url:"{{ route('locations_text.store') }}/" + $("#strFilterLocation").val(),
                     type:"PUT",
-                    // data: {
-                    //     "_token": "{{ csrf_token() }}",
-                    //     "strFilterLocation": $("#strFilterLocation").val(),
-                    //     "strFilterDate": $("#strFilterDate").val(),
-                    //     "locations_text_form": $("#locations_text_form").serialize()
-                    // },
                     data: "_token={{ csrf_token() }}&"+$("#locations_text_form").serialize(),
                     cache:false,
                     dataType:"json",
@@ -314,6 +311,122 @@
                         alert('error saving Locations Text Data');
                     }
                 });
+              });
+
+              // Handle add new location
+              $(document).on('click', '#saveLocationBtn', function(e){
+                e.preventDefault();
+
+                var locationName = $('#newLocationName').val().trim();
+
+                // Validate location name
+                if(!locationName) {
+                    $('#newLocationName').addClass('is-invalid');
+                    $('#locationNameError').text('Location name is required');
+                    return;
+                }
+
+                // Check if location already exists
+                var existingLocations = [];
+                $('#strFilterLocation option').each(function() {
+                    if($(this).val() !== '') {
+                        existingLocations.push($(this).val().toLowerCase());
+                    }
+                });
+
+                if(existingLocations.includes(locationName.toLowerCase())) {
+                    $('#newLocationName').addClass('is-invalid');
+                    $('#locationNameError').text('Location already exists');
+                    return;
+                }
+
+                // Remove validation classes
+                $('#newLocationName').removeClass('is-invalid');
+                $('#locationNameError').text('');
+
+                // Show loading state
+                var $btn = $(this);
+                var $spinner = $btn.find('.spinner-border');
+                $btn.prop('disabled', true);
+                $spinner.removeClass('d-none');
+
+                // Make AJAX request to add location
+                $.ajax({
+                    url: "{{ route('locations_text.addLocation') }}",
+                    type: "POST",
+                    data: {
+                        "_token": "{{ csrf_token() }}",
+                        "location_name": locationName
+                    },
+                    cache: false,
+                    dataType: "json",
+                    success: function(response) {
+                        if(response.success) {
+                            // Clear existing dropdown options (except the first one)
+                            $('#strFilterLocation option:not(:first)').remove();
+
+                            // Add updated locations in alphabetical order
+                            if(response.updated_locations && response.updated_locations.length > 0) {
+                                response.updated_locations.forEach(function(location) {
+                                    $('#strFilterLocation').append('<option value="' + location + '">' + location + '</option>');
+                                });
+                            }
+
+                            // Reset form and close modal properly
+                            $('#addLocationForm')[0].reset();
+
+                            // Hide modal and remove backdrop
+                            var modal = bootstrap.Modal.getInstance(document.getElementById('addLocationModal'));
+                            if (modal) {
+                                modal.hide();
+                            } else {
+                                $('#addLocationModal').modal('hide');
+                            }
+
+                            // Force remove backdrop if it persists
+                            setTimeout(function() {
+                                $('.modal-backdrop').remove();
+                                $('body').removeClass('modal-open');
+                                $('body').css('padding-right', '');
+                            }, 500);
+
+                            // Show success message
+                            alert('Location "' + locationName + '" added and imported successfully!');
+
+                            window.location.reload();
+                        } else {
+                            alert('Error: ' + (response.message || 'Failed to add location'));
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        var errorMessage = 'Error adding location';
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            errorMessage = response.message || errorMessage;
+                        } catch(e) {
+                            // Use default error message if JSON parsing fails
+                        }
+                        alert(errorMessage);
+                    },
+                    complete: function() {
+                        // Hide loading state
+                        $btn.prop('disabled', false);
+                        $spinner.addClass('d-none');
+                    }
+                });
+              });
+
+              // Clear validation when modal is hidden
+              $('#addLocationModal').on('hidden.bs.modal', function() {
+                  $('#addLocationForm')[0].reset();
+                  $('#newLocationName').removeClass('is-invalid');
+                  $('#locationNameError').text('');
+              });
+
+              // Clear validation when typing
+              $('#newLocationName').on('input', function() {
+                  $(this).removeClass('is-invalid');
+                  $('#locationNameError').text('');
               });
 
               $(document).on('click', '#personal_notepad_save_btn', function(e){
@@ -331,10 +444,9 @@
                     }
                 });
               });
-
-    		//LoadList();
         });
 
+        // Load location data based on selection
         function LoadList(){
         	$.ajax({
             	url:"{{ route('getLocationsTextList') }}",
@@ -376,12 +488,8 @@
                         $("#additional_inventory").prop('checked', false);
                         $("#immediate_inventory").prop('checked', false);
                     }
-            		// table.clear();
-            		// table.rows.add($(data.html)).draw(true);
-//                 	$(".table tbody").html(data);
                 },
                 error: function (request, status, error) {
-                    table.clear();
                     console.log('error fetching Locations Text Data');
                 }
             });

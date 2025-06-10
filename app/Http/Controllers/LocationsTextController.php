@@ -4,7 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Locations;
 use App\Models\PersonalNotepad;
+use App\Models\LocationProductsTable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class LocationsTextController extends Controller
 {
@@ -98,6 +103,222 @@ class LocationsTextController extends Controller
     {
         //
     }
+
+    /**
+     * Add a new location - minimal approach
+     */
+    public function addLocation(Request $request)
+    {
+        try {
+            $locationName = trim($request->input('location_name'));
+
+            // Basic validation
+            if (empty($locationName)) {
+                return response()->json(['success' => false, 'message' => 'Location name is required'], 400);
+            }
+
+            // Check if exists in database
+            if (Locations::where('name', $locationName)->exists()) {
+                return response()->json(['success' => false, 'message' => 'Location already exists'], 400);
+            }
+
+            // Get shop
+            $shop = Auth::user() ?: User::find(env('db_shop_id', 1));
+            if (!$shop) {
+                return response()->json(['success' => false, 'message' => 'Shop not found'], 401);
+            }
+
+            // Get existing locations from metaobjects
+            $query = '{
+                metaobjects(type: "location", first: 10) {
+                    edges {
+                        node {
+                            id
+                            json: field(key: "json") { value }
+                        }
+                    }
+                }
+            }';
+
+            $response = $shop->api()->graph($query);
+            $metaobjects = $response['body']['data']['metaobjects']['edges'] ?? [];
+
+            $currentLocations = [];
+            $metaobjectId = null;
+
+            // Extract current locations
+            foreach ($metaobjects as $edge) {
+                $node = $edge['node'];
+                $locationData = json_decode($node['json']['value'], true);
+                if (is_array($locationData)) {
+                    $currentLocations = array_merge($currentLocations, $locationData);
+                    $metaobjectId = $node['id'];
+                    break; // Use first metaobject
+                }
+            }
+
+            // Add new location
+            $currentLocations[] = $locationName;
+
+            // Update or create metaobject
+            if ($metaobjectId) {
+                // Update existing
+                $mutation = 'mutation($id: ID!, $fields: [MetaobjectFieldInput!]!) {
+                    metaobjectUpdate(id: $id, metaobject: {fields: $fields}) {
+                        metaobject { id }
+                    }
+                }';
+                $variables = [
+                    'id' => $metaobjectId,
+                    'fields' => [['key' => 'json', 'value' => json_encode($currentLocations)]]
+                ];
+            } else {
+                // Create new
+                $mutation = 'mutation($metaobject: MetaobjectCreateInput!) {
+                    metaobjectCreate(metaobject: $metaobject) {
+                        metaobject { id }
+                    }
+                }';
+                $variables = [
+                    'metaobject' => [
+                        'type' => 'location',
+                        'handle' => 'location-xinoret7',
+                        'fields' => [['key' => 'json', 'value' => json_encode($currentLocations)]]
+                    ]
+                ];
+            }
+
+            // Execute mutation
+            $result = $shop->api()->graph($mutation, $variables);
+
+            // Simple success check
+            if (isset($result['body']['data'])) {
+                // Import locations directly (following ImportLocations.php pattern exactly)
+                $metaobjects = [];
+                $hasNextPage = true;
+                $cursor = null;
+
+                while ($hasNextPage) {
+                    $importQuery = '{
+                        metaobjects(type: "location", first: 50' . ($cursor ? ', after: "' . $cursor . '"' : '') . ') {
+                            edges {
+                                node {
+                                    id
+                                    handle
+                                    json: field(key: "json") { value }
+                                }
+                            }
+                            pageInfo {
+                                hasNextPage
+                                endCursor
+                            }
+                        }
+                    }';
+
+                    $importResponse = $shop->api()->graph($importQuery);
+                    $data = $importResponse['body']['data']['metaobjects'] ?? [];
+                    $hasNextPage = $data['pageInfo']['hasNextPage'] ?? false;
+                    $cursor = $data['pageInfo']['endCursor'] ?? null;
+
+                    foreach ($data['edges'] as $edge) {
+                        $metaobjects[] = $edge['node'];
+                    }
+                }
+
+                // Step 1: Retrieve all existing locations from the database
+                $existingLocations = Locations::all()->pluck('name')->toArray();
+
+                // Step 2: Decode the JSON data to get the list of locations from metaobjects
+                $newLocations = [];
+                foreach ($metaobjects as $metaobject) {
+                    $locationData = json_decode($metaobject['json']['value'], true);
+                    if (is_array($locationData)) {
+                        foreach ($locationData as $location) {
+                            $newLocations[] = $location;
+                        }
+                    }
+                }
+
+                $importedCount = 0;
+                // Step 3: Update or create locations in the database based on the provided list
+                foreach ($newLocations as $location) {
+                    // Update or create the location
+                    Locations::updateOrCreate(['name' => $location], [
+                        'name' => $location,
+                    ]);
+
+                    // Check if the location already has products assigned
+                    if (!LocationProductsTable::where('location', $location)->exists()) {
+                        // If not, assign default products from the 'Default Menu'
+                        $arrDefaultProducts = LocationProductsTable::where('location', 'Default Menu')->get();
+
+                        $productsToInsert = [];
+
+                        foreach ($arrDefaultProducts as $product) {
+                            // Copy the 'Default Menu' location and set it to the new location
+                            $newProduct = $product->toArray();  // Convert the product to an array
+
+                            // Unset the 'id' field to ensure Laravel does not attempt to insert it
+                            if (empty($newProduct['day'])) {
+                                continue;
+                            }
+                            unset($newProduct['id']);
+                            unset($newProduct['created_at']);
+                            unset($newProduct['updated_at']);
+
+                            // Set the new location
+                            $newProduct['location'] = $location;
+
+                            // Collect the modified product
+                            $productsToInsert[] = $newProduct;
+                        }
+
+                        // Bulk insert products for the new location
+                        if (!empty($productsToInsert)) {
+                            LocationProductsTable::insert($productsToInsert);
+                        }
+                    }
+
+                    $importedCount++;
+                }
+
+                // Step 4: Delete locations from the database that are not in the new locations list
+                $locationsToDelete = array_diff($existingLocations, $newLocations);
+                if (!empty($locationsToDelete)) {
+                    Locations::whereIn('name', $locationsToDelete)->delete();
+                }
+
+                Log::info("{$importedCount} locations imported successfully in addLocation method");
+
+                // Get updated locations list in alphabetical order
+                $updatedLocations = Locations::whereNotIn('name', ['Additional Inventory', 'Default Menu'])
+                    ->orderBy('name', 'asc')
+                    ->pluck('name')
+                    ->toArray();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Location added and imported successfully',
+                    'location_name' => $locationName,
+                    'updated_locations' => $updatedLocations
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to save location',
+                    'debug' => $result['body'] ?? 'No response data'
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Add location error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getLocationsTextList(Request $request) {
         $arrLocation = Locations::where('name', $request->input('strFilterLocation'))->first();
 

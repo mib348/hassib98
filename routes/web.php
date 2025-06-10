@@ -69,6 +69,7 @@ Route::resource('shopify', ShopifyController::class);
 //locations
 Route::get('/getLocations/{location?}', [ShopifyController::class, 'getLocations'])->name('getLocations');
 Route::get('/getLocationsTextList', [LocationsTextController::class, 'getLocationsTextList'])->name('getLocationsTextList');
+Route::post('/locations_text/addLocation', [LocationsTextController::class, 'addLocation'])->name('locations_text.addLocation');
 Route::resource('locations_text', LocationsTextController::class);
 
 //orders
