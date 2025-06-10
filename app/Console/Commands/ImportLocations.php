@@ -119,6 +119,7 @@ class ImportLocations extends Command
             $locationsToDelete = array_diff($existingLocations, $newLocations);
             if (!empty($locationsToDelete)) {
                 Locations::whereIn('name', $locationsToDelete)->delete();
+                LocationProductsTable::whereIn('location', $locationsToDelete)->delete();
             }
 
             Log::info("{$i} locations imported successfully");
