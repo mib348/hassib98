@@ -447,7 +447,7 @@ function redirect(dateText, timeSlot){
         async: false,
         dataType: "json",
         success: function(data) {
-                window.location.href = "/pages/order-menue?location=Delivery&timeslot=" + timeSlot + "&immediate_inventory=N&no_station=N&additional_inventory=N&additional_inventory_time=N&uuid=" + localStorage.getItem("uuid");
+                window.location.href = "/pages/order-menue?location=Delivery&date=" + dateText + "&timeslot=" + timeSlot + "&immediate_inventory=N&no_station=N&additional_inventory=N&additional_inventory_time=N&uuid=" + localStorage.getItem("uuid");
         },
         error: function(request, status, error) {
             alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');

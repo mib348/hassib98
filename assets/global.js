@@ -627,6 +627,47 @@ else {
     // Parse the query string
     const queryParams = new URLSearchParams(window.location.search);
   
+    // Set sessionStorage and localStorage from URL parameters if they exist
+    if (queryParams.has('location') && sessionStorage.getItem("location") == null) {
+      sessionStorage.setItem("location", queryParams.get('location'));
+    }
+    if (queryParams.has('date') && sessionStorage.getItem("date") == null) {
+      sessionStorage.setItem("date", queryParams.get('date'));
+    }
+    if (queryParams.has('immediate_inventory') && sessionStorage.getItem("immediate_inventory") == null) {
+      sessionStorage.setItem("immediate_inventory", queryParams.get('immediate_inventory'));
+    }
+    if (queryParams.has('no_station') && sessionStorage.getItem("no_station") == null) {
+      sessionStorage.setItem("no_station", queryParams.get('no_station'));
+    }
+    if (queryParams.has('additional_inventory') && sessionStorage.getItem("b_additional_inventory") == null) {
+      sessionStorage.setItem("b_additional_inventory", queryParams.get('additional_inventory'));
+    }
+    if (queryParams.has('additional_inventory_time') && sessionStorage.getItem("additional_inventory_time") == null) {
+      sessionStorage.setItem("additional_inventory_time", queryParams.get('additional_inventory_time'));
+    }
+    if (queryParams.has('uuid')) {
+      localStorage.setItem("uuid", queryParams.get('uuid'));
+    }
+
+    // If both date and uuid are available, ensure they are linked on the backend
+    if (sessionStorage.getItem("date") != null && localStorage.getItem("uuid") != null) {
+      $.ajax({
+        url: "https://dev.sushi.catering/updateSelectedDate/" + sessionStorage.getItem("date"),
+        type: "GET",
+        data: {"uuid": localStorage.getItem("uuid")},
+        cache: false,
+        async: false,
+        dataType: "json",
+        success: function(data) {
+          console.log('UUID-date relationship updated on backend');
+        },
+        error: function(request, status, error) {
+          console.log('Error updating UUID-date relationship:', error);
+        }
+      });
+    }
+  
     // Check if 'location' and 'date' parameters are missing in the URL
     //if (!queryParams.has('location') && !queryParams.has('date')) {
       if (
