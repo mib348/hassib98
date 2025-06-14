@@ -459,23 +459,7 @@ if (window.location.pathname === "/pages/bestellen") {
   } else if (sessionStorage.getItem("date") == null) {
     window.location.replace("/pages/datum");
   } else {
-    $.ajax({
-          url:"https://dev.sushi.catering/updateSelectedDate/" + sessionStorage.getItem("date"),
-          type:"GET",
-          data:{"uuid":localStorage.getItem("uuid")},
-          cache:false,
-          async:false,
-          dataType:"json",
-          success:function(data){
-            // console.log(data);
-            //window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
-            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station")  + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory")  + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
-          },
-          error: function (request, status, error) {
-              alert('set selected date error: global ');
-              console.log('set selected date error: global ', error);
-          }
-      });
+    window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station")  + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory")  + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
   }
 } 
 else if(window.location.pathname === "/cart"){
@@ -650,39 +634,14 @@ else {
       localStorage.setItem("uuid", queryParams.get('uuid'));
     }
 
-    // If both date and uuid are available, ensure they are linked on the backend
-    if (sessionStorage.getItem("date") != null && localStorage.getItem("uuid") != null) {
-      $.ajax({
-        url: "https://dev.sushi.catering/updateSelectedDate/" + sessionStorage.getItem("date"),
-        type: "GET",
-        data: {"uuid": localStorage.getItem("uuid")},
-        cache: false,
-        async: false,
-        dataType: "json",
-        success: function(data) {
-          console.log('UUID-date relationship updated on backend');
-        },
-        error: function(request, status, error) {
-          console.log('Error updating UUID-date relationship:', error);
-        }
-      });
+    // Check if required parameters are missing and redirect accordingly
+    if (
+      sessionStorage.getItem("location") == null ||
+      sessionStorage.getItem("date") == null ||
+      localStorage.getItem("uuid") == null
+    ) {
+      window.location.href = "/pages/bestellen";
     }
-  
-    // Check if 'location' and 'date' parameters are missing in the URL
-    //if (!queryParams.has('location') && !queryParams.has('date')) {
-      if (
-        sessionStorage.getItem("location") == null &&
-        sessionStorage.getItem("date") == null
-      ) {
-        window.location.href = "/pages/bestellen";
-      } else if (sessionStorage.getItem("location") == null) {
-        window.location.href = "/pages/bestellen";
-      } else if (sessionStorage.getItem("date") == null) {
-        window.location.replace("/pages/datum");
-      } else {
-        //window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date");
-      }
-    //}
   }
   else if(window.location.pathname === "/pages/datum" && sessionStorage.getItem("date") != null){
     sessionStorage.clear();
