@@ -16,7 +16,7 @@ class KitchenController extends Controller
      */
     public function index()
     {
-        $dates = $arrTotalOrders = [];
+        $dates = $arrTotalOrders = $arrTotalOrdersLocation = [];
         $arrLocations = Locations::where('is_active', 'Y')
                                     ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
                                     ->orderBy('name', 'ASC')
@@ -25,7 +25,7 @@ class KitchenController extends Controller
         // Check if locations exist before proceeding
         if ($arrLocations->isEmpty()) {
             // Handle case when no locations are found
-            return view('kitchen', ['arrData' => [], 'dates' => [], 'arrTotalOrders' => []]);
+            return view('kitchen', ['arrData' => [], 'dates' => [], 'arrTotalOrders' => [], 'arrTotalOrdersLocation' => []]);
         }
 
         // Generate dates for the next 7 days starting from today
@@ -130,6 +130,12 @@ class KitchenController extends Controller
                                         if (!isset($arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name])) {
                                             $arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name] = 0;
                                         }
+                                        if (!isset($arrTotalOrdersLocation[$location_name][$date]['total_orders']['preorder_inventory'][$product_name])) {
+                                            $arrTotalOrdersLocation[$location_name][$date]['total_orders']['preorder_inventory'][$product_name] = 0;
+                                        }
+                                        if (!isset($arrTotalOrdersLocation[$location_name][$date]['total_orders_count']['preorder_inventory'])) {
+                                            $arrTotalOrdersLocation[$location_name][$date]['total_orders_count']['preorder_inventory'] = 0;
+                                        }
                                         // Initialize product data if not already set
                                         if (!isset($arrData[$location_name][$date]['products'][$product_name])) {
                                             $arrData[$location_name][$date]['products'][$product_name] = 0;
@@ -138,6 +144,9 @@ class KitchenController extends Controller
                                         $arrData[$location_name][$date]['products'][$product_name] += $quantity;
                                         $arrTotalOrders[$date]['total_orders']['preorder_inventory'][$product_name] += $quantity;
                                         $arrTotalOrders[$date]['total_orders_count']['preorder_inventory'] += $quantity;
+
+                                        $arrTotalOrdersLocation[$location_name][$date]['total_orders']['preorder_inventory'][$product_name] += $quantity;
+                                        $arrTotalOrdersLocation[$location_name][$date]['total_orders_count']['preorder_inventory'] += $quantity;
                                     // }
                                 }
 
@@ -219,7 +228,7 @@ class KitchenController extends Controller
 
         // dd($arrData, $dates, $arrTotalOrders);
         // Pass both arrData and dates to the view
-        return view('kitchen', ['arrData' => $arrData, 'dates' => $dates, 'arrTotalOrders' => $arrTotalOrders, 'arrTotalDeliveryOrders' => $arrTotalDeliveryOrders]);
+        return view('kitchen', ['arrData' => $arrData, 'dates' => $dates, 'arrTotalOrders' => $arrTotalOrders, 'arrTotalDeliveryOrders' => $arrTotalDeliveryOrders, 'arrTotalOrdersLocation' => $arrTotalOrdersLocation]);
     }
 
 

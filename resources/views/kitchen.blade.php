@@ -116,7 +116,7 @@
 
                                 @if(empty($dayData['products']))
                                     <tr>
-                                        <td class="column-day">{{ $dayData['day_name'] }} ({{ $date }})</td>
+                                        <td class="column-day">{{ $dayData['day_name'] }} ({{ $date }}) <span class="badge text-bg-primary text-white">{{ $arrTotalOrdersLocation[$location][$date]['total_orders_count']['preorder_inventory'] ?? '' }}</span></td>
                                         @for($i = 0; $i < 4; $i++)
                                             <td class="column-qty"></td>
                                             <td class="column-product"></td>
@@ -126,7 +126,7 @@
                                     @foreach($productsArray as $rowProducts)
                                         <tr>
                                             @if($firstRow)
-                                                <td class="column-day" rowspan="{{ $rowsNeeded }}">{{ $dayData['day_name'] }} ({{ $date }})</td>
+                                                <td class="column-day" rowspan="{{ $rowsNeeded }}">{{ $dayData['day_name'] }} ({{ $date }}) <span class="badge text-bg-primary text-white">{{ $arrTotalOrdersLocation[$location][$date]['total_orders_count']['preorder_inventory'] ?? '' }}</span></td>
                                                 @php $firstRow = false; @endphp
                                             @endif
                                             @foreach($rowProducts as $productName => $quantity)
