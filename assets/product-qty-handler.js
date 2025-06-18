@@ -15,19 +15,46 @@
     var max = parseInt($input.attr('max'),10) || min;
     var val = parseInt($input.val(),10) || min;
 
+    // Check if product is sold out (max = 0 or disabled input)
+    var isSoldOut = max <= 0;
+
     // clamp value inside bounds
     if(val < min){ val = min; }
     if(val > max){ val = max; }
     $input.val(val);
 
     // Enable / disable +/- buttons
-    $wrap.find('button[data-quantity-action="decrease"]').prop('disabled', val <= min);
-    $wrap.find('button[data-quantity-action="increase"]').prop('disabled', val >= max);
+    $wrap.find('button[data-quantity-action="decrease"]').prop('disabled', val <= min || isSoldOut);
+    $wrap.find('button[data-quantity-action="increase"]').prop('disabled', val >= max || isSoldOut);
 
     // Disable ATC when sold out or exceeding max
     var $btn = $wrap.siblings('.add_to_cart');
     if($btn.length){
-      $btn.prop('disabled', max === 0 || val > max);
+      var shouldDisable = isSoldOut || val > max;
+      $btn.prop('disabled', shouldDisable);
+      
+      // Update button text and class for sold out products
+      if(isSoldOut) {
+        $btn.addClass('sold-out-btn');
+        if($btn.attr('data-soldout')) {
+          $btn.text($btn.attr('data-soldout'));
+        }
+        // Also mark the parent product as sold out
+        $btn.closest('.product_details').addClass('sold-out');
+      } else {
+        $btn.removeClass('sold-out-btn');
+        // Restore original button text if not sold out
+        if(!$btn.text().includes('...') && !$btn.text().includes('Danke')) {
+          $btn.text($btn.hasClass('sold-out-btn') ? 'Ausverkauft' : 'In den Warenkorb');
+        }
+      }
+    }
+
+    // Hide quantity controls if sold out
+    if(isSoldOut) {
+      $wrap.hide();
+    } else {
+      $wrap.show();
     }
   }
 
@@ -37,6 +64,16 @@
 
     // Initial state for any present order_qty blocks
     $('.order_qty').each(function(){ updateState($(this)); });
+
+    // Handle any existing sold-out buttons that might not have quantity controls
+    $('.add_to_cart.sold-out-btn, .add_to_cart[disabled]').each(function(){
+      var $btn = $(this);
+      $btn.addClass('sold-out-btn').prop('disabled', true);
+      if($btn.attr('data-soldout')) {
+        $btn.text($btn.attr('data-soldout'));
+      }
+      $btn.closest('.product_details').addClass('sold-out');
+    });
 
     // Delegated click handlers for + / - buttons
     $(document)
@@ -50,6 +87,9 @@
         var current = parseInt($input.val(),10) || 1;
         var min = parseInt($input.attr('min'),10) || 1;
         var max = parseInt($input.attr('max'),10) || current;
+
+        // Don't allow changes if sold out
+        if(max <= 0) return;
 
         if(action === 'increase' && current < max){
           $input.val(current + 1).trigger('change');

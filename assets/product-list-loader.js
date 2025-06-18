@@ -147,7 +147,10 @@
             '#cart-notification-product{width:100%!important}' +
             '.cart-notification-product__image{flex-shrink:0}' +
             '.cart-item{display:flex!important;align-items:center!important;gap:1rem!important;width:100%!important}' +
-            '.cart-item > div:last-child{flex:1!important}';
+            '.cart-item > div:last-child{flex:1!important}' +
+            /* Sold out styles */
+            '.sold-out-btn{cursor:not-allowed!important;opacity:0.7!important}' +
+            '.sold-out .product_details{opacity:0.8}';
           document.head.appendChild(styleTag);
         }
 
@@ -196,6 +199,12 @@
             newButton.addEventListener('click', function(e){
               e.preventDefault();
               console.log('[PF Loader] Add to cart clicked');
+              
+              // Check if product is sold out
+              if(this.disabled || this.classList.contains('sold-out-btn')){
+                console.log('[PF Loader] Product is sold out, preventing add to cart');
+                return;
+              }
               
               var productId = this.getAttribute('data-product-id');
               var variantId = this.getAttribute('data-variant-id');
