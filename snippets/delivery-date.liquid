@@ -25,14 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.body.addEventListener('click', function(e) {
     if ((e.target.classList.contains('todayorderbtn') || e.target.classList.contains('preorderbtn')) && !pageFullyLoaded) {
       e.preventDefault(); // Prevent navigation if page hasn't fully loaded
-      // // Optionally, visually indicate that the link is disabled
-      // e.target.style.pointerEvents = 'none';
-      // e.target.style.opacity = '0.5';
-      location.reload();
-    } else {
-      // Optionally, reset visual changes if any were made
-      e.target.style.pointerEvents = '';
-      e.target.style.opacity = '';
+      console.log('Button clicked before page was fully loaded. Action prevented.');
     }
   });
 
