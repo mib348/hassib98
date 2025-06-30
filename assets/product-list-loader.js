@@ -80,11 +80,8 @@
         var originalSlider = container.querySelector('.pf-slider');
 
         if (newSlider && originalSlider) {
-          console.log('[PF Loader] New slider content found. Injecting into original slider element.');
-          originalSlider.innerHTML = '';
-          while (newSlider.firstChild) {
-            originalSlider.appendChild(newSlider.firstChild);
-          }
+          console.log('[PF Loader] New slider content found. Replacing original slider element to preserve data attributes.');
+          originalSlider.parentNode.replaceChild(newSlider, originalSlider);
         } else {
           console.warn('[PF Loader] Could not find original or new slider. Falling back to full HTML replacement.');
           container.innerHTML = html;
