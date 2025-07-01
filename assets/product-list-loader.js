@@ -138,7 +138,19 @@
             '.cart-item > div:last-child{flex:1!important}' +
             /* Sold out styles */
             '.sold-out-btn{cursor:not-allowed!important;opacity:0.7!important}' +
-            '.sold-out .product_details{opacity:0.8}';
+            '.sold-out .product_details{opacity:0.8}' +
+            /* Mobile responsive image styles */
+            '.product-media2-inner{display:block!important;visibility:visible!important}' +
+            '.product-media2-inner img{max-width:100%!important;height:auto!important;display:block!important}' +
+            '.pf-main-media{display:block!important}' +
+            '.pf-media-slider{display:block!important}' +
+            '.pf-slide-main-media{display:block!important}' +
+            '@media (max-width: 768px){' +
+            '.product-media2-inner{margin-bottom:15px!important}' +
+            '.pf-main-media img{width:100%!important;max-width:100%!important;height:auto!important}' +
+            '.pf-media-wrapper{width:100%!important;max-width:100%!important}' +
+            '.pf-list-media{display:none!important}' + // Hide thumbnail list on mobile for cleaner look
+            '}';
           document.head.appendChild(styleTag);
         }
 
