@@ -151,6 +151,46 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
+                // 3.5. Location Validation - Ensure all cart items are from current location
+                const currentLocation = sessionStorage.getItem("location");
+                const locations = [];
+                let locationMismatchFound = false;
+                
+                $.each(cart.items, function (index, item) {
+                    const itemLocation = item.properties.location;
+                    locations.push(itemLocation);
+                    
+                    // Check if item location matches current session location
+                    if (itemLocation && currentLocation && itemLocation !== currentLocation) {
+                        locationMismatchFound = true;
+                        console.warn('[Cart Manager] Location mismatch found:', {
+                            itemLocation: itemLocation,
+                            currentLocation: currentLocation,
+                            productTitle: item.product_title
+                        });
+                    }
+                });
+
+                // If location mismatch found, alert user and prevent checkout
+                if (locationMismatchFound) {
+                    console.log('[Cart Manager] Location validation failed:', {
+                        currentLocation: currentLocation,
+                        cartLocations: locations
+                    });
+                    alert('Ihr Warenkorb enthält Artikel von verschiedenen Standorten. Bitte entfernen Sie Artikel von anderen Standorten oder wählen Sie einen einheitlichen Standort.');
+                    return;
+                }
+
+                // Additional check: Ensure all items have the same location among themselves
+                const allSameLocation = locations.length > 0 && locations.every(location => location === locations[0]);
+                if (!allSameLocation) {
+                    console.log('[Cart Manager] Mixed location items in cart:', locations);
+                    alert('Ihr Warenkorb enthält Artikel von verschiedenen Standorten. Bitte entfernen Sie Artikel von anderen Standorten oder wählen Sie einen einheitlichen Standort.');
+                    return;
+                }
+
+                console.log('[Cart Manager] Location validation passed. All items from:', currentLocation);
+
                 // 4. Agreement Checks
                 if (sessionStorage.getItem("location") !== "Delivery") {
                     if (!$('#incorrent_item_agree').is(':checked')) {
