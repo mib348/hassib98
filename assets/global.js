@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 $.ajax({
                     type: "POST",
-                    url: "https://dev.sushi.catering/api/checkCartProductsQty", // URL from new code
+                    url: "https://app.sushi.catering/api/checkCartProductsQty", // URL from new code
                     async: false, 
                     cache: false, 
                     data: {
@@ -510,7 +510,7 @@ else if(window.location.pathname === "/cart"){
 
           $.ajax({
                 type: "GET",
-                url: "https://dev.sushi.catering/getLocations/Delivery",
+                url: "https://app.sushi.catering/getLocations/Delivery",
                 async: false,
                 cache: false,
                 // data: {
@@ -539,7 +539,7 @@ else if(window.location.pathname === "/cart"){
 
           $.ajax({
               type: "POST",
-              url: "https://dev.sushi.catering/api/checkOrderInventory",
+              url: "https://app.sushi.catering/api/checkOrderInventory",
               async: false,
               cache: false,
               data: {
