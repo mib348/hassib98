@@ -193,6 +193,7 @@ class DriverController extends Controller
             // Get current date and day
             $currentDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
             $currentDay = Carbon::now('Europe/Berlin')->format('l');
+            $currentDateTime = Carbon::now('Europe/Berlin')->format('Y-m-d H:i:s');
 
             $arrData[$request->location]['preorder_slot']['products'] = [];
             // $arrData[$location_name]['sameday_preorder_slot']['products'] = [];
@@ -310,6 +311,8 @@ class DriverController extends Controller
             $fulfillment->image_name = $imageName;
             // $fulfillment->image_path = $storagePath;
             $fulfillment->image_url = $imageUrl;
+            $fulfillment->created_at = $currentDateTime;
+            $fulfillment->updated_at = $currentDateTime;
             $fulfillment->save();
             $new_fulfillment_id = $fulfillment->id;
 
@@ -336,7 +339,7 @@ class DriverController extends Controller
                         $existingValue = $currentMetafield['value'] ?? '[]';
                         $existingData = json_decode($existingValue, true) ?? [];
                         
-                        $updatedData = $this->prepareMetafieldValue($request->location, date('Y-m-d H:i:s'), $existingData);
+                        $updatedData = $this->prepareMetafieldValue($request->location, $currentDateTime, $existingData);
                         
                         $metafieldMutations[] = [
                             'ownerId' => "gid://shopify/Product/" . $productId,

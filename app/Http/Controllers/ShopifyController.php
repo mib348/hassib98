@@ -902,7 +902,7 @@ class ShopifyController extends Controller
             // If the parameter is passed, select all fields for the specified location
             $arrLocations = Locations::where('name', $location)->first();
             $driverFulfilledStatus = DriverFulfilledStatus::select('created_at')->where('location', $location)->where('date', date('Y-m-d'))->latest()->first();
-            $arrLocations['driver_fulfillment_time'] = $driverFulfilledStatus ? "erfolgt um " . $driverFulfilledStatus->created_at->format('H:i') . " Uhr" : null;
+            $arrLocations['driver_fulfillment_time'] = $driverFulfilledStatus ? "erfolgt um " . Carbon::parse($driverFulfilledStatus->created_at, 'Europe/Berlin')->format('H:i') . " Uhr" : null;
 
             // if($location == "Delivery"){
             //     $strTimezone1 = $arrLocations->start_time;
