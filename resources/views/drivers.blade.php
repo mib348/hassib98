@@ -253,7 +253,7 @@
                         <div class="accordion-header" id="heading{{ $loop->index }}">
                             <h5 class="mb-0 ">
                                 <button class="accordion-button {{ $arrProducts['is_fulfilled'] ? 'bg-success-subtle' : 'bg-light' }} d-block text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="false" aria-controls="collapse{{ $loop->index }}">
-                                    {{ ($loop->index + 1) . ". " . $location }} <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span>
+                                    {{ ($loop->index + 1) . ". " . $location }} <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span> <span class="text-white">{{ $arrProducts['location_data']['driver_fulfillment_time'] }}</span>
                                 </button>
                             </h5>
                         </div>

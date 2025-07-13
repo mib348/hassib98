@@ -57,6 +57,9 @@ class DriverController extends Controller
 
                 // Initialize location_data here
                 if (!isset($arrData[$location_name]['location_data'])) {
+                    $arrLocation['driver_fulfillment_time'] = DriverFulfilledStatus::select('created_at')->where('location', $location_name)->where('date', $currentDate)->latest()->first();
+                    $arrLocation['driver_fulfillment_time'] = $arrLocation['driver_fulfillment_time'] ? "geliefert " . Carbon::parse($arrLocation['driver_fulfillment_time']->created_at, 'Europe/Berlin')->format('H:i') . " Uhr" : null;
+
                     $arrData[$location_name]['location_data'] = $arrLocation;
                     $arrTotalOrders[$location_name]['total_orders_count'] = 0;
                     // Add fulfilled flag and get image if fulfilled
