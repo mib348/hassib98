@@ -47,18 +47,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let determinedLocation = null;
 
-    // 1. Try to get from localStorage
-    const lsLocation = localStorage.getItem("location");
-    if (lsLocation && lsLocation.trim() !== "") {
-        determinedLocation = lsLocation.trim();
-        // Ensure sessionStorage is also set if localStorage had it
-        if (sessionStorage.getItem("location") !== determinedLocation) {
-            sessionStorage.setItem("location", determinedLocation);
-            console.log("Location: Set from localStorage to sessionStorage:", determinedLocation);
-        }
+    // 1. First priority: Try to get from URL parameters
+    const queryParams = new URLSearchParams(window.location.search);
+    const urlLocation = queryParams.get('location');
+    if (urlLocation && urlLocation.trim() !== "") {
+        determinedLocation = urlLocation.trim();
+        // Set it in sessionStorage for future use within the session
+        sessionStorage.setItem("location", determinedLocation);
+        console.log("Location: Set from URL param to sessionStorage:", determinedLocation);
+        // Optionally, if you want to persist it beyond the session via URL:
+        // localStorage.setItem("location", determinedLocation);
     }
 
-    // 2. If not in localStorage, try to get from sessionStorage (or if localStorage was different, sessionStorage now holds it)
+    // 2. If not in URL, try to get from sessionStorage first (prioritized)
     if (!determinedLocation) {
         const ssLocation = sessionStorage.getItem("location");
         if (ssLocation && ssLocation.trim() !== "") {
@@ -67,17 +68,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 3. If not in localStorage or sessionStorage, try to get from URL parameters
+    // 3. If not in URL or sessionStorage, try to get from localStorage
     if (!determinedLocation) {
-        const queryParams = new URLSearchParams(window.location.search);
-        const urlLocation = queryParams.get('location');
-        if (urlLocation && urlLocation.trim() !== "") {
-            determinedLocation = urlLocation.trim();
-            // Set it in sessionStorage for future use within the session
-            sessionStorage.setItem("location", determinedLocation);
-            console.log("Location: Set from URL param to sessionStorage:", determinedLocation);
-            // Optionally, if you want to persist it beyond the session via URL:
-            // localStorage.setItem("location", determinedLocation);
+        const lsLocation = localStorage.getItem("location");
+        if (lsLocation && lsLocation.trim() !== "") {
+            determinedLocation = lsLocation.trim();
+            // Ensure sessionStorage is also set if localStorage had it
+            if (sessionStorage.getItem("location") !== determinedLocation) {
+                sessionStorage.setItem("location", determinedLocation);
+                console.log("Location: Set from localStorage to sessionStorage:", determinedLocation);
+            }
         }
     }
 
@@ -170,6 +170,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 sessionStorage.setItem("no_station", data.no_station);
                 sessionStorage.setItem("b_additional_inventory", data.additional_inventory);
                 sessionStorage.setItem("immediate_inventory", data.immediate_inventory);
+
+                if(data.driver_fulfillment_time){
+                  $(".status-delivery-today span").html(data.driver_fulfillment_time).css("color", "limegreen");
+                }
+                else{
+                  $(".status-delivery-today span").html("noch nicht erfolgt").css("color", "red");
+                }
 
                 // Get the current date and time in Germany
                 const now = new Date();
