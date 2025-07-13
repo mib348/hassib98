@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\QRCodeMail;
+use App\Models\DriverFulfilledStatus;
 use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Metafields;
@@ -900,6 +901,8 @@ class ShopifyController extends Controller
         if ($location) {
             // If the parameter is passed, select all fields for the specified location
             $arrLocations = Locations::where('name', $location)->first();
+            $driverFulfilledStatus = DriverFulfilledStatus::select('created_at')->where('location', $location)->where('date', date('Y-m-d'))->latest()->first();
+            $arrLocations['driver_fulfillment_time'] = $driverFulfilledStatus ? "erfolgt um " . $driverFulfilledStatus->created_at->format('H:i') . " Uhr" : null;
 
             // if($location == "Delivery"){
             //     $strTimezone1 = $arrLocations->start_time;
