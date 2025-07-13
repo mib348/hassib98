@@ -5,9 +5,9 @@
 // }
 
 function generateShortUUID() {
-    return 'xxxxxx'.replace(/[x]/g, function() {
-        return (Math.random() * 16 | 0).toString(16);
-    });
+  return 'xxxxxx'.replace(/[x]/g, function () {
+    return (Math.random() * 16 | 0).toString(16);
+  });
 }
 
 if (localStorage.getItem("uuid") == null) {
@@ -19,447 +19,486 @@ if (localStorage.getItem("uuid") == null) {
 //   sessionStorage.setItem("location", localStorage.getItem("location"));
 // }
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('[Cart Manager] Page loaded:', window.location.pathname);
-    
-    // Define critical paths that need cart preservation
-    const CRITICAL_PATHS = ['/pages/order-menue', '/cart', '/checkout'];
-    const currentPath = window.location.pathname;
-    
-    // Simple helper to check if a path is critical
-    const isPathCritical = (path) => {
-        const isCritical = CRITICAL_PATHS.includes(path);
-        console.log('[Cart Manager] Checking if path is critical:', path, isCritical);
-        return isCritical;
+document.addEventListener('DOMContentLoaded', function () {
+  console.log('[Cart Manager] Page loaded:', window.location.pathname);
+
+  // Define critical paths that need cart preservation
+  const CRITICAL_PATHS = ['/pages/order-menue', '/cart', '/checkout'];
+  const currentPath = window.location.pathname;
+
+  // Simple helper to check if a path is critical
+  const isPathCritical = (path) => {
+    const isCritical = CRITICAL_PATHS.includes(path);
+    console.log('[Cart Manager] Checking if path is critical:', path, isCritical);
+    return isCritical;
+  };
+
+  // Simple helper to clear cart
+  const clearCart = () => {
+    console.log('[Cart Manager] Clearing cart...');
+    return $.ajax({
+      type: "POST",
+      url: window.Shopify.routes.root + "cart/clear.js",
+      dataType: "json"
+    }).then(() => {
+      console.log('[Cart Manager] Cart cleared successfully');
+    }).catch(error => {
+      console.error('[Cart Manager] Failed to clear cart:', error);
+    });
+  };
+
+  // Handle navigation between pages
+  if (isPathCritical(currentPath)) {
+    console.log('[Cart Manager] On critical path, setting up navigation handlers');
+
+    // Single handler for both unload events
+    const handleNavigation = (event) => {
+      // Get target URL if available
+      const targetUrl = document.activeElement?.href;
+      if (targetUrl) {
+        const targetPath = new URL(targetUrl).pathname;
+        console.log('[Cart Manager] Navigation detected. Target:', targetPath);
+
+        // Only clear if navigating to non-critical path
+        if (!isPathCritical(targetPath)) {
+          console.log('[Cart Manager] Navigating to non-critical path, clearing cart');
+          // Use sendBeacon for more reliable delivery during page unload
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
+            console.log('[Cart Manager] Cart clear request sent via beacon');
+          } else {
+            // Fallback to sync XHR
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
+            xhr.send();
+            console.log('[Cart Manager] Cart clear request sent via sync XHR');
+          }
+        } else {
+          console.log('[Cart Manager] Navigating to critical path, preserving cart');
+        }
+      }
     };
 
-    // Simple helper to clear cart
-    const clearCart = () => {
-        console.log('[Cart Manager] Clearing cart...');
-        return $.ajax({
-            type: "POST",
-            url: window.Shopify.routes.root + "cart/clear.js",
-            dataType: "json"
-        }).then(() => {
-            console.log('[Cart Manager] Cart cleared successfully');
-        }).catch(error => {
-            console.error('[Cart Manager] Failed to clear cart:', error);
-        });
-    };
+    window.addEventListener('pagehide', handleNavigation);
+    window.addEventListener('beforeunload', handleNavigation);
+    console.log('[Cart Manager] Navigation handlers attached');
+  }
 
-    // Handle navigation between pages
-    if (isPathCritical(currentPath)) {
-        console.log('[Cart Manager] On critical path, setting up navigation handlers');
-        
-        // Single handler for both unload events
-        const handleNavigation = (event) => {
-            // Get target URL if available
-            const targetUrl = document.activeElement?.href;
-            if (targetUrl) {
-                const targetPath = new URL(targetUrl).pathname;
-                console.log('[Cart Manager] Navigation detected. Target:', targetPath);
-                
-                // Only clear if navigating to non-critical path
-                if (!isPathCritical(targetPath)) {
-                    console.log('[Cart Manager] Navigating to non-critical path, clearing cart');
-                    // Use sendBeacon for more reliable delivery during page unload
-                    if (navigator.sendBeacon) {
-                        navigator.sendBeacon(window.Shopify.routes.root + "cart/clear.js");
-                        console.log('[Cart Manager] Cart clear request sent via beacon');
-                    } else {
-                        // Fallback to sync XHR
-                        const xhr = new XMLHttpRequest();
-                        xhr.open("POST", window.Shopify.routes.root + "cart/clear.js", false);
-                        xhr.send();
-                        console.log('[Cart Manager] Cart clear request sent via sync XHR');
-                    }
-                } else {
-                    console.log('[Cart Manager] Navigating to critical path, preserving cart');
-                }
+  // Handle checkout button click
+  $(document).on("click", "#checkout", function (e) {
+    console.log('[Cart Manager] Checkout button clicked');
+    e.preventDefault();
+
+    $.ajax({
+      type: "GET",
+      url: window.Shopify.routes.root + "cart.js",
+      dataType: "json",
+      success: function (cart) {
+        console.log('[Cart Manager] Cart validation started');
+
+        // 1. Delivery Minimum Check
+        if (sessionStorage.getItem("location") === "Delivery") {
+          const currentTotal = $(".totals__total-value").html();
+          // min_order_limit is a global variable, assumed to be defined and updated elsewhere (e.g., on /cart page load)
+          if (comparePrices(min_order_limit, currentTotal)) {
+            console.log('[Cart Manager] Delivery minimum not met');
+            alert('Die Mindestlieferbestellmenge sollte betragen: €' + min_order_limit + ' EUR');
+            return;
+          }
+        }
+
+        // 2. Date Array and Max Quantity Checks
+        const dates = [];
+        let quantityCheckFailed = false;
+        let firstQuantityErrorElement = null;
+
+        $.each(cart.items, function (index, item) {
+          dates.push(item.properties.date);
+
+          let stored_qty = parseInt(item.properties.max_quantity, 10);
+          if (sessionStorage.getItem("location") === "Delivery") {
+            stored_qty = 99; // For Delivery, max quantity is 99
+          }
+
+          const quantityInput = $(`input.quantity__input[data-quantity-variant-id="${item.id}"]`);
+          const quantityContainer = quantityInput.closest(".cart-item__quantity");
+
+          if (item.quantity > stored_qty) {
+            quantityCheckFailed = true;
+            quantityInput.closest('.quantity').find('button[name="plus"]').attr('disabled', true).prop('disabled', true);
+            if (!quantityContainer.find("small.lowstock").length) {
+              quantityContainer.append(`<small class="lowstock" style="color:red;">Es sind nur ${stored_qty} Artikel verfügbar</small>`);
             }
-        };
+            if (!firstQuantityErrorElement && quantityContainer.length) {
+              firstQuantityErrorElement = quantityContainer;
+            }
+          } else if (item.quantity === stored_qty && stored_qty !== 99) { // Disable plus if quantity equals max (and not delivery special case)
+            quantityInput.closest('.quantity').find('button[name="plus"]').attr('disabled', true).prop('disabled', true);
+          }
+        });
 
-        window.addEventListener('pagehide', handleNavigation);
-        window.addEventListener('beforeunload', handleNavigation);
-        console.log('[Cart Manager] Navigation handlers attached');
-    }
+        // Scroll to the first quantity error if any
+        if (quantityCheckFailed && firstQuantityErrorElement) {
+          const elementTop = firstQuantityErrorElement.offset().top;
+          window.scrollTo({ top: elementTop - 150, behavior: "smooth" });
+        }
 
-    // Handle checkout button click
-    $(document).on("click", "#checkout", function(e) {
-        console.log('[Cart Manager] Checkout button clicked');
-        e.preventDefault();
+        // 3. Date Validation
+        const allSameDate = dates.length > 0 && dates.every(date => date === dates[0]);
+        if (!allSameDate) {
+          console.log('[Cart Manager] Date validation failed:', dates);
+          alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
+          return;
+        }
+
+        // 3.5. Location Validation - Ensure all cart items are from current location
+        const currentLocation = sessionStorage.getItem("location");
+        const locations = [];
+        let locationMismatchFound = false;
+
+        $.each(cart.items, function (index, item) {
+          const itemLocation = item.properties.location;
+          locations.push(itemLocation);
+
+          // Check if item location matches current session location
+          if (itemLocation && currentLocation && itemLocation !== currentLocation) {
+            locationMismatchFound = true;
+            console.warn('[Cart Manager] Location mismatch found:', {
+              itemLocation: itemLocation,
+              currentLocation: currentLocation,
+              productTitle: item.product_title
+            });
+          }
+        });
+
+        // If location mismatch found, alert user and prevent checkout
+        if (locationMismatchFound) {
+          console.log('[Cart Manager] Location validation failed:', {
+            currentLocation: currentLocation,
+            cartLocations: locations
+          });
+          alert('Ihr Warenkorb enthält Artikel von verschiedenen Standorten. Bitte entfernen Sie Artikel von anderen Standorten oder wählen Sie einen einheitlichen Standort.');
+          return;
+        }
+
+        // Additional check: Ensure all items have the same location among themselves
+        const allSameLocation = locations.length > 0 && locations.every(location => location === locations[0]);
+        if (!allSameLocation) {
+          console.log('[Cart Manager] Mixed location items in cart:', locations);
+          alert('Ihr Warenkorb enthält Artikel von verschiedenen Standorten. Bitte entfernen Sie Artikel von anderen Standorten oder wählen Sie einen einheitlichen Standort.');
+          return;
+        }
+
+        console.log('[Cart Manager] Location validation passed. All items from:', currentLocation);
+
+        // 4. Agreement Checks
+        if (sessionStorage.getItem("location") !== "Delivery") {
+          if (!$('#incorrent_item_agree').is(':checked')) {
+            console.log('[Cart Manager] Item agreement not checked');
+            alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
+            return;
+          }
+        }
+
+        if (!$('#agree').is(':checked')) {
+          console.log('[Cart Manager] Terms agreement not checked');
+          alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
+          return;
+        }
+
+        // 5. Post-Agreement Quantity Check (if any item exceeded its max quantity)
+        if (quantityCheckFailed) {
+          console.log('[Cart Manager] Quantity validation failed for one or more items (item.quantity > stored_qty). User must correct.');
+          // Messages are already displayed, and buttons disabled.
+          return;
+        }
+
+        // 6. Special Delivery Redirect OR Final Stock Check
+        if (sessionStorage.getItem("location") === "Delivery") {
+          console.log('[Cart Manager] Location is Delivery, proceeding directly to checkout after initial checks.');
+          window.location.href = "/checkout";
+          return;
+        }
+
+        // If NOT Delivery, then proceed to the final stock check
+        console.log('[Cart Manager] All initial validations passed, proceeding to final stock check for non-delivery order.');
 
         $.ajax({
-            type: "GET",
-            url: window.Shopify.routes.root + "cart.js",
-            dataType: "json",
-            success: function(cart) {
-                console.log('[Cart Manager] Cart validation started');
+          type: "POST",
+          url: "https://app.sushi.catering/api/checkCartProductsQty", // URL from new code
+          async: false,
+          cache: false,
+          data: {
+            items: JSON.stringify(cart.items)
+          },
+          dataType: "json",
+          success: function (productsResponse) {
+            let allProductsAvailable = true;
+            let firstStockErrorElement = null;
+            const cartItems = cart.items; // For comparison
 
-                // 1. Delivery Minimum Check
-                if (sessionStorage.getItem("location") === "Delivery") {
-                    const currentTotal = $(".totals__total-value").html();
-                    // min_order_limit is a global variable, assumed to be defined and updated elsewhere (e.g., on /cart page load)
-                    if (comparePrices(min_order_limit, currentTotal)) {
-                        console.log('[Cart Manager] Delivery minimum not met');
-                        alert('Die Mindestlieferbestellmenge sollte betragen: €' + min_order_limit + ' EUR');
-                        return;
-                    }
+            for (let i = 0; i < productsResponse.length; i++) {
+              const productStatus = productsResponse[i];
+              const currentCartItem = cartItems[i]; // Assuming alignment by index as per original new code
+
+              // Ensure currentCartItem exists to prevent errors if arrays misalign
+              if (!currentCartItem || currentCartItem.variant_id != productStatus.variant_id) {
+                console.warn('[Cart Manager] Mismatch between cart items and stock check response at index', i);
+                // Potentially handle this more gracefully, e.g., by trying to find by variant_id
+                // For now, following the assumption of aligned arrays from the new code.
+                // If variant_id is reliably present in cart.items[i], we could find:
+                // const currentCartItem = cartItems.find(ci => ci.variant_id == productStatus.variant_id);
+              }
+
+
+              const quantityInput = $(`input.quantity__input[data-quantity-variant-id="${productStatus.variant_id}"]`);
+              const quantityContainer = quantityInput.closest(".cart-item__quantity");
+
+              if (productStatus.qty === 0) {
+                alert(productStatus.name + ' ist Ausverkauft');
+                if (quantityContainer.length && !quantityContainer.find("small.soldout").length) {
+                  quantityContainer.append('<small class="soldout" style="color:red;">Ausverkauft</small>');
                 }
-
-                // 2. Date Array and Max Quantity Checks
-                const dates = [];
-                let quantityCheckFailed = false;
-                let firstQuantityErrorElement = null;
-
-                $.each(cart.items, function (index, item) {
-                    dates.push(item.properties.date);
-
-                    let stored_qty = parseInt(item.properties.max_quantity, 10);
-                    if (sessionStorage.getItem("location") === "Delivery") {
-                        stored_qty = 99; // For Delivery, max quantity is 99
-                    }
-
-                    const quantityInput = $(`input.quantity__input[data-quantity-variant-id="${item.id}"]`);
-                    const quantityContainer = quantityInput.closest(".cart-item__quantity");
-
-                    if (item.quantity > stored_qty) {
-                        quantityCheckFailed = true;
-                        quantityInput.closest('.quantity').find('button[name="plus"]').attr('disabled', true).prop('disabled', true);
-                        if (!quantityContainer.find("small.lowstock").length) {
-                            quantityContainer.append(`<small class="lowstock" style="color:red;">Es sind nur ${stored_qty} Artikel verfügbar</small>`);
-                        }
-                        if (!firstQuantityErrorElement && quantityContainer.length) {
-                            firstQuantityErrorElement = quantityContainer;
-                        }
-                    } else if (item.quantity === stored_qty && stored_qty !== 99) { // Disable plus if quantity equals max (and not delivery special case)
-                         quantityInput.closest('.quantity').find('button[name="plus"]').attr('disabled', true).prop('disabled', true);
-                    }
-                });
-
-                // Scroll to the first quantity error if any
-                if (quantityCheckFailed && firstQuantityErrorElement) {
-                    const elementTop = firstQuantityErrorElement.offset().top;
-                    window.scrollTo({ top: elementTop - 150, behavior: "smooth" });
+                if (allProductsAvailable && quantityContainer.length) { // Only scroll to the first error
+                  firstStockErrorElement = quantityContainer;
                 }
-
-                // 3. Date Validation
-                const allSameDate = dates.length > 0 && dates.every(date => date === dates[0]);
-                if (!allSameDate) {
-                    console.log('[Cart Manager] Date validation failed:', dates);
-                    alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
-                    return;
+                allProductsAvailable = false;
+              } else if (currentCartItem && productStatus.qty < currentCartItem.quantity) {
+                alert('Für ' + productStatus.name + ' sind nur noch ' + productStatus.qty + ' Artikel übrig');
+                if (quantityContainer.length && !quantityContainer.find("small.soldout").length) { // Using "soldout" class as per new code for this message too
+                  quantityContainer.append(`<small class="soldout" style="color:red;">${productStatus.qty} Produkte verfügbar</small>`);
                 }
-
-                // 3.5. Location Validation - Ensure all cart items are from current location
-                const currentLocation = sessionStorage.getItem("location");
-                const locations = [];
-                let locationMismatchFound = false;
-                
-                $.each(cart.items, function (index, item) {
-                    const itemLocation = item.properties.location;
-                    locations.push(itemLocation);
-                    
-                    // Check if item location matches current session location
-                    if (itemLocation && currentLocation && itemLocation !== currentLocation) {
-                        locationMismatchFound = true;
-                        console.warn('[Cart Manager] Location mismatch found:', {
-                            itemLocation: itemLocation,
-                            currentLocation: currentLocation,
-                            productTitle: item.product_title
-                        });
-                    }
-                });
-
-                // If location mismatch found, alert user and prevent checkout
-                if (locationMismatchFound) {
-                    console.log('[Cart Manager] Location validation failed:', {
-                        currentLocation: currentLocation,
-                        cartLocations: locations
-                    });
-                    alert('Ihr Warenkorb enthält Artikel von verschiedenen Standorten. Bitte entfernen Sie Artikel von anderen Standorten oder wählen Sie einen einheitlichen Standort.');
-                    return;
+                if (allProductsAvailable && quantityContainer.length) { // Only scroll to the first error
+                  firstStockErrorElement = quantityContainer;
                 }
-
-                // Additional check: Ensure all items have the same location among themselves
-                const allSameLocation = locations.length > 0 && locations.every(location => location === locations[0]);
-                if (!allSameLocation) {
-                    console.log('[Cart Manager] Mixed location items in cart:', locations);
-                    alert('Ihr Warenkorb enthält Artikel von verschiedenen Standorten. Bitte entfernen Sie Artikel von anderen Standorten oder wählen Sie einen einheitlichen Standort.');
-                    return;
-                }
-
-                console.log('[Cart Manager] Location validation passed. All items from:', currentLocation);
-
-                // 4. Agreement Checks
-                if (sessionStorage.getItem("location") !== "Delivery") {
-                    if (!$('#incorrent_item_agree').is(':checked')) {
-                        console.log('[Cart Manager] Item agreement not checked');
-                        alert("Um zur Kasse zu gehen und fortzufahren, müssen Sie zustimmen, dass Sie keine Artikel aus Bestellungen Dritter annehmen, und dass bei Entnahme eines falschen Artikels eine 20€-Gebühr pro Artikel fällig wird.");
-                        return;
-                    }
-                }
-
-                if (!$('#agree').is(':checked')) {
-                    console.log('[Cart Manager] Terms agreement not checked');
-                    alert("Um zur Kasse gehen zu können, müssen Sie den Allgemeinen Geschäftsbedingungen zustimmen.");
-                    return;
-                }
-
-                // 5. Post-Agreement Quantity Check (if any item exceeded its max quantity)
-                if (quantityCheckFailed) {
-                     console.log('[Cart Manager] Quantity validation failed for one or more items (item.quantity > stored_qty). User must correct.');
-                     // Messages are already displayed, and buttons disabled.
-                     return; 
-                }
-
-                // 6. Special Delivery Redirect OR Final Stock Check
-                if (sessionStorage.getItem("location") === "Delivery") {
-                    console.log('[Cart Manager] Location is Delivery, proceeding directly to checkout after initial checks.');
-                    window.location.href = "/checkout";
-                    return; 
-                }
-
-                // If NOT Delivery, then proceed to the final stock check
-                console.log('[Cart Manager] All initial validations passed, proceeding to final stock check for non-delivery order.');
-                
-                $.ajax({
-                    type: "POST",
-                    url: "https://app.sushi.catering/api/checkCartProductsQty", // URL from new code
-                    async: false, 
-                    cache: false, 
-                    data: {
-                        items: JSON.stringify(cart.items) 
-                    },
-                    dataType: "json",
-                    success: function(productsResponse) {
-                        let allProductsAvailable = true;
-                        let firstStockErrorElement = null;
-                        const cartItems = cart.items; // For comparison
-
-                        for (let i = 0; i < productsResponse.length; i++) {
-                            const productStatus = productsResponse[i];
-                            const currentCartItem = cartItems[i]; // Assuming alignment by index as per original new code
-
-                            // Ensure currentCartItem exists to prevent errors if arrays misalign
-                            if (!currentCartItem || currentCartItem.variant_id != productStatus.variant_id) {
-                                console.warn('[Cart Manager] Mismatch between cart items and stock check response at index', i);
-                                // Potentially handle this more gracefully, e.g., by trying to find by variant_id
-                                // For now, following the assumption of aligned arrays from the new code.
-                                // If variant_id is reliably present in cart.items[i], we could find:
-                                // const currentCartItem = cartItems.find(ci => ci.variant_id == productStatus.variant_id);
-                            }
-
-
-                            const quantityInput = $(`input.quantity__input[data-quantity-variant-id="${productStatus.variant_id}"]`);
-                            const quantityContainer = quantityInput.closest(".cart-item__quantity");
-
-                            if (productStatus.qty === 0) {
-                                alert(productStatus.name + ' ist Ausverkauft');
-                                if (quantityContainer.length && !quantityContainer.find("small.soldout").length) {
-                                    quantityContainer.append('<small class="soldout" style="color:red;">Ausverkauft</small>');
-                                }
-                                if (allProductsAvailable && quantityContainer.length) { // Only scroll to the first error
-                                    firstStockErrorElement = quantityContainer;
-                                }
-                                allProductsAvailable = false;
-                            } else if (currentCartItem && productStatus.qty < currentCartItem.quantity) {
-                                alert('Für ' + productStatus.name + ' sind nur noch ' + productStatus.qty + ' Artikel übrig');
-                                if (quantityContainer.length && !quantityContainer.find("small.soldout").length) { // Using "soldout" class as per new code for this message too
-                                    quantityContainer.append(`<small class="soldout" style="color:red;">${productStatus.qty} Produkte verfügbar</small>`);
-                                }
-                                if (allProductsAvailable && quantityContainer.length) { // Only scroll to the first error
-                                    firstStockErrorElement = quantityContainer;
-                                }
-                                allProductsAvailable = false;
-                            }
-                        }
-
-                        if (firstStockErrorElement) {
-                            const elementTop = firstStockErrorElement.offset().top;
-                            window.scrollTo({ top: elementTop - 150, behavior: "smooth" });
-                        }
-
-                        if (!allProductsAvailable) {
-                            console.log("[Cart Manager] Final stock check failed. Some products unavailable or insufficient stock.");
-                            return; // Prevent checkout
-                        }
-
-                        console.log('[Cart Manager] All validations (including final stock) passed, proceeding to checkout.');
-                        window.location.href = "/checkout";
-                    },
-                    error: function(xhr, status, error) { // Added xhr, status, error params
-                        console.error('[Cart Manager] Failed to check product quantities (final check):', error);
-                        alert('Es gab einen Fehler bei der Überprüfung der Produktverfügbarkeit. Bitte versuchen Sie es erneut.');
-                    }
-                });
-            },
-            error: function(xhr, status, error) { // Added xhr, status, error params
-                console.error('[Cart Manager] Failed to validate cart (initial fetch):', error);
-                alert('Es gab einen Fehler bei der Überprüfung Ihres Warenkorbs. Bitte versuchen Sie es erneut.');
+                allProductsAvailable = false;
+              }
             }
+
+            if (firstStockErrorElement) {
+              const elementTop = firstStockErrorElement.offset().top;
+              window.scrollTo({ top: elementTop - 150, behavior: "smooth" });
+            }
+
+            if (!allProductsAvailable) {
+              console.log("[Cart Manager] Final stock check failed. Some products unavailable or insufficient stock.");
+              return; // Prevent checkout
+            }
+
+            console.log('[Cart Manager] All validations (including final stock) passed, proceeding to checkout.');
+            window.location.href = "/checkout";
+          },
+          error: function (xhr, status, error) { // Added xhr, status, error params
+            console.error('[Cart Manager] Failed to check product quantities (final check):', error);
+            alert('Es gab einen Fehler bei der Überprüfung der Produktverfügbarkeit. Bitte versuchen Sie es erneut.');
+          }
         });
+      },
+      error: function (xhr, status, error) { // Added xhr, status, error params
+        console.error('[Cart Manager] Failed to validate cart (initial fetch):', error);
+        alert('Es gab einen Fehler bei der Überprüfung Ihres Warenkorbs. Bitte versuchen Sie es erneut.');
+      }
     });
+  });
 
-    if (window.location.pathname === "/pages/order-menue") {
-        // $(".order_qty").find("input").attr("max", 99);
-        // $(".qty_portion").hide();
-        history.pushState(null, null, window.location.href); // Push current state to history
+  if (window.location.pathname === "/pages/order-menue") {
+    // $(".order_qty").find("input").attr("max", 99);
+    // $(".qty_portion").hide();
+    history.pushState(null, null, window.location.href); // Push current state to history
 
-        window.onpopstate = function(event) {
-            sessionStorage.clear();
+    window.onpopstate = function (event) {
+      sessionStorage.clear();
 
-            $.ajax({
-              type: "POST",
-              url: window.Shopify.routes.root + "cart/clear.js",
-              dataType: "json",
-              success: function (response) {
-                window.location.href = "/pages/bestellen";
-               },
-              error: function (xhr, status, error) {
-                alert("Cart clear error:");
-                console.log("Cart clear error:", error);
-              },
-            });
-          
-        };
-    }
-    if (window.location.pathname === "/pages/menue") {
-      // Select all elements with the class .product_media
-      document.querySelectorAll('.product_media').forEach(function(element) {
-        // Find the first .pf-main-media element within the current .product_media element
-        var pfMainMedia = element.querySelector('.pf-main-media');
-        
-        // Get the 'data-href' attribute and append '?page=menue'
-        var href = pfMainMedia.getAttribute('data-href') + '?page=menue';
-    
-        // Append additional query parameters if they exist in sessionStorage
-        if (sessionStorage.getItem("location") != null)
-          href += "&location=" + sessionStorage.getItem("location");
-        if (sessionStorage.getItem("date") != null)
-          href += "&date=" + sessionStorage.getItem("date");
-        if (localStorage.getItem("uuid") != null)
-          href += "&uuid=" + localStorage.getItem("uuid");
-        if (sessionStorage.getItem("no_station") != null)
-          href += "&no_station=" + sessionStorage.getItem("no_station");
-        if (sessionStorage.getItem("immediate_inventory") != null)
-          href += "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory");
-        if (sessionStorage.getItem("b_additional_inventory") != null)
-          href += "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory");
-        if (sessionStorage.getItem("additional_inventory_time") != null)
-          href += "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time");
-    
-        // Set the updated href back as the 'data-href' attribute
-        pfMainMedia.setAttribute('data-href', href);
+      $.ajax({
+        type: "POST",
+        url: window.Shopify.routes.root + "cart/clear.js",
+        dataType: "json",
+        success: function (response) {
+          window.location.href = "/pages/bestellen";
+        },
+        error: function (xhr, status, error) {
+          alert("Cart clear error:");
+          console.log("Cart clear error:", error);
+        },
       });
+
+    };
+  }
+  if (window.location.pathname === "/pages/menue") {
+    // Select all elements with the class .product_media
+    document.querySelectorAll('.product_media').forEach(function (element) {
+      // Find the first .pf-main-media element within the current .product_media element
+      var pfMainMedia = element.querySelector('.pf-main-media');
+
+      // Get the 'data-href' attribute and append '?page=menue'
+      var href = pfMainMedia.getAttribute('data-href') + '?page=menue';
+
+      // Append additional query parameters if they exist in sessionStorage
+      if (sessionStorage.getItem("location") != null)
+        href += "&location=" + sessionStorage.getItem("location");
+      if (sessionStorage.getItem("date") != null)
+        href += "&date=" + sessionStorage.getItem("date");
+      if (localStorage.getItem("uuid") != null)
+        href += "&uuid=" + localStorage.getItem("uuid");
+      if (sessionStorage.getItem("no_station") != null)
+        href += "&no_station=" + sessionStorage.getItem("no_station");
+      if (sessionStorage.getItem("immediate_inventory") != null)
+        href += "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory");
+      if (sessionStorage.getItem("b_additional_inventory") != null)
+        href += "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory");
+      if (sessionStorage.getItem("additional_inventory_time") != null)
+        href += "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time");
+
+      // Set the updated href back as the 'data-href' attribute
+      pfMainMedia.setAttribute('data-href', href);
+    });
+  }
+
+  if (window.location.pathname.includes('/products/')) {
+    const queryParams = new URLSearchParams(window.location.search);
+
+    // Check if 'location', 'date', and 'uuid' parameters are missing in the URL
+    if (!queryParams.has('location') || !queryParams.has('date') || !queryParams.has('uuid')) {
+      // Get all elements with the specified class names and hide them
+      var quantityElements = document.querySelectorAll('.product-form__quantity');
+      var submitElements = document.querySelectorAll('.product-form__submit');
+      var buttonElements = document.querySelectorAll('.product-form__buttons');
+
+      // Hide quantity and submit elements
+      quantityElements.forEach(function (element) {
+        element.style.display = 'none';
+      });
+      submitElements.forEach(function (element) {
+        element.style.display = 'none';
+      });
+
+      // Clear session storage to avoid adding different dates against the products to the cart.
+      sessionStorage.clear();
+      $.ajax({
+        type: "POST",
+        url: window.Shopify.routes.root + "cart/clear.js",
+        dataType: "json",
+        success: function (response) {
+        },
+        error: function (xhr, status, error) {
+          console.log("Cart clear error:", error);
+        },
+      });
+
+      // Update the innerHTML of the button elements
+      buttonElements.forEach(function (element) {
+        element.innerHTML = '<a class="product-form__submit button button--full-width button--primary" href="/pages/bestellen">Bitte bestellen Sie hier</a>';
+      });
+    } else {
+      // Console log the parameters if they exist
+      console.log('Location:', queryParams.get('location'));
+      console.log('Date:', queryParams.get('date'));
+      console.log('UUID:', queryParams.get('uuid'));
+    }
+  }
+
+  if (queryParams.has('uuid')) {
+    localStorage.setItem("uuid", queryParams.get('uuid'));
+  }
+
+  // Check if required parameters are missing and redirect accordingly
+  if (
+    sessionStorage.getItem("location") == null ||
+    sessionStorage.getItem("date") == null ||
+    localStorage.getItem("uuid") == null
+  ) {
+    window.location.href = "/pages/bestellen";
+  } else if (window.location.pathname === "/pages/datum") {
+    const queryParams = new URLSearchParams(window.location.search);
+    if (queryParams.has('location')) {
+      sessionStorage.setItem("location", queryParams.get('location'));
+    } else if (sessionStorage.getItem("location") == null && localStorage.getItem("location") == null) {
+      window.location.href = "/pages/bestellen";
     }
 
-    if (window.location.pathname.includes('/products/')) {
-        const queryParams = new URLSearchParams(window.location.search);
-    
-        // Check if 'location', 'date', and 'uuid' parameters are missing in the URL
-        if (!queryParams.has('location') || !queryParams.has('date') || !queryParams.has('uuid')) {
-            // Get all elements with the specified class names and hide them
-            var quantityElements = document.querySelectorAll('.product-form__quantity');
-            var submitElements = document.querySelectorAll('.product-form__submit');
-            var buttonElements = document.querySelectorAll('.product-form__buttons');
-    
-            // Hide quantity and submit elements
-            quantityElements.forEach(function(element) {
-                element.style.display = 'none';
-            });
-            submitElements.forEach(function(element) {
-                element.style.display = 'none';
-            });
-    
-            // Clear session storage to avoid adding different dates against the products to the cart.
-            sessionStorage.clear();
-            $.ajax({
-              type: "POST",
-              url: window.Shopify.routes.root + "cart/clear.js",
-              dataType: "json",
-              success: function (response) {
-               },
-              error: function (xhr, status, error) {
-                console.log("Cart clear error:", error);
-              },
-            });
-    
-            // Update the innerHTML of the button elements
-            buttonElements.forEach(function(element) {
-                element.innerHTML = '<a class="product-form__submit button button--full-width button--primary" href="/pages/bestellen">Bitte bestellen Sie hier</a>';
-            });
-        }else {
-            // Console log the parameters if they exist
-            console.log('Location:', queryParams.get('location'));
-            console.log('Date:', queryParams.get('date'));
-            console.log('UUID:', queryParams.get('uuid'));
-        }
+    if (sessionStorage.getItem("date") != null) {
+      sessionStorage.clear();
+      window.location.replace("/pages/bestellen");
     }
-
-
+  }
 
 });
 
 
 // Function to format today's date as dd-mm-yyyy for Germany
 function getFormattedDate() {
-    // Use Intl.DateTimeFormat to get the correct current date in Germany
-    const options = {
-        timeZone: 'Europe/Berlin',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour12: false
-    };
+  // Use Intl.DateTimeFormat to get the correct current date in Germany
+  const options = {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour12: false
+  };
 
-    const formatter = new Intl.DateTimeFormat([], options);
-    const parts = formatter.formatToParts(new Date());
+  const formatter = new Intl.DateTimeFormat([], options);
+  const parts = formatter.formatToParts(new Date());
 
-    let dateObj = {};
-    parts.forEach(({ type, value }) => {
-        dateObj[type] = value;
-    });
+  let dateObj = {};
+  parts.forEach(({ type, value }) => {
+    dateObj[type] = value;
+  });
 
-    return `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
+  return `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
+}
+
+function updateLocationBar() {
+  if (!window.jQuery) return;
+  const $ = window.jQuery;
+  const strLocation = sessionStorage.getItem("location") || "";
+  const strDate = sessionStorage.getItem("date") || "";
+
+  if (strLocation || strDate) {
+    // Make sure the location bar exists before trying to update it.
+    if ($(".location_bar").length > 0) {
+        $(".location_bar_text").html(`&nbsp;${strLocation}&nbsp;${strDate}`);
+    }
+  } else {
+    $(".location_bar").remove();
+  }
 }
 
 if (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null && localStorage.getItem("location") == null)) {
   // Check if the session storage 'date' exists and is not null
   if (sessionStorage.getItem("date") !== null) {
-      const storedDate = sessionStorage.getItem("date");
-      const todayDate = getFormattedDate();
-  
-      // Compare the stored date with today's date
-      const storedDateParts = storedDate.split('-');
-      const todayDateParts = todayDate.split('-');
+    const storedDate = sessionStorage.getItem("date");
+    const todayDate = getFormattedDate();
 
-      const storedDateObj = new Date(storedDateParts[2], storedDateParts[1] - 1, storedDateParts[0]);
-      const todayDateObj = new Date(todayDateParts[2], todayDateParts[1] - 1, todayDateParts[0]);
-      todayDateObj.setHours(0,0,0,0); // Normalize today to midnight
+    // Compare the stored date with today's date
+    const storedDateParts = storedDate.split('-');
+    const todayDateParts = todayDate.split('-');
 
-      if (storedDateObj < todayDateObj) {
-          console.warn("Stored date in sessionStorage (" + storedDate + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
-          sessionStorage.clear();
-          $.ajax({
-              type: "POST",
-              url: window.Shopify.routes.root + "cart/clear.js",
-              dataType: "json",
-              async: false, // Crucial for completing before redirect
-              success: function () {
-                  window.location.href = "/pages/bestellen";
-              },
-              error: function (xhr, status, error) {
-                  console.error("Cart clear error during past date handling in global.js:", error);
-                  window.location.href = "/pages/bestellen"; // Still redirect
-              }
-          });
-          // Use a return or throw to stop further script execution in this context if necessary.
-          // For now, the redirect will stop it.
-      }
+    const storedDateObj = new Date(storedDateParts[2], storedDateParts[1] - 1, storedDateParts[0]);
+    const todayDateObj = new Date(todayDateParts[2], todayDateParts[1] - 1, todayDateParts[0]);
+    todayDateObj.setHours(0, 0, 0, 0); // Normalize today to midnight
+
+    if (storedDateObj < todayDateObj) {
+      console.warn("Stored date in sessionStorage (" + storedDate + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
+      sessionStorage.clear();
+      $.ajax({
+        type: "POST",
+        url: window.Shopify.routes.root + "cart/clear.js",
+        dataType: "json",
+        async: false, // Crucial for completing before redirect
+        success: function () {
+          window.location.href = "/pages/bestellen";
+        },
+        error: function (xhr, status, error) {
+          console.error("Cart clear error during past date handling in global.js:", error);
+          window.location.href = "/pages/bestellen"; // Still redirect
+        }
+      });
+      // Use a return or throw to stop further script execution in this context if necessary.
+      // For now, the redirect will stop it.
+    }
   } else {
-      // If 'date' does not exist in sessionStorage, set it to today's date
-      sessionStorage.setItem("date", getFormattedDate());
+    // If 'date' does not exist in sessionStorage, set it to today's date
+    sessionStorage.setItem("date", getFormattedDate());
   }
 }
 
@@ -467,249 +506,212 @@ if (window.location.pathname === "/pages/order-menue" || window.location.pathnam
 if (window.jQuery) {
   let $ = window.jQuery;
 
-  //skip inventory handling for Orders of Location: Delivery
-  if (window.location.pathname === "/pages/order-menue") {
-    if(sessionStorage.getItem("location") == "Delivery"){
-      $(".order_qty").find("input").attr("max", 99);
-      $(".qty_portion").hide();
-    }
-  }
-  
-  // if (window.history && window.history.pushState) {
-  //     window.history.pushState('', null, window.location.pathname);
-  //     $(window).on('popstate', function() {
-  //         sessionStorage.clear();
-  //     });
-  // }
+  $(document).ready(function() {
+    //when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
+    const currentPathForParams = window.location.pathname;
+    const pagesForParams = ["/pages/bestellen", "/pages/datum", "/pages/order-menue"];
 
-//when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
-if (window.location.pathname === "/pages/bestellen") {
-  if(sessionStorage.getItem("location") == "Delivery" )
-    sessionStorage.clear();
-  
-  if (
-    sessionStorage.getItem("location") == null &&
-    sessionStorage.getItem("date") == null && localStorage.getItem("location") == null
-  ) {
-  } else if (sessionStorage.getItem("location") == null && localStorage.getItem("location") != null) {
-    // $("#next_button").html('weiter');
-    $("#stationDropdown").html(localStorage.getItem("location"));
-    $("#stationDropdown").attr('style', "background-color:black;");
-    $('#next_button').css('display', 'inline-block');
-  } else if (sessionStorage.getItem("date") == null) {
-    window.location.replace("/pages/datum");
-  } else {
-    window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station")  + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory")  + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
-  }
-} 
-else if(window.location.pathname === "/cart"){
-  window.min_order_limit = 0;
-  // if(window.location.pathname === "/cart"){
-      if(sessionStorage.getItem("location") == "Delivery"){
-          $(".incorrent_item_agree_cb_portion").hide();
+    if (pagesForParams.includes(currentPathForParams)) {
+      const queryParams = new URLSearchParams(window.location.search);
 
-          $.ajax({
-                type: "GET",
-                url: "https://app.sushi.catering/getLocations/Delivery",
-                async: false,
-                cache: false,
-                // data: {
-                //     items: JSON.stringify(response.items)
-                // },
-                dataType: "json",
-                success: function(data) {
-                  min_order_limit = data.min_order_limit;
-                    //window.location.href = "/checkout";
-                },
-                error: function() {
-                    console.log('Cart Check Delivery Inventory api error');
-                }
-            });
+      // Always overwrite session storage from URL params if they exist.
+      if (queryParams.has('location')) sessionStorage.setItem("location", queryParams.get('location'));
+      if (queryParams.has('date')) sessionStorage.setItem("date", queryParams.get('date'));
+      if (queryParams.has('immediate_inventory')) sessionStorage.setItem("immediate_inventory", queryParams.get('immediate_inventory'));
+      if (queryParams.has('no_station')) sessionStorage.setItem("no_station", queryParams.get('no_station'));
+      if (queryParams.has('additional_inventory')) sessionStorage.setItem("b_additional_inventory", queryParams.get('additional_inventory'));
+      if (queryParams.has('additional_inventory_time')) sessionStorage.setItem("additional_inventory_time", queryParams.get('additional_inventory_time'));
+
+      // Page-specific logic after parameters have been processed
+      if (currentPathForParams === "/pages/bestellen") {
+        if (queryParams.has('location')) {
+          window.location.href = `/pages/datum?location=${encodeURIComponent(queryParams.get('location'))}`;
+        } else {
+          if (sessionStorage.getItem("location") === "Delivery") sessionStorage.clear();
+
+          if (sessionStorage.getItem("location") == null && sessionStorage.getItem("date") == null && localStorage.getItem("location") == null) {
+            // Stay on page
+          } else if (sessionStorage.getItem("location") == null && localStorage.getItem("location") != null) {
+            $("#stationDropdown").html(localStorage.getItem("location"));
+            $("#stationDropdown").attr('style', "background-color:black;");
+            $('#next_button').css('display', 'inline-block');
+          } else if (sessionStorage.getItem("date") == null) {
+            window.location.replace("/pages/datum");
+          } else {
+            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
+          }
+        }
+      } else if (currentPathForParams === "/pages/datum") {
+        const queryParams = new URLSearchParams(window.location.search);
+
+        // Only redirect if a date is present AND a new location wasn't just passed in the URL.
+        if (!queryParams.has('location') && sessionStorage.getItem("date") != null) {
+          sessionStorage.clear();
+          window.location.replace("/pages/bestellen");
+          return; // Stop further execution
+        }
+
+        if (sessionStorage.getItem("location") == null && localStorage.getItem("location") == null) {
+          window.location.href = "/pages/bestellen";
+        }
+      } else if (currentPathForParams === "/pages/order-menue") {
+        // Special handling for Delivery location
+        if (sessionStorage.getItem("location") == "Delivery") {
+          $(".order_qty").find("input").attr("max", 99);
+          $(".qty_portion").hide();
+        }
+
+        if (sessionStorage.getItem("location") == null || sessionStorage.getItem("date") == null || localStorage.getItem("uuid") == null) {
+          window.location.href = "/pages/bestellen";
+        }
       }
-  // }
-  
-  $.ajax({
-      type: "GET",
-      url: window.Shopify.routes.root + "cart.js",
-      dataType: "json",
-      success: function (response) {
-        removePastDateProducts(response);
+    } else if (window.location.pathname === "/cart") {
+      window.min_order_limit = 0;
+      // if(window.location.pathname === "/cart"){
+      if (sessionStorage.getItem("location") == "Delivery") {
+        $(".incorrent_item_agree_cb_portion").hide();
+
+        $.ajax({
+          type: "GET",
+          url: "https://app.sushi.catering/getLocations/Delivery",
+          async: false,
+          cache: false,
+          // data: {
+          //     items: JSON.stringify(response.items)
+          // },
+          dataType: "json",
+          success: function (data) {
+            min_order_limit = data.min_order_limit;
+            //window.location.href = "/checkout";
+          },
+          error: function () {
+            console.log('Cart Check Delivery Inventory api error');
+          }
+        });
+      }
+      // }
+
+      $.ajax({
+        type: "GET",
+        url: window.Shopify.routes.root + "cart.js",
+        dataType: "json",
+        success: function (response) {
+          removePastDateProducts(response);
 
           let items = response.items;
 
           $.ajax({
-              type: "POST",
-              url: "https://app.sushi.catering/api/checkOrderInventory",
-              async: false,
-              cache: false,
-              data: {
-                  items: JSON.stringify(response.items)
-              },
-              dataType: "json",
-              success: function(response) {
-                  //window.location.href = "/checkout";
-                  if(response.sameday_preorder_time_expired == 1){
-                      alert('Du kannst nur noch eine Sofortbestellung tätigen.');
-                      sessionStorage.clear();
-                      $(".location_bar").remove();
-                  
-                      $.ajax({
-                        type: "POST",
-                        url: window.Shopify.routes.root + "cart/clear.js",
-                        dataType: "json",
-                        success: function (response) {
-                          window.location.href = "/pages/bestellen";
-                         },
-                        error: function (xhr, status, error) {
-                          alert("Cart clear error:");
-                          console.log("Cart clear error:", error);
-                        },
-                      });
-                  }
-              },
-              error: function() {
-                  console.log('Cart Check order Inventory api error');
-              }
-          });
-      },
-      error:function(){        
-      }
-  });
-    function removeProductFromCart(productId) {
-      return new Promise((resolve, reject) => {
-        var changeUrl = '/cart/change.js';
-        var payload = {
-          id: productId,
-          quantity: 0 // Setting quantity to 0 will remove the item
-        };
-    
-        $.ajax({
-          url: changeUrl,
-          type: 'POST',
-          dataType: 'json',
-          data: payload,
-          success: function(response) {
-            console.log('Product removed from cart:', productId);
-            resolve(productId); // Resolve the promise when the product is successfully removed
-          },
-          error: function(xhr, status, error) {
-            console.error('Failed to remove product from cart:', productId, status, error);
-            reject(error); // Reject the promise if an error occurs
-          }
-        });
-      });
-    }
+            type: "POST",
+            url: "https://app.sushi.catering/api/checkOrderInventory",
+            async: false,
+            cache: false,
+            data: {
+              items: JSON.stringify(response.items)
+            },
+            dataType: "json",
+            success: function (response) {
+              //window.location.href = "/checkout";
+              if (response.sameday_preorder_time_expired == 1) {
+                alert('Du kannst nur noch eine Sofortbestellung tätigen.');
+                sessionStorage.clear();
+                $(".location_bar").remove();
 
-    function removePastDateProducts(response) {
-      var removalPromises = [];
-      var bReload = false;
-          
-      $.each(response.items, function(index, product) {
-        var dateParts = product.properties.date.split('-');
-        var productDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
-    
-        var currentDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Berlin"}));
-        currentDate.setHours(0, 0, 0, 0); // Remove time portion for comparison
-    
-        if (productDate < currentDate) {
-          bReload = true;
-          removalPromises.push(removeProductFromCart(product.id));
+                $.ajax({
+                  type: "POST",
+                  url: window.Shopify.routes.root + "cart/clear.js",
+                  dataType: "json",
+                  success: function (response) {
+                    window.location.href = "/pages/bestellen";
+                  },
+                  error: function (xhr, status, error) {
+                    alert("Cart clear error:");
+                    console.log("Cart clear error:", error);
+                  },
+                });
+              }
+            },
+            error: function () {
+              console.log('Cart Check order Inventory api error');
+            }
+          });
+        },
+        error: function () {
         }
       });
-    
-      Promise.all(removalPromises).then(function(results) {
-        console.log('All removable items have been removed:', results);
-        if(bReload === true) { // If any past date products were found and removed
-          console.warn("Past date products found in cart and removed. Clearing session, cart, and redirecting to /pages/bestellen.");
-          sessionStorage.clear();
-          // Cart items were already cleared by individual removeProductFromCart calls.
-          // To be absolutely sure the cart is empty if bReload is true:
+      function removeProductFromCart(productId) {
+        return new Promise((resolve, reject) => {
+          var changeUrl = '/cart/change.js';
+          var payload = {
+            id: productId,
+            quantity: 0 // Setting quantity to 0 will remove the item
+          };
+
           $.ajax({
+            url: changeUrl,
+            type: 'POST',
+            dataType: 'json',
+            data: payload,
+            success: function (response) {
+              console.log('Product removed from cart:', productId);
+              resolve(productId); // Resolve the promise when the product is successfully removed
+            },
+            error: function (xhr, status, error) {
+              console.error('Failed to remove product from cart:', productId, status, error);
+              reject(error); // Reject the promise if an error occurs
+            }
+          });
+        });
+      }
+
+      function removePastDateProducts(response) {
+        var removalPromises = [];
+        var bReload = false;
+
+        $.each(response.items, function (index, product) {
+          var dateParts = product.properties.date.split('-');
+          var productDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+
+          var currentDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+          currentDate.setHours(0, 0, 0, 0); // Remove time portion for comparison
+
+          if (productDate < currentDate) {
+            bReload = true;
+            removalPromises.push(removeProductFromCart(product.id));
+          }
+        });
+
+        Promise.all(removalPromises).then(function (results) {
+          console.log('All removable items have been removed:', results);
+          if (bReload === true) { // If any past date products were found and removed
+            console.warn("Past date products found in cart and removed. Clearing session, cart, and redirecting to /pages/bestellen.");
+            sessionStorage.clear();
+            // Cart items were already cleared by individual removeProductFromCart calls.
+            // To be absolutely sure the cart is empty if bReload is true:
+            $.ajax({
               type: "POST",
               url: window.Shopify.routes.root + "cart/clear.js",
               dataType: "json",
               async: false, // Crucial for completing before redirect
               success: function () {
-                  window.location.href = "/pages/bestellen";
+                window.location.href = "/pages/bestellen";
               },
               error: function (xhr, status, error) {
-                  console.error("Cart clear error after removing past date products:", error);
-                  window.location.href = "/pages/bestellen"; // Still redirect
+                console.error("Cart clear error after removing past date products:", error);
+                window.location.href = "/pages/bestellen"; // Still redirect
               }
-          });
-        }
-      }).catch(function(error) {
-        console.error('An error occurred while removing items:', error);
-      });
+            });
+          }
+        }).catch(function (error) {
+          console.error('An error occurred while removing items:', error);
+        });
+      }
     }
 
+    // This function will now run for all pages after the DOM is ready
+    updateLocationBar();
+  });
 
-}
-else {
-   if (window.location.pathname === "/pages/order-menue" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null && localStorage.getItem("location") == null)) {
-     
-    // Parse the query string
-    const queryParams = new URLSearchParams(window.location.search);
-  
-    // Set sessionStorage and localStorage from URL parameters if they exist
-    if (queryParams.has('location') && sessionStorage.getItem("location") == null) {
-      sessionStorage.setItem("location", queryParams.get('location'));
-    }
-    if (queryParams.has('date') && sessionStorage.getItem("date") == null) {
-      sessionStorage.setItem("date", queryParams.get('date'));
-    }
-    if (queryParams.has('immediate_inventory') && sessionStorage.getItem("immediate_inventory") == null) {
-      sessionStorage.setItem("immediate_inventory", queryParams.get('immediate_inventory'));
-    }
-    if (queryParams.has('no_station') && sessionStorage.getItem("no_station") == null) {
-      sessionStorage.setItem("no_station", queryParams.get('no_station'));
-    }
-    if (queryParams.has('additional_inventory') && sessionStorage.getItem("b_additional_inventory") == null) {
-      sessionStorage.setItem("b_additional_inventory", queryParams.get('additional_inventory'));
-    }
-    if (queryParams.has('additional_inventory_time') && sessionStorage.getItem("additional_inventory_time") == null) {
-      sessionStorage.setItem("additional_inventory_time", queryParams.get('additional_inventory_time'));
-    }
-    if (queryParams.has('uuid')) {
-      localStorage.setItem("uuid", queryParams.get('uuid'));
-    }
-
-    // Check if required parameters are missing and redirect accordingly
-    if (
-      sessionStorage.getItem("location") == null ||
-      sessionStorage.getItem("date") == null ||
-      localStorage.getItem("uuid") == null
-    ) {
-      window.location.href = "/pages/bestellen";
-    }
-  }
-  else if(window.location.pathname === "/pages/datum" && sessionStorage.getItem("date") != null){
-    sessionStorage.clear();
-    window.location.replace("/pages/bestellen");
-  }
-
-}
-
-
-
-  var strLocation =
-    sessionStorage.getItem("location") != null
-      ? sessionStorage.getItem("location")
-      : "";
-  var strDate =
-    sessionStorage.getItem("date") != null
-      ? sessionStorage.getItem("date")
-      : "";
-
-  if (
-    sessionStorage.getItem("location") == null &&
-    sessionStorage.getItem("date") == null
-  )
-    $(".location_bar").remove();
-  else {
-    $(".location_bar_text").html("&nbsp;" + strLocation + "&nbsp;" + strDate);
-  }
-
+  // Delegated event handlers can remain outside the ready block
   $(document).on("click", ".location_bar_closer", function () {
     sessionStorage.clear();
     $(".location_bar").remove();
@@ -720,21 +722,21 @@ else {
       dataType: "json",
       success: function (response) {
         window.location.href = "/";
-       },
+      },
       error: function (xhr, status, error) {
         alert("Cart clear error:");
         console.log("Cart clear error:", error);
       },
     });
-
   });
 
   $(document).on("click", ".station", function (e) {
     e.preventDefault();
 
     var href = $(this).attr("href");
-
     var strLocation = $(this).html();
+    var strDate = sessionStorage.getItem("date") != null ? sessionStorage.getItem("date") : "";
+
     $("div.shopify-section.shopify-section-group-header-group")
       .not(".section-header")
       .find("p")
@@ -747,59 +749,35 @@ else {
       sessionStorage.setItem("location", strLocation);
     }
 
-    //window.location.href = href + "?location=" + strLocation;
-    //window.location.replace(href + "?location=" + strLocation);
     location.replace(href + "?location=" + strLocation);
   });
 
   $(document).on("click", "#next_button", function (e) {
     e.preventDefault();
-
     var href = $(this).attr("href");
-
-    // var strLocation = $(this).html();
-    // $("div.shopify-section.shopify-section-group-header-group")
-    //   .not(".section-header")
-    //   .find("p")
-    //   .html(" " + strLocation + " " + strDate);
-
-    //window.location.href = href + "?location=" + strLocation;
-    //window.location.replace(href + "?location=" + strLocation);
     sessionStorage.setItem("location", localStorage.getItem("location"));
     location.replace(href + "?location=" + localStorage.getItem("location"));
   });
 
   $(document).on("click", "#home_delivery_btn", function (e) {
     e.preventDefault();
-
     var href = $(this).attr("href");
     location.replace(href);
   });
 
-  // Shopify.onCartUpdate = function(cart) {
-  //   alert('There are now ' + cart.item_count + ' items in the cart.');
-  // };  
-
   function comparePrices(minOrderLimit, currentTotal) {
-      // Remove currency symbols and whitespace, replace comma with dot
-      const minOrder = parseFloat(minOrderLimit.replace(',', '.'));
-      const total = parseFloat(currentTotal.match(/\d+,\d+/)[0].replace(',', '.'));
-  
-      console.log('Minimum order:', minOrder);
-      console.log('Current total:', total);
+    // Remove currency symbols and whitespace, replace comma with dot
+    const minOrder = parseFloat(minOrderLimit.replace(',', '.'));
+    const total = parseFloat(currentTotal.match(/\d+,\d+/)[0].replace(',', '.'));
 
-      if(minOrder > 0 && total < minOrder)
-        return true;
-      else 
-        return false;
-    
-      // return {
-      //     isValid: total >= minOrder,
-      //     difference: (minOrder - total).toFixed(2)
-      // };
+    console.log('Minimum order:', minOrder);
+    console.log('Current total:', total);
+
+    if (minOrder > 0 && total < minOrder)
+      return true;
+    else
+      return false;
   }
-  
-
 }
 
 function getFocusableElements(container) {
