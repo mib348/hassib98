@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\TokenController;
@@ -42,3 +43,5 @@ Route::middleware('auth:sanctum')->resource('/order/fulfillment', FulfillmentCon
     'fulfillment' => 'order',
 ]);
 Route::middleware('auth:sanctum')->post('/generate-token', [TokenController::class, 'generateToken']);
+Route::post('/contact-handler', [ContactController::class, 'store'])
+    ->name('contact.store');
