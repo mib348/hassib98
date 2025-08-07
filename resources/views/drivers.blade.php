@@ -540,38 +540,42 @@
                 const longitude = $(this).data('longitude');
                 const address = $(this).data('address') || '';
 
-                let googleMapsAppUrl = '';
-                let googleMapsWebUrl = '';
+                let googleMapsUrl = '';
 
-                // 1) Construct the appropriate URLs for app and web
+                // Construct the appropriate URL
                 if (latitude && longitude) {
-                    // Use latitude & longitude
-                    googleMapsAppUrl = `comgooglemaps://?q=${latitude},${longitude}`;
-                    googleMapsWebUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+                    // Use latitude & longitude for better accuracy
+                    googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
                 } else {
                     // Fallback to address
                     const encodedAddress = encodeURIComponent(address.trim());
-                    googleMapsAppUrl = `comgooglemaps://?q=${encodedAddress}`;
-                    googleMapsWebUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+                    googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
                 }
 
-                // 2) Check device width to determine if we're on (roughly) mobile or not
-                const isMobile = window.matchMedia('(max-width: 1024px)').matches;
-                const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-                if (isMobile && isTouchDevice) {
-                    // If it's a mobile device (screen width <= 768px) and has touch capabilities:
-                    // Attempt to open the Google Maps app first
-                    window.open(googleMapsAppUrl, '_blank');
-
-                    // Fallback to web if the app is not installed or fails to open
-                    setTimeout(function() {
-                        window.open(googleMapsWebUrl, '_blank');
-                    }, 500);
+                // Check if we're on a mobile device
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                
+                if (isMobile) {
+                    // For mobile devices, try to open in the native app first
+                    const androidMapsUrl = latitude && longitude 
+                        ? `geo:${latitude},${longitude}?q=${latitude},${longitude}`
+                        : `geo:0,0?q=${encodeURIComponent(address.trim())}`;
+                    
+                    // Create a temporary link to trigger the app
+                    const tempLink = document.createElement('a');
+                    tempLink.href = androidMapsUrl;
+                    tempLink.style.display = 'none';
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    document.body.removeChild(tempLink);
+                    
+                    // Fallback to web version after a short delay
+                    // setTimeout(function() {
+                    //     window.open(googleMapsUrl, '_blank');
+                    // }, 1000);
                 } else {
-                    // If it's not a mobile device (screen width > 768px) or doesn't have touch capabilities,
-                    // just open the browser link
-                    window.open(googleMapsWebUrl, '_blank');
+                    // For desktop, just open the web version
+                    window.open(googleMapsUrl, '_blank');
                 }
             });
         }
