@@ -136,6 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
         $.ajax({
             url: `https://app.sushi.catering/getLocations/${strLocation}`,
             type: "GET",
+            async: false,
             cache:true,
             dataType: "json",
             success: function(data) {
@@ -208,6 +209,7 @@ document.addEventListener('DOMContentLoaded', function() {
                              $.ajax({
                                   url: `https://app.sushi.catering/getImmediateInventoryByLocation/${strLocation}`,
                                   type: "GET",
+                                  async: false,
                                   cache:true,
                                   dataType: "json",
                                   success: function(nQty) {

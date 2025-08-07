@@ -89,6 +89,79 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('[Cart Manager] Checkout button clicked');
     e.preventDefault();
 
+    //get url params
+    const urlParams = new URLSearchParams(window.location.search);
+    const location = urlParams.get('location');
+    const date = urlParams.get('date');
+    const uuid = urlParams.get('uuid');
+    const no_station = urlParams.get('no_station');
+    const immediate_inventory = urlParams.get('immediate_inventory');
+    const additional_inventory = urlParams.get('additional_inventory');
+    const additional_inventory_time = urlParams.get('additional_inventory_time');
+
+    if(immediate_inventory == "N"){
+      $.ajax({
+        url: `https://app.sushi.catering/getLocations/${location}`,
+        type: "GET",
+        async: false,
+        cache:true,
+        dataType: "json",
+        success: function(data) {
+          // Save the same-day preorder end time
+          window.samedayPreorderEndTime = data.sameday_preorder_end_time;
+          // window.immediate_inventory = data.immediate_inventory;
+
+          // Get the current date and time in Germany
+          const now = new Date();
+          const options = {
+              timeZone: 'Europe/Berlin',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+          };
+          const formatter = new Intl.DateTimeFormat('en-GB', options); // 'en-GB' for 24-hour format
+          const parts = formatter.formatToParts(now);
+      
+          let dateObj = {};
+          parts.forEach(({ type, value }) => {
+              dateObj[type] = value;
+          });
+      
+          const currentHours = parseInt(dateObj.hour, 10);
+          const currentMinutes = parseInt(dateObj.minute, 10);
+          const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+          // Parse the same-day preorder end time
+          if(window.samedayPreorderEndTime){
+            const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
+            window.cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
+            if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime) {
+
+              //give alert to the user that the same day pre-order is closed now
+              alert("Die Vorbestellung für heute ist abgeschlossen. Bitte wählen Sie ein anderes Datum.");
+              //clear the cart and redirect to /pages/bestellen
+              $.ajax({
+                type: "POST",
+                url: window.Shopify.routes.root + "cart/clear.js",
+                dataType: "json",
+                success: function(response) {
+                  window.location.href = "/pages/bestellen";
+                },
+                error: function(xhr, status, error) {
+                  console.error('[Cart Manager] Failed to clear cart:', error);
+                }
+              });
+
+            }
+          }
+
+        },
+        error: function(xhr, status, error) {
+          console.error('[Cart Manager] Failed to get locations:', error);
+        }
+      });
+    }
+
     $.ajax({
       type: "GET",
       url: window.Shopify.routes.root + "cart.js",
