@@ -33,11 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             const order_number = data.order_number.toString();
             console.log(`The order number is: ${order_number}`);
-            const stationFlag = data.no_station;
+            const stationFlag = data.arrLocation.no_station;
             console.log(`The no_station is: ${stationFlag}`);
 
-            if (stationFlag === 'Y') { 
-                displayStationInstructions(true); // No QR code, show alternate text 
+            if (stationFlag === 'Y' || data.arrLocation.name == 'Delivery') { 
+                displayStationInstructions(true, data.arrLocation); // No QR code, show alternate text 
             }
             else{
                 const mobileQuery = window.matchMedia("(max-width: 480px)");
@@ -96,14 +96,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayStationInstructions(showQrCode) {
+    function displayStationInstructions(showQrCode, arrLocation) {
         const contentBox = document.createElement('div');
         contentBox.style.display = 'block';
         contentBox.innerHTML = `
             <p>
-                Wir liefern alle bestellten Gerichte in einer Sammellieferung täglich und frisch an die Mini-Catering-Station bis 12 Uhr. Manchmal kommt es vor, dass der Fahrer sich verspätet und die Lieferung kurz nach 12 erfolgt. Bei Fragen oder Problemen mit deiner Bestellung antworte einfach auf deine Bestellbestätigungsemail.
+                Wir liefern alle bestellten Gerichte in einer Sammellieferung täglich und frisch an die Rezeption. Achten Sie bitte darauf, dass die Gerichte bis zum Verzehr kühl gehalten werden müssen, z.B. im Kühlschrank. Um wie viel Uhr wir genau anliefern, entnehmen Sie bitte der Seite auf die Sie weitergeleitet werden, nachdem Sie den Standort festgelegt haben.
             </p>
         `;
+        if(arrLocation.name == 'Delivery'){
+            contentBox.innerHTML = `
+                <p style="font-weight:bold;">
+                    ` + arrLocation.checkout_note + `
+                </p>
+            `;
+        }
         Shopify.Checkout.OrderStatus.addContentBox(contentBox);
         toggleVisibility(showQrCode);
     }
@@ -122,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createLoadingMessage() {
         const loadingMessageElement = document.createElement('div');
         loadingMessageElement.id = 'loadingMessage';
-        loadingMessageElement.innerText = 'QR-Code wird geladen...';
+        loadingMessageElement.innerText = 'Details werden geladen. Bitte warten!...';
         loadingMessageElement.style.position = 'fixed';
         loadingMessageElement.style.top = '55%';
         loadingMessageElement.style.left = '30%';
