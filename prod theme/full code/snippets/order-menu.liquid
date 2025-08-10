@@ -1,0 +1,20 @@
+<script>
+    window.onload = function () {
+        if (
+            sessionStorage.getItem("location") == null &&
+            sessionStorage.getItem("date") == null
+        ){
+            window.location.href="/pages/bestellen";
+        }
+        else if(sessionStorage.getItem("location") == null){
+            window.location.href="/pages/bestellen?station=&date=" + sessionStorage.getItem("date");
+        }
+        else if(sessionStorage.getItem("date") == null){
+            window.location.href="/pages/datum?station=" + sessionStorage.getItem("location") + "&date=";
+        }
+        // if (window.jQuery) {
+        //     let $ = window.jQuery;
+
+        // }
+    }
+</script>
