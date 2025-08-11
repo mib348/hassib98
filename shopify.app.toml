@@ -1,9 +1,9 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "5f7e03bd03e092b7fa86eef4e66b202d"
-name = "Dev Sushi Catering"
-handle = "dev-sushi-catering"
-application_url = "https://dev.sushi.catering/"
+client_id = "0a68988e122bb83cff6e33a584d15f11"
+name = "Sushi Catering"
+handle = "app-sushi-catering"
+application_url = "https://app.sushi.catering/"
 embedded = true
 
 [build]
@@ -14,7 +14,7 @@ api_version = "2024-01"
 
 [auth]
 redirect_urls = [
-  "https://dev.sushi.catering/authenticate",
+  "https://app.sushi.catering/authenticate",
   "https://laravelshopifypartnerapp.test/authenticate"
 ]
 

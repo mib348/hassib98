@@ -298,7 +298,7 @@ function AppLogic(root, api, targetName, components) {
     }
   }
 
-  const apiBaseUrl = 'https://dev.sushi.catering';
+  const apiBaseUrl = 'https://app.sushi.catering';
 
   async function fetchOrderData() {
     try {
