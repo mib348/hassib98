@@ -139,6 +139,14 @@
                             </label>
                         </div>
                     </div>
+                    <div class="col-2 location_public_private_portion">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="PUBLIC" id="location_public_private" name="location_public_private">
+                            <label class="form-check-label" for="location_public_private">
+                                Public Location
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <br>
                 <div class="row location_order_portion">
@@ -273,6 +281,7 @@
                     $(".immediate_inventory_portion").hide();
                     $(".location_order_portion").hide();
                     $(".checkout_note_portion").hide();
+                    $(".location_public_private_portion").hide();
                 }
                 else if($(this).val() == "Delivery"){
                     $("#save_btn").show();
@@ -282,6 +291,7 @@
                     $(".immediate_inventory_portion").hide();
                     $(".location_order_portion").hide();
                     $(".checkout_note_portion").show();
+                    $(".location_public_private_portion").hide();
                 }
                 else{
                     $("#save_btn").show();
@@ -291,6 +301,7 @@
                     $(".immediate_inventory_portion").show();
                     $(".location_order_portion").show();
                     $(".checkout_note_portion").hide();
+                    $(".location_public_private_portion").show();
                 }
 
                 LoadList();
@@ -472,6 +483,7 @@
                         $("#no_station").prop('checked', data.no_station === 'Y');
                         $("#additional_inventory").prop('checked', data.additional_inventory === 'Y');
                         $("#immediate_inventory").prop('checked', data.immediate_inventory === 'Y');
+                        $("#location_public_private").prop('checked', data.location_public_private === 'PUBLIC');
                     }
                     else{
                         $("#address").val('');
@@ -487,6 +499,7 @@
                         $("#no_station").prop('checked', false);
                         $("#additional_inventory").prop('checked', false);
                         $("#immediate_inventory").prop('checked', false);
+                        $("#location_public_private").prop('checked', false);
                     }
                 },
                 error: function (request, status, error) {

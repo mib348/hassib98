@@ -1044,4 +1044,20 @@ class ShopifyController extends Controller
         return response()->json($arrLocations);
     }
 
+    public function getLocationsList(Request $request) {
+        $arrLocations = Locations::where('is_active', 'Y')
+        ->whereNotIn('name', ['Delivery', 'Default Menu', 'Additional Inventory'])
+        ->orderBy('name', 'asc')
+        ->get();
+        
+        //build the array as public and private and sort alphabetically each subarray
+        $arrPublicLocations = $arrLocations->where('location_public_private', 'PUBLIC')->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
+        $arrPrivateLocations = $arrLocations->where('location_public_private', 'PRIVATE')->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
+
+        return response()->json([
+            'public' => $arrPublicLocations,
+            'private' => $arrPrivateLocations
+        ]);
+    }
+
 }

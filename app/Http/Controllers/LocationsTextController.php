@@ -93,6 +93,7 @@ class LocationsTextController extends Controller
         $arrLocation->additional_inventory = $request->has('additional_inventory') ? 'Y' : 'N';
         $arrLocation->immediate_inventory = $request->has('immediate_inventory') ? 'Y' : 'N';
         $arrLocation->location_order = $request->input('location_order');
+        $arrLocation->location_public_private = $request->has('location_public_private') ? 'PUBLIC' : 'PRIVATE';
         return $arrLocation->save();
     }
 
@@ -447,7 +448,8 @@ class LocationsTextController extends Controller
                 'no_station' => $arrLocation['no_station'],
                 'additional_inventory' => $arrLocation['additional_inventory'],
                 'immediate_inventory' => $arrLocation['immediate_inventory'],
-                'location_order' => $arrLocation['location_order']
+                'location_order' => $arrLocation['location_order'],
+                'location_public_private' => $arrLocation['location_public_private']
             ]);
         } else {
             return response()->json([]);
