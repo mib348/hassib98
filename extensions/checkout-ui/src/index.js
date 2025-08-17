@@ -416,7 +416,7 @@ function AppLogic(root, api, targetName, components) {
         // Fall back to the external API call if Shopify API didn't provide the order number
         console.log(`[Checkout UI Ext - ${targetName}] Could not get order number from Shopify API, falling back to external API call.`);
         const url = `${apiBaseUrl}/api/getordernumber/${numericOrderId}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { async: false });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
