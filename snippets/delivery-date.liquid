@@ -459,15 +459,18 @@
       const endTimeInMinutes = endHours * 60 + endMinutes;
       
       const isWithinTimeSlot = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
+        {% comment %} alert(isWithinTimeSlot + "-" + currentTimeInMinutes + "-" +startTimeInMinutes + "-" +endTimeInMinutes); {% endcomment %}
       
       const buttonTodayOrder = document.querySelector('.todayorderbtn');
-      if (isWithinTimeSlot) {
+      {% comment %} if (isWithinTimeSlot) {
         if (buttonTodayOrder) buttonTodayOrder.classList.add('show-button');
         $('#badge-counter').css('display', 'inline-block');
       } else {
         if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
         $('#badge-counter').css('display', 'none');
-      }
+      } {% endcomment %}
+      if (buttonTodayOrder) buttonTodayOrder.classList.add('show-button');
+      $('#badge-counter').css('display', 'inline-block');
     }
   
     // DOM Content Loaded - Handle location determination
