@@ -1,782 +1,516 @@
-import {
-  BlockStack as CheckoutBlockStack,
-  View as CheckoutView,
-  Text as CheckoutText,
-  TextBlock as CheckoutTextBlock,
-  Image as CheckoutImage,
-  Heading as CheckoutHeading,
-  Link as CheckoutLink,
-  Spinner as CheckoutSpinner,
-  QRCode as CheckoutQRCode,
-  InlineStack as CheckoutInlineStack,
-  InlineLayout as CheckoutInlineLayout,
-  extension as checkoutExtension,
-} from "@shopify/ui-extensions/checkout";
+import * as CheckoutComponents from "@shopify/ui-extensions/checkout";
+import * as CustomerAccountComponents from "@shopify/ui-extensions/customer-account";
 
-import {
-  BlockStack as CustomerAccountBlockStack,
-  View as CustomerAccountView,
-  Text as CustomerAccountText,
-  TextBlock as CustomerAccountTextBlock,
-  Image as CustomerAccountImage,
-  Heading as CustomerAccountHeading,
-  Link as CustomerAccountLink,
-  Spinner as CustomerAccountSpinner,
-  QRCode as CustomerAccountQRCode,
-  InlineStack as CustomerAccountInlineStack,
-  InlineLayout as CustomerAccountInlineLayout,
-  extension as customerAccountExtension,
-  // Note: Some components might not exist in customer-account or have different names.
-  // This assumes common ones like Text, View, BlockStack, Heading, Link, Spinner, QRCode, InlineStack are available and compatible.
-  // If specific components like Image or QRCode are not in customer-account, AppLogic would need adjustment.
-} from "@shopify/ui-extensions/customer-account";
+// Constants for text content
+const TEXTS = {
+  LOADING: 'Details werden geladen. Bitte warten!...',
+  LOADING_RETRY: (count, max) => `Details werden geladen... Versuch ${count}/${max}`,
+  ERROR: 'Fehler beim Laden der Bestelldetails. Bitte versuchen Sie es später erneut oder prüfen Sie Ihre E-Mail.',
+  NO_ORDER_NUMBER: 'Bestellnummer nicht gefunden, QR-Code kann nicht angezeigt werden.',
+  SUCCESS_FALLBACK: 'Ihre Bestellung wurde erfolgreich übermittelt. Weitere Details finden Sie in Ihrer Bestätigungs-E-Mail.',
+  QR_INSTRUCTIONS: [
+    'Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.',
+    'Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.',
+    'Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.'
+  ],
+  FAQ_LINK: 'https://sushi.catering/pages/faq',
+  FAQ_TEXT: 'hier',
+  FAQ_PREFIX: 'Fragen und Antworten rund um deine Bestellung findest du ',
+  DELIVERY_HEADING: 'Lieferinformationen',
+  PICKUP_HEADING: 'Abholinformationen',
+  PICKUP_INSTRUCTION: 'Wir liefern alle bestellten Gerichte in einer Sammellieferung täglich und frisch an die Rezeption. Achten Sie bitte darauf, dass die Gerichte bis zum Verzehr kühl gehalten werden müssen, z.B. im Kühlschrank. Um wie viel Uhr wir genau anliefern, entnehmen Sie bitte der Seite auf die Sie weitergeleitet werden, nachdem Sie den Standort festgelegt haben.',
+  DELIVERY_FALLBACK: 'Ihre Bestellung wird geliefert. Weitere Informationen finden Sie in Ihrer Bestätigungs-E-Mail.',
+  DELIVERY_LINK_DEFAULT: 'Weitere Details zur Lieferung'
+};
 
-// Target the Order Status page (Thank You page).
-// Make sure this target is enabled in your shopify.extension.toml
-// REMOVED INCORRECT extend("purchase.order-status.block.render", ...) call that was here.
+// Configuration - these values match shopify.app.toml [extension_config] section
+const CONFIG = {
+  MAX_RETRIES: 10,
+  RETRY_DELAY: 500, 
+  API_BASE_URL: 'https://dev.sushi.catering'
+};
 
-// --- Shared Application Logic ---
-// Now accepts a 'components' object
-function AppLogic(root, api, targetName, components) {
+// Component resolver that works for both contexts
+function createComponentResolver(targetName) {
+  const isCheckout = targetName === "purchase.thank-you.block.render";
+  const components = isCheckout ? CheckoutComponents : CustomerAccountComponents;
+  
+  return {
+    BlockStack: components.BlockStack,
+    View: components.View,
+    Text: components.Text,
+    TextBlock: components.TextBlock,
+    Image: components.Image,
+    Heading: components.Heading,
+    Link: components.Link,
+    Spinner: components.Spinner,
+    QRCode: components.QRCode,
+    InlineStack: components.InlineStack,
+    InlineLayout: components.InlineLayout,
+    extension: isCheckout ? CheckoutComponents.extension : CustomerAccountComponents.extension
+  };
+}
+
+// Utility functions
+function log(targetName, level, message, ...args) {
+  if (level === 'error' || (level === 'warn' && Math.random() < 0.1)) {
+    console[level](`[${targetName}] ${message}`, ...args);
+  }
+}
+
+function isMobileDevice() {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  
+  // Check for mobile device indicators
+  const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+  
+  // Also check for touch capability as additional indicator (guard window access)
+  const isTouchDevice = (typeof window !== 'undefined' && 'ontouchstart' in window) || 
+                        (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+  
+  // Check for small screen using matchMedia (more reliable than hardcoded breakpoints)
+  const isSmallScreen = typeof window !== 'undefined' && 
+    window.matchMedia && 
+    window.matchMedia('(max-width: 767px)').matches;
+  
+  // Mobile if: mobile user agent OR (touch device AND small screen)
+  return isMobileUA || (isTouchDevice && isSmallScreen);
+}
+
+function classifyViewport(viewport) {
+  // Use Shopify's built-in responsive classification - it knows best
+  return viewport?.isSmall ? 'small' : 'large';
+}
+
+// Optimized Application Logic
+function AppLogic(root, api, targetName) {
+  const components = createComponentResolver(targetName);
   const { BlockStack, View, Text, TextBlock, Image, Heading, Link, Spinner, QRCode, InlineStack, InlineLayout } = components;
+  
+  log(targetName, 'info', 'Extension initialized');
 
-  // --- Log API object for inspection (for development) ---
-  console.log(`[Checkout UI Ext - ${targetName}] API object:`, api);
-  console.log(`[Checkout UI Ext - ${targetName}] API version:`, api.version);
-  console.log(`[Checkout UI Ext - ${targetName}] API settings:`, api.settings);
-  console.log(`[Checkout UI Ext - ${targetName}] API app context:`, api.app);
-  console.log(`[Checkout UI Ext - ${targetName}] Root object (raw):`, root);
-
-  // Detect mobile devices through user agent when viewport API is unavailable
-  function isMobileDevice() {
-    try {
-      // Ensure navigator is available before trying to access userAgent
-      if (typeof navigator !== 'undefined' && navigator.userAgent) {
-        const userAgent = navigator.userAgent || navigator.vendor || (typeof window !== 'undefined' ? window.opera : '');
-        console.log(`[Checkout UI Ext - ${targetName}] User agent: ${userAgent}`);
-
-        // Check for common mobile device indicators in user agent
-        const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
-        const isMobile = mobileRegex.test(userAgent);
-        console.log(`[Checkout UI Ext - ${targetName}] isMobile from user agent: ${isMobile}`);
-        return isMobile;
-      } else {
-        console.warn(`[Checkout UI Ext - ${targetName}] Navigator or userAgent not available for device detection.`);
-        return false; // Default to not mobile if navigator is unavailable
-      }
-    } catch (error) {
-      console.error(`[Checkout UI Ext - ${targetName}] Error in isMobileDevice detection:`, error);
-      return false; // Default to not mobile in case of any error
-    }
-  }
-
-  // Store mobile detection result
   const isMobile = isMobileDevice();
-  console.log(`[Checkout UI Ext - ${targetName}] Is mobile device: ${isMobile}`);
 
-  // Check for viewport API specifically
-  if (api.viewport) {
-    console.log(`[Checkout UI Ext - ${targetName}] Viewport API is available`);
-    console.log(`[Checkout UI Ext - ${targetName}] Viewport API type:`, typeof api.viewport);
-    console.log(`[Checkout UI Ext - ${targetName}] Viewport API keys:`, Object.keys(api.viewport));
+  // State Management
+  let state = {
+    isLoading: true,
+    showError: false,
+    retryCount: 0,
+    orderNumber: null,
+    stationFlag: null,
+    arrLocation: null,
+    shopifyOrderId: null,
+    numericOrderId: null
+  };
 
-    if (api.viewport.current) {
-      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT is available`);
-      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT type:`, typeof api.viewport.current);
-      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT keys:`, Object.keys(api.viewport.current));
-      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT width:`, api.viewport.current.width);
-      console.log(`[Checkout UI Ext - ${targetName}] Viewport CURRENT isSmall:`, api.viewport.current.isSmall);
+  // Optimized data waiting with reduced logging
+  async function waitForShopifyData() {
+    for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+      state.retryCount = attempt;
+      
+      if (attempt > 1) renderApp(); // Show retry progress
+      
+      const hasData = checkShopifyDataAvailable();
+      if (hasData) return true;
+      
+      if (attempt < CONFIG.MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
+      }
+    }
+    
+    log(targetName, 'warn', 'Max retries reached, proceeding without Shopify data');
+    return false;
+  }
+  
+  function checkShopifyDataAvailable() {
+    if (targetName === "purchase.thank-you.block.render") {
+      const orderConfirmation = api.orderConfirmation?.current;
+      if (!orderConfirmation) return false;
+      
+      const orderId = orderConfirmation.order?.id;
+      if (orderId && isValidOrderId(orderId)) return true;
+      
+      return !!(orderConfirmation.name || orderConfirmation.order?.name || orderConfirmation.id);
     } else {
-      console.warn(`[Checkout UI Ext - ${targetName}] Viewport CURRENT is NOT available`);
+      return !!(api.order?.current?.name);
     }
-  } else {
-    console.warn(`[Checkout UI Ext - ${targetName}] Viewport API is NOT available`);
   }
-
-  if (root && typeof root === 'object') {
-    const rootKeys = Object.keys(root);
-    console.log(`[Checkout UI Ext - ${targetName}] Root object ACTUAL keys:`, rootKeys);
-    rootKeys.forEach(key => {
-      console.log(`[Checkout UI Ext - ${targetName}] Root key [${key}] type: ${typeof root[key]}`);
-      if (key === 'components' && typeof root[key] === 'object' && root[key] !== null) {
-        const componentKeys = Object.keys(root[key]);
-        console.log(`[Checkout UI Ext - ${targetName}] Root key [components] - ACTUAL its keys:`, componentKeys);
-      }
-      else if (typeof root[key] !== 'object' && typeof root[key] !== 'function') {
-        console.log(`[Checkout UI Ext - ${targetName}] Root key [${key}] value:`, root[key]);
-      }
-    });
-  }
-
-  console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation (raw):`, api.orderConfirmation);
-  if (api.orderConfirmation && typeof api.orderConfirmation === 'object') {
-    const orderConfirmationKeys = Object.keys(api.orderConfirmation);
-    console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation ACTUAL keys:`, orderConfirmationKeys);
-    orderConfirmationKeys.forEach(key => {
-      console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation key [${key}] type: ${typeof api.orderConfirmation[key]}`);
-      if (key === 'current' && typeof api.orderConfirmation[key] === 'object' && api.orderConfirmation[key] !== null) {
-        const currentOrderConfirmation = api.orderConfirmation[key];
-        console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation key [current] (is object) - its keys:`, Object.keys(currentOrderConfirmation));
-        Object.keys(currentOrderConfirmation).forEach(currentKey => {
-          console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation.current key [${currentKey}] type: ${typeof currentOrderConfirmation[currentKey]}`);
-          if (typeof currentOrderConfirmation[currentKey] !== 'object' && typeof currentOrderConfirmation[currentKey] !== 'function') {
-            console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation.current key [${currentKey}] value:`, currentOrderConfirmation[currentKey]);
-          }
-          if (currentOrderConfirmation[currentKey] && typeof currentOrderConfirmation[currentKey] === 'object' && currentOrderConfirmation[currentKey].id) {
-            console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation.current key [${currentKey}] has .id:`, currentOrderConfirmation[currentKey].id);
-          }
-          if (currentKey === 'order' && currentOrderConfirmation[currentKey] && typeof currentOrderConfirmation[currentKey] === 'object') {
-            console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation.current.order found. Its keys:`, Object.keys(currentOrderConfirmation[currentKey]));
-            if (currentOrderConfirmation[currentKey].id) {
-              console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation.current.order has .id:`, currentOrderConfirmation[currentKey].id);
-            }
-          }
-        });
-      }
-      else if (typeof api.orderConfirmation[key] !== 'object' && typeof api.orderConfirmation[key] !== 'function') {
-        console.log(`[Checkout UI Ext - ${targetName}] api.orderConfirmation key [${key}] value:`, api.orderConfirmation[key]);
-      }
-    });
-  }
-
-  if (api.data && typeof api.data === 'object') {
-    const dataKeys = Object.keys(api.data);
-    console.log(`[Checkout UI Ext - ${targetName}] api.data ACTUAL keys:`, dataKeys);
-    dataKeys.forEach(key => {
-      console.log(`[Checkout UI Ext - ${targetName}] api.data key [${key}] type: ${typeof api.data[key]}`);
-      if (typeof api.data[key] === 'object' && api.data[key] !== null) {
-        console.log(`[Checkout UI Ext - ${targetName}] api.data key [${key}] (is object) - its keys:`, Object.keys(api.data[key]));
-        if (api.data[key].id) {
-          console.log(`[Checkout UI Ext - ${targetName}] api.data key [${key}] has .id:`, api.data[key].id);
-        }
-      }
-    });
-  } else {
-    console.log(`[Checkout UI Ext - ${targetName}] api.data is not an object or is null/undefined.`, api.data);
-  }
-
-
-  // --- State Management ---
-  let isLoading = true;
-  let stationFlag = null;
-  let arrLocation = null;
-  let orderNumber = null;
-  let showError = false;
-  let retryCount = 0;
-  const MAX_RETRIES = 10;
-  const INITIAL_RETRY_DELAY = 500; // Start with 500ms
-
-  // --- Get Order ID ---
-  let shopifyOrderId = null;
-  let numericOrderId = null;
-
-  // --- Wait for Shopify Data Function ---
-  function waitForShopifyData() {
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const maxAttempts = MAX_RETRIES;
-
-      function checkData() {
-        attempts++;
-        retryCount = attempts; // Update global retry count for loading message
-        console.log(`[Checkout UI Ext - ${targetName}] Attempt ${attempts}/${maxAttempts} to get Shopify data`);
-
-        // Update loading message to show progress
-        if (attempts > 1) {
-          renderApp(); // Re-render to show updated loading message
-        }
-
-        let hasData = false;
-
-        if (targetName === "purchase.thank-you.block.render") {
-          if (api.orderConfirmation && api.orderConfirmation.current) {
-            if (api.orderConfirmation.current.name ||
-              (api.orderConfirmation.current.order && api.orderConfirmation.current.order.name) ||
-              api.orderConfirmation.current.id ||
-              (api.orderConfirmation.current.order && api.orderConfirmation.current.order.id)) {
-              hasData = true;
-              console.log(`[Checkout UI Ext - ${targetName}] Shopify data available on attempt ${attempts}`);
-            }
-          }
-        } else if (targetName === "customer-account.order-status.block.render") {
-          if (api.order && api.order.current && api.order.current.name) {
-            hasData = true;
-            console.log(`[Checkout UI Ext - ${targetName}] Shopify data available on attempt ${attempts}`);
-          }
-        }
-
-        if (hasData) {
-          resolve();
-          return;
-        }
-
-        if (attempts >= maxAttempts) {
-          console.warn(`[Checkout UI Ext - ${targetName}] Max attempts reached, proceeding without Shopify data`);
-          resolve(); // Resolve anyway to continue with fallback
-          return;
-        }
-
-        // Exponential backoff: 500ms, 1000ms, 2000ms, 4000ms, etc.
-        const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempts - 1);
-        console.log(`[Checkout UI Ext - ${targetName}] Waiting ${delay}ms before retry ${attempts + 1}`);
-        setTimeout(checkData, delay);
-      }
-
-      checkData();
-    });
-  }
-
-  // --- Viewport State & Subscription ---
-  function classifyViewport(viewport) {
-    console.log(`[Checkout UI Ext - ${targetName}] Classifying viewport:`, JSON.stringify(viewport));
-
-    // More aggressive mobile detection - better to show mobile layout on smaller devices
-    if (viewport.isSmall || (viewport.width && viewport.width < 768)) {
-      console.log(`[Checkout UI Ext - ${targetName}] Viewport classified as 'small' (mobile) - width: ${viewport.width}, isSmall: ${viewport.isSmall}`);
-      return 'small';
+  
+  function isValidOrderId(orderId) {
+    if (typeof orderId !== 'string') return false;
+    if (orderId.startsWith('gid://shopify/Order/') || orderId.startsWith('gid://shopify/OrderIdentity/')) {
+      const extractedId = orderId.split('/').pop();
+      return extractedId && extractedId !== '0' && !isNaN(parseInt(extractedId));
     }
-    console.log(`[Checkout UI Ext - ${targetName}] Viewport classified as 'large' (desktop) - width: ${viewport.width}, isSmall: ${viewport.isSmall}`);
-    return 'large';
+    return orderId !== '0';
   }
 
-  // Default to 'large' since we're targeting desktop primarily
+  // Optimized viewport handling
   let currentViewportSize = 'large';
   let hasViewportAPI = false;
-
+  
   if (api.viewport) {
     hasViewportAPI = true;
     if (api.viewport.current) {
-      console.log(`[Checkout UI Ext - ${targetName}] Raw api.viewport.current:`, JSON.parse(JSON.stringify(api.viewport.current)));
       currentViewportSize = classifyViewport(api.viewport.current);
-      console.log(`[Checkout UI Ext - ${targetName}] Initial viewport size from api.viewport.current: ${currentViewportSize}`);
-    } else {
-      console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.current not available at initialization. Defaulting viewport size to "large".`);
     }
-
+    
     if (typeof api.viewport.subscribe === 'function') {
-      console.log(`[Checkout UI Ext - ${targetName}] Setting up viewport subscription`);
       api.viewport.subscribe((newViewport) => {
-        console.log(`[Checkout UI Ext - ${targetName}] Viewport changed:`, JSON.stringify(newViewport));
         const newSizeClass = classifyViewport(newViewport);
         if (newSizeClass !== currentViewportSize) {
-          console.log(`[Checkout UI Ext - ${targetName}] Viewport size class changed from ${currentViewportSize} to ${newSizeClass}`);
           currentViewportSize = newSizeClass;
-          if (!isLoading || (isLoading && !showError)) {
-            console.log(`[Checkout UI Ext - ${targetName}] Re-rendering due to viewport change.`);
+          if (!state.isLoading || !state.showError) {
             renderApp();
           }
-        } else {
-          console.log(`[Checkout UI Ext - ${targetName}] Viewport changed but size class remains ${currentViewportSize}`);
         }
       });
-    } else {
-      console.warn(`[Checkout UI Ext - ${targetName}] api.viewport.subscribe is not available. Viewport changes will not trigger re-renders.`);
     }
   } else {
-    console.warn(`[Checkout UI Ext - ${targetName}] Viewport API is NOT available. Using fixed layout.`);
-    hasViewportAPI = false;
-    // Default to mobile layout if user agent suggests mobile device
-    if (isMobile) {
-      console.log(`[Checkout UI Ext - ${targetName}] User agent indicates mobile device. Setting currentViewportSize to 'small'.`);
-      currentViewportSize = 'small';
-    } else {
-      console.log(`[Checkout UI Ext - ${targetName}] User agent indicates desktop device. Keeping currentViewportSize as 'large'.`);
+    currentViewportSize = isMobile ? 'small' : 'large';
+  }
+
+  async function initializeAndFetch() {
+    try {
+      await waitForShopifyData();
+      
+      const extractedData = extractOrderData();
+      if (!extractedData.shopifyOrderId) {
+        throw new Error('Order ID could not be extracted');
+      }
+      
+      state.shopifyOrderId = extractedData.shopifyOrderId;
+      state.numericOrderId = extractedData.numericOrderId;
+      
+      if (state.numericOrderId && state.numericOrderId !== '0') {
+        await fetchOrderData();
+      } else {
+        if (state.retryCount < CONFIG.MAX_RETRIES) {
+          state.retryCount++;
+          setTimeout(() => initializeAndFetch(), CONFIG.RETRY_DELAY);
+          return;
+        }
+        throw new Error('Invalid order ID after max retries');
+      }
+    } catch (error) {
+      log(targetName, 'error', 'Error in initializeAndFetch:', error);
+      state.showError = true;
+      state.isLoading = false;
+      renderApp();
     }
   }
-
-  function initializeAndFetch() {
-    console.log(`[Checkout UI Ext - ${targetName}] Starting initializeAndFetch with retry mechanism`);
-
-    // First, wait for Shopify data to become available
-    waitForShopifyData().then(() => {
-      console.log(`[Checkout UI Ext - ${targetName}] Shopify data check completed, proceeding with order ID extraction`);
-
-      if (targetName === "customer-account.order-status.block.render") {
-        console.log(`[Checkout UI Ext - ${targetName}] Full API object at initializeAndFetch start:`, JSON.parse(JSON.stringify(api)));
-        console.log(`[Checkout UI Ext - ${targetName}] Checking for api.order:`, api.order);
-        if (api.order) {
-          console.log(`[Checkout UI Ext - ${targetName}] api.order exists. Checking for api.order.current:`, api.order.current);
-          if (api.order.current) {
-            console.log(`[Checkout UI Ext - ${targetName}] api.order.current exists. Checking for api.order.current.id:`, api.order.current.id);
-            shopifyOrderId = api.order.current.id;
-            console.log(`[Checkout UI Ext - ${targetName}] Order ID from api.order.current.id:`, shopifyOrderId);
-          } else {
-            console.log(`[Checkout UI Ext - ${targetName}] api.order.current is undefined/null.`);
-          }
-        } else {
-          console.log(`[Checkout UI Ext - ${targetName}] api.order is undefined/null.`);
-        }
-      } else if (targetName === "purchase.thank-you.block.render") {
-        if (api.orderConfirmation && api.orderConfirmation.current) {
-          if (api.orderConfirmation.current.order && api.orderConfirmation.current.order.id) {
-            shopifyOrderId = api.orderConfirmation.current.order.id;
-            console.log(`[Checkout UI Ext - ${targetName}] Order ID from api.orderConfirmation.current.order.id:`, shopifyOrderId);
-          } else if (api.orderConfirmation.current.id) {
-            shopifyOrderId = api.orderConfirmation.current.id;
-            console.log(`[Checkout UI Ext - ${targetName}] Order ID from api.orderConfirmation.current.id:`, shopifyOrderId);
-          }
-        }
-      }
-
-      // Fallback for api.extension.order.id (might be useful for some customer account contexts)
-      if (!shopifyOrderId && targetName === "customer-account.order-status.block.render" && api.extension && api.extension.order && api.extension.order.id) {
-        console.log(`[Checkout UI Ext - ${targetName}] Attempting fallback to api.extension.order.id`);
-        shopifyOrderId = api.extension.order.id;
-        console.log(`[Checkout UI Ext - ${targetName}] Order ID from api.extension.order.id:`, shopifyOrderId);
-      }
-
-      // Fallback for api.data.order.id (less likely, but kept for now)
-      if (!shopifyOrderId && api.data && api.data.order && api.data.order.id) {
-        shopifyOrderId = api.data.order.id;
-        console.log(`[Checkout UI Ext - ${targetName}] Order ID from api.data.order.id:`, shopifyOrderId);
-      }
-
-      if (!shopifyOrderId) {
-        console.error(`[Checkout UI Ext - ${targetName}] Order ID could not be extracted after waiting for Shopify data. See preceding logs for object structures.`);
-        showError = true;
-        isLoading = false;
-        console.error(`[Checkout UI Ext - ${targetName}] Cannot proceed without Order ID. Rendering error.`);
-        renderApp();
-        return;
-      }
-
-      if (shopifyOrderId) {
-        const idParts = shopifyOrderId.toString().split('/');
-        numericOrderId = idParts[idParts.length - 1];
-        console.log(`[Checkout UI Ext - ${targetName}] Numeric Order ID:`, numericOrderId);
-      } else {
-        console.error(`[Checkout UI Ext - ${targetName}] Numeric Order ID could not be derived. shopifyOrderId is null.`);
-        showError = true;
-        isLoading = false;
-        console.error(`[Checkout UI Ext - ${targetName}] Cannot proceed without Numeric Order ID. Rendering error.`);
-        renderApp();
-        return;
-      }
-
-      if (numericOrderId) {
-        fetchOrderData();
-      } else {
-        console.error(`[Checkout UI Ext - ${targetName}] fetchOrderData not called because numericOrderId is missing.`);
-        showError = true;
-        isLoading = false;
-        renderApp();
-      }
-    }).catch((error) => {
-      console.error(`[Checkout UI Ext - ${targetName}] Error in waitForShopifyData:`, error);
-      showError = true;
-      isLoading = false;
-      renderApp();
-    });
+  
+  function extractOrderData() {
+    let shopifyOrderId = null;
+    
+    if (targetName === "customer-account.order-status.block.render") {
+      shopifyOrderId = api.order?.current?.id;
+    } else if (targetName === "purchase.thank-you.block.render") {
+      const orderConfirmation = api.orderConfirmation?.current;
+      shopifyOrderId = orderConfirmation?.order?.id || orderConfirmation?.id;
+    }
+    
+    // Fallback options
+    if (!shopifyOrderId) {
+      shopifyOrderId = api.extension?.order?.id || api.data?.order?.id;
+    }
+    
+    const numericOrderId = extractNumericId(shopifyOrderId);
+    return { shopifyOrderId, numericOrderId };
   }
-
-  const apiBaseUrl = 'https://dev.sushi.catering';
+  
+  function extractNumericId(orderId) {
+    if (!orderId) return null;
+    
+    if (typeof orderId === 'string' && 
+        (orderId.startsWith('gid://shopify/Order/') || orderId.startsWith('gid://shopify/OrderIdentity/'))) {
+      const extractedId = orderId.split('/').pop();
+      return (extractedId && extractedId !== '0' && !isNaN(parseInt(extractedId))) ? extractedId : null;
+    }
+    
+    // Ensure orderId is not null/undefined before calling toString()
+    return orderId ? orderId.toString() : null;
+  }
 
   async function fetchOrderData() {
     try {
-      console.log(`[Checkout UI Ext - ${targetName}] Starting fetchOrderData with retry mechanism`);
-
-      // First try to get the order number from Shopify's API with retry
+      // Try to get order number from Shopify first
       let orderNumberFromShopify = null;
-
-      // Wait for Shopify data to be available before proceeding
-      await waitForShopifyData();
-
+      
       if (targetName === "purchase.thank-you.block.render") {
-        if (api.orderConfirmation && api.orderConfirmation.current) {
-          // For Thank You page
-          if (api.orderConfirmation.current.name) {
-            // The order name typically contains the order number (e.g., "#1001")
-            orderNumberFromShopify = api.orderConfirmation.current.name.replace('#', '');
-            console.log(`[Checkout UI Ext - ${targetName}] Extracted Order Number from orderConfirmation.current.name: ${orderNumberFromShopify}`);
-          } else if (api.orderConfirmation.current.order && api.orderConfirmation.current.order.name) {
-            orderNumberFromShopify = api.orderConfirmation.current.order.name.replace('#', '');
-            console.log(`[Checkout UI Ext - ${targetName}] Extracted Order Number from orderConfirmation.current.order.name: ${orderNumberFromShopify}`);
-          }
-          // Note: We intentionally don't use api.orderConfirmation.current.number as it's a confirmation number,
-          // not the sequential order number needed for QR codes
+        const orderConfirmation = api.orderConfirmation?.current;
+        const orderName = orderConfirmation?.name || orderConfirmation?.order?.name;
+        if (orderName) {
+          orderNumberFromShopify = orderName.replace('#', '');
         }
-      } else if (targetName === "customer-account.order-status.block.render") {
-        // For Order Status page
-        if (api.order && api.order.current) {
-          if (api.order.current.name) {
-            orderNumberFromShopify = api.order.current.name.replace('#', '');
-            console.log(`[Checkout UI Ext - ${targetName}] Extracted Order Number from order.current.name: ${orderNumberFromShopify}`);
-          }
-        }
-      }
-
-      // If we successfully got the order number from Shopify's API, use it
-      if (orderNumberFromShopify) {
-        orderNumber = orderNumberFromShopify;
-        console.log(`[Checkout UI Ext - ${targetName}] Successfully got order number from Shopify API: ${orderNumber}`);
-        // Set default values for other properties we would normally get from the server
-        stationFlag = stationFlag || 'N'; // Default to not having a station
-        arrLocation = arrLocation || { name: 'Default' };
       } else {
-        // Fall back to the external API call if Shopify API didn't provide the order number
-        console.log(`[Checkout UI Ext - ${targetName}] Could not get order number from Shopify API, falling back to external API call.`);
-        const url = `${apiBaseUrl}/api/getordernumber/${numericOrderId}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        const orderName = api.order?.current?.name;
+        if (orderName) {
+          orderNumberFromShopify = orderName.replace('#', '');
         }
+      }
+      
+      if (orderNumberFromShopify) {
+        // Use Shopify data with defaults
+        state.orderNumber = orderNumberFromShopify;
+        state.stationFlag = state.stationFlag || 'N';
+        state.arrLocation = state.arrLocation || { name: 'Default' };
+      } else {
+        // Fallback to external API
+        const response = await fetch(`${CONFIG.API_BASE_URL}/api/getordernumber/${state.numericOrderId}`);
+        
+        if (!response.ok) {
+          const errorMsg = response.status === 404 
+            ? `Order ID '${state.numericOrderId}' not found` 
+            : `API error (${response.status})`;
+          throw new Error(errorMsg);
+        }
+        
         const data = await response.json();
-
-        orderNumber = data.order_number?.toString();
-        stationFlag = data.arrLocation?.no_station;
-        arrLocation = data.arrLocation;
-
-        console.log(`[Checkout UI Ext - ${targetName}] Fetched Order Number from API: ${orderNumber}`);
-        console.log(`[Checkout UI Ext - ${targetName}] Fetched No Station: ${stationFlag}`);
-        console.log(`[Checkout UI Ext - ${targetName}] Fetched Location Details:`, arrLocation);
+        state.orderNumber = data.order_number?.toString();
+        state.stationFlag = data.arrLocation?.no_station;
+        state.arrLocation = data.arrLocation;
       }
-
-      if (!orderNumber) {
-        console.error(`[Checkout UI Ext - ${targetName}] Order number not found in Shopify API or external API after retry.`);
-        throw new Error('Order number not found in Shopify API or external API after retry.');
+      
+      if (!state.orderNumber) {
+        throw new Error('Order number not found');
       }
-
-      console.log(`[Checkout UI Ext - ${targetName}] Successfully obtained order number: ${orderNumber}`);
-      isLoading = false;
-      showError = false;
-      retryCount = 0; // Reset retry count on success
+      
+      // Success - update state and render
+      state.isLoading = false;
+      state.showError = false;
+      state.retryCount = 0;
+      renderApp();
+      
     } catch (error) {
-      console.error(`[Checkout UI Ext - ${targetName}] Error getting order data:`, error);
-      isLoading = false;
-      showError = true;
-    } finally {
-      console.log(`[Checkout UI Ext - ${targetName}] In fetchOrderData finally. isLoading: ${isLoading}, showError: ${showError}. Calling renderApp.`);
+      log(targetName, 'error', 'Error fetching order data:', error);
+      
+      // Retry logic for recoverable errors
+      if (error.message.includes('Order ID') && state.retryCount < CONFIG.MAX_RETRIES) {
+        state.retryCount++;
+        setTimeout(() => fetchOrderData(), CONFIG.RETRY_DELAY);
+        return;
+      }
+      
+      // Final error state
+      state.isLoading = false;
+      state.showError = true;
       renderApp();
     }
   }
 
-  // Shared function for QR code rendering to reduce redundancy
-  function renderQRCodeSection(root, orderNumber, shouldShowMobileLayout) {
-    console.log(`[Checkout UI Ext - ${targetName}] Rendering QR code with mobile layout: ${shouldShowMobileLayout}`);
-
-    return root.createComponent(
-      BlockStack, // This is the outerQRSectionContainer
-      {
-        spacing: 'base',
-        padding: shouldShowMobileLayout ? 'none' : 'base', // Conditional padding
-        border: 'base',
-        borderRadius: 'base',
-        background: 'surface'  // White background
-      },
-      [
-        shouldShowMobileLayout
-          ? (
-            // Mobile layout (stacked)
-            console.log(`[Checkout UI Ext - ${targetName}] Using MOBILE layout for QR code`),
-            root.createComponent(
-              BlockStack, // mobileMainStack
-              {
-                spacing: 'loose'
-              },
-              [
-                // QR Code centered and full width
-                root.createComponent(
-                  BlockStack, // mobileQRCodeContainer
-                  {
-                    inlineAlignment: 'center',
-                    maxInlineSize: '100%',
-                    background: 'surface',
-                    padding: 'none',
-                    margin: 'none'
-                  },
-                  [
-                    root.createComponent(
-                      QRCode,
-                      {
-                        content: orderNumber.toString(),
-                        size: 'fill',
-                        accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
-                      }
-                    )
-                  ]
-                ),
-
-                // Text content below QR code
-                root.createComponent(
-                  BlockStack, // mobileTextContainer
-                  {
-                    spacing: 'tight',
-                    padding: 'base' // Added padding for mobile text
-                  },
-                  [
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      'Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.'
-                    ),
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      'Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.'
-                    ),
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      'Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.'
-                    ),
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      [
-                        'Fragen und Antworten rund um deine Bestellung findest du ',
-                        root.createComponent(
-                          Link,
-                          {
-                            to: 'https://sushi.catering/pages/faq',
-                            external: true
-                          },
-                          'hier'
-                        ),
-                        '.'
-                      ]
-                    )
-                  ]
-                )
-              ]
-            )
-          )
-          : // Desktop layout (side-by-side)
-          (
-            console.log(`[Checkout UI Ext - ${targetName}] Using DESKTOP layout for QR code`),
-            root.createComponent(
-              InlineLayout,
-              {
-                spacing: 'loose',
-                columns: ['40%', '60%'],  // QR code takes 40%, text takes 60%
-                blockAlignment: 'start'
-              },
-              [
-                // QR Code (left column)
-                root.createComponent(
-                  QRCode,
-                  {
-                    content: orderNumber.toString(),
-                    size: 'large',
-                    accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
-                  }
-                ),
-
-                // Text content (right column)
-                root.createComponent(
-                  BlockStack,
-                  {
-                    spacing: 'tight'
-                  },
-                  [
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      'Scanne deinen QR-Code an der Station, um deine Artikel zu entnehmen. Stelle hierfür die maximale Helligkeit deines Mobilgeräts ein und halte dein Mobilgerät senkrecht, mittig und im Abstand von ca. 10cm vor den Scanner.'
-                    ),
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      'Bitte achte darauf, dass der QR-Code die volle Breite deines Bildschirms ausfüllen muss. Falls der QR-Code im Browser zu klein angezeigt wird, kannst du hineinzoomen oder den QR-Code aus deiner E-Mail verwenden.'
-                    ),
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      'Nach dem Scannen, folge den Anweisungen auf dem Monitor. Wenn deine Bestellung nicht gefunden wurde, versuche es nach 30 Sekunden erneut. Deinen QR-Code findest du auch in deiner Bestellbestätigungsmail.'
-                    ),
-                    root.createComponent(
-                      TextBlock,
-                      { size: 'medium', inlineAlignment: 'start' },
-                      [
-                        'Fragen und Antworten rund um deine Bestellung findest du ',
-                        root.createComponent(
-                          Link,
-                          {
-                            to: 'https://sushi.catering/pages/faq',
-                            external: true
-                          },
-                          'hier'
-                        ),
-                        '.'
-                      ]
-                    )
-                  ]
-                )
-              ]
-            )
-          )
-      ]
-    );
+  // Optimized QR code rendering with unified logic
+  function createQRCodeSection(orderNumber, isMobile) {
+    if (!root?.createComponent) return null;
+    
+    const qrCode = root.createComponent(QRCode, {
+      content: orderNumber.toString(),
+      size: isMobile ? 'fill' : 'large',
+      accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
+    });
+    
+    const textBlocks = createTextBlocks();
+    const textContainer = root.createComponent(BlockStack, {
+      spacing: 'tight',
+      ...(isMobile && { padding: 'base' })
+    });
+    
+    textBlocks.forEach(block => textContainer.appendChild(block));
+    
+    if (isMobile) {
+      // Mobile: stacked layout
+      const qrContainer = root.createComponent(BlockStack, {
+        inlineAlignment: 'center',
+        maxInlineSize: '100%',
+        background: 'surface'
+      });
+      qrContainer.appendChild(qrCode);
+      
+      const mainStack = root.createComponent(BlockStack, { spacing: 'loose' });
+      mainStack.appendChild(qrContainer);
+      mainStack.appendChild(textContainer);
+      return mainStack;
+    } else {
+      // Desktop: side-by-side layout
+      const inlineLayout = root.createComponent(InlineLayout, {
+        spacing: 'loose',
+        columns: ['40%', '60%'],
+        blockAlignment: 'start'
+      });
+      inlineLayout.appendChild(qrCode);
+      inlineLayout.appendChild(textContainer);
+      return inlineLayout;
+    }
+  }
+  
+  function createTextBlocks() {
+    const faqLink = root.createComponent(Link, {
+      to: TEXTS.FAQ_LINK,
+      external: true
+    }, TEXTS.FAQ_TEXT);
+    
+    return [
+      ...TEXTS.QR_INSTRUCTIONS.map(text => 
+        root.createComponent(TextBlock, { size: 'medium', inlineAlignment: 'start' }, text)
+      ),
+      root.createComponent(TextBlock, { size: 'medium', inlineAlignment: 'start' }, [
+        TEXTS.FAQ_PREFIX,
+        faqLink,
+        '.'
+      ])
+    ];
   }
 
   function renderApp() {
-    console.log(`[Checkout UI Ext - ${targetName}] renderApp CALLED. isLoading: ${isLoading}, showError: ${showError}`);
-
-    // Ensure consistent mobile detection for both extensions
-    // If viewport API is not available, use our user agent detection
+    // Validate prerequisites
+    if (!root?.appendChild || !root?.createComponent) {
+      log(targetName, 'error', 'Root object invalid');
+      return;
+    }
+    
+    // Update viewport size if no API available
     if (!hasViewportAPI) {
-      if (isMobile) {
-        console.log(`[Checkout UI Ext - ${targetName}] No viewport API available, using mobile detection from user agent.`);
-        currentViewportSize = 'small';
+      currentViewportSize = isMobile ? 'small' : 'large';
+    }
+    
+    // Clear previous content
+    try {
+      if (root.replaceChildren) {
+        root.replaceChildren();
       } else {
-        console.log(`[Checkout UI Ext - ${targetName}] No viewport API available, using desktop detection from user agent.`);
-        currentViewportSize = 'large';
+        while (root.lastChild) root.removeChild(root.lastChild);
       }
+    } catch (error) {
+      log(targetName, 'warn', 'Could not clear root content');
     }
-
-    if (!root || typeof root.appendChild !== 'function') {
-      console.error(`[Checkout UI Ext - ${targetName}] CRITICAL: root object is not available or does not support appendChild. Cannot render UI.`);
-      if (typeof Text !== 'undefined') {
-        console.error(`[Checkout UI Ext - ${targetName}] Critical: UI rendering impossible. root.createComponent might be needed if Text is a component type.`);
-      }
-      return;
-    }
-    console.log(`[Checkout UI Ext - ${targetName}] Before clearing, root.children.length (approx via lastChild): ${root.lastChild ? 'at least 1' : '0'}`);
-
-    if (typeof root.replaceChildren === 'function') {
-      console.log(`[Checkout UI Ext - ${targetName}] Attempting to clear root using root.replaceChildren().`);
-      root.replaceChildren();
-      console.log(`[Checkout UI Ext - ${targetName}] Cleared children using root.replaceChildren().`);
-    } else if (typeof root.removeChild === 'function') {
-      console.warn(`[Checkout UI Ext - ${targetName}] root.replaceChildren is not available. Falling back to removeChild loop.`);
-      let removedCount = 0;
-      while (root.lastChild) {
-        root.removeChild(root.lastChild);
-        removedCount++;
-      }
-      console.log(`[Checkout UI Ext - ${targetName}] Cleared ${removedCount} children from root using removeChild loop.`);
+    
+    // Render based on current state
+    if (state.isLoading) {
+      renderLoadingState();
+    } else if (state.showError) {
+      renderErrorState();
     } else {
-      console.warn(`[Checkout UI Ext - ${targetName}] Neither root.replaceChildren nor root.removeChild is a function. Previous content might not be cleared.`);
+      renderSuccessState();
     }
-    console.log(`[Checkout UI Ext - ${targetName}] After clearing, root.children.length (approx via lastChild): ${root.lastChild ? 'at least 1 (should be 0)' : '0'}`);
-
-    if (typeof BlockStack === 'undefined' || typeof View === 'undefined' || typeof Text === 'undefined' || typeof TextBlock === 'undefined' || typeof Image === 'undefined' || typeof Heading === 'undefined' || typeof Link === 'undefined' || typeof Spinner === 'undefined' || typeof QRCode === 'undefined' || typeof InlineStack === 'undefined' || typeof InlineLayout === 'undefined') {
-      console.error(`[Checkout UI Ext - ${targetName}] One or more UI component types (from components object) are UNDEFINED.`);
-      if (typeof Text !== 'undefined' && root.createComponent) {
-        try {
-          const errorComponent = root.createComponent(Text, { appearance: 'critical' }, 'Critical Error: Essential UI component types are missing. Please contact support.');
-          root.appendChild(errorComponent);
-        } catch (e) {
-          console.error(`[Checkout UI Ext - ${targetName}] Failed to render critical component type error message AND Text component itself might be an issue.`, e);
-        }
-      } else {
-        console.error(`[Checkout UI Ext - ${targetName}] Critical Error: Essential UI component types are missing AND Text component is not available for rendering an error message.`);
-      }
-      return;
+  }
+  
+  function renderLoadingState() {
+    const spinner = root.createComponent(Spinner);
+    const message = state.retryCount > 0 
+      ? TEXTS.LOADING_RETRY(state.retryCount, CONFIG.MAX_RETRIES)
+      : TEXTS.LOADING;
+    const text = root.createComponent(Text, null, message);
+    
+    root.appendChild(spinner);
+    root.appendChild(text);
+  }
+  
+  function renderErrorState() {
+    const error = root.createComponent(Text, { appearance: 'critical' }, TEXTS.ERROR);
+    root.appendChild(error);
+  }
+  
+  function renderSuccessState() {
+    const container = root.createComponent(BlockStack, { spacing: 'base' });
+    const isDelivery = state.arrLocation?.name === 'Delivery';
+    const isStationPickup = state.stationFlag === 'Y';
+    
+    // Render delivery/pickup info if needed
+    if (isDelivery || isStationPickup) {
+      renderDeliveryInfo(container, isDelivery);
     }
-
-    if (!isLoading && !showError) {
-      console.log(`[Checkout UI Ext - ${targetName}] renderApp: Rendering SUCCESS path.`);
-      const appContainer = root.createComponent(BlockStack, { spacing: 'base' });
-
-      if (stationFlag === 'Y' || arrLocation?.name === 'Delivery') {
-        appContainer.appendChild(
-          root.createComponent(Heading, { level: 2 },
-            arrLocation?.name === 'Delivery' ? 'Lieferinformationen' : 'Abholinformationen'
-          )
-        );
-        const instructionTextContent = arrLocation?.name === 'Delivery'
-          ? (arrLocation?.checkout_note || 'Ihre Bestellung wird geliefert. Weitere Informationen finden Sie in Ihrer Bestätigungs-E-Mail.')
-          : 'Wir liefern alle bestellten Gerichte in einer Sammellieferung täglich und frisch an die Rezeption. Achten Sie bitte darauf, dass die Gerichte bis zum Verzehr kühl gehalten werden müssen, z.B. im Kühlschrank. Um wie viel Uhr wir genau anliefern, entnehmen Sie bitte der Seite auf die Sie weitergeleitet werden, nachdem Sie den Standort festgelegt haben.';
-        appContainer.appendChild(root.createComponent(Text, null, instructionTextContent));
-
-        if (arrLocation?.name === 'Delivery' && arrLocation?.checkout_hyperlink) {
-          appContainer.appendChild(
-            root.createComponent(Link, { to: arrLocation.checkout_hyperlink, external: true },
-              arrLocation.checkout_hyperlink_text || 'Weitere Details zur Lieferung'
-            )
-          );
-        }
-      }
-
-      if (arrLocation?.name !== 'Delivery' && stationFlag !== 'Y') {
-        if (orderNumber) {
-          // Use shared function to render QR code section
-          console.log(`[Checkout UI Ext - ${targetName}] Rendering QR code section. Current viewport size: ${currentViewportSize}, hasViewportAPI: ${hasViewportAPI}`);
-
-          const shouldShowMobileLayout = currentViewportSize === 'small';
-          console.log(`[Checkout UI Ext - ${targetName}] shouldShowMobileLayout determined as: ${shouldShowMobileLayout}`);
-
-          appContainer.appendChild(
-            renderQRCodeSection(root, orderNumber, shouldShowMobileLayout)
-          );
-        } else {
-          appContainer.appendChild(root.createComponent(Text, { appearance: 'warning' }, 'Bestellnummer nicht gefunden, QR-Code kann nicht angezeigt werden.'));
-        }
-      }
-
-      if (appContainer.children.length === 0 && !isLoading) {
-        console.log(`[Checkout UI Ext - ${targetName}] No specific content to render, showing default message.`);
-        appContainer.appendChild(root.createComponent(Text, null, 'Ihre Bestellung wurde erfolgreich übermittelt. Weitere Details finden Sie in Ihrer Bestätigungs-E-Mail.'));
-      }
-      root.appendChild(appContainer);
-    } else if (isLoading) {
-      console.log(`[Checkout UI Ext - ${targetName}] renderApp: Rendering LOADING path.`);
-      const spinnerComponent = root.createComponent(Spinner);
-
-      // Show different loading messages based on retry status
-      let loadingMessage = 'Details werden geladen. Bitte warten!...';
-      if (retryCount > 0) {
-        loadingMessage = `Details werden geladen... Versuch ${retryCount}/${MAX_RETRIES}`;
-      }
-
-      const loadingTextComponent = root.createComponent(Text, null, loadingMessage);
-      root.appendChild(spinnerComponent);
-      root.appendChild(loadingTextComponent);
-    } else if (showError) {
-      console.log(`[Checkout UI Ext - ${targetName}] renderApp: Rendering ERROR path.`);
-      const errorTextComponent = root.createComponent(Text, { appearance: 'critical' }, 'Fehler beim Laden der Bestelldetails. Bitte versuchen Sie es später erneut oder prüfen Sie Ihre E-Mail.');
-      root.appendChild(errorTextComponent);
+    
+    // Render QR code section if applicable
+    if (!isDelivery && !isStationPickup && state.orderNumber) {
+      const qrSection = createQRCodeSection(state.orderNumber, currentViewportSize === 'small');
+      if (qrSection) container.appendChild(qrSection);
+    } else if (!state.orderNumber && !isDelivery && !isStationPickup) {
+      container.appendChild(
+        root.createComponent(Text, { appearance: 'warning' }, TEXTS.NO_ORDER_NUMBER)
+      );
     }
-    console.log(`[Checkout UI Ext - ${targetName}] renderApp FINISHED.`);
+    
+    // Default message if no content
+    if (container.children.length === 0) {
+      container.appendChild(
+        root.createComponent(Text, null, TEXTS.SUCCESS_FALLBACK)
+      );
+    }
+    
+    root.appendChild(container);
+  }
+  
+  function renderDeliveryInfo(container, isDelivery) {
+    const heading = root.createComponent(
+      Heading, 
+      { level: 2 }, 
+      isDelivery ? TEXTS.DELIVERY_HEADING : TEXTS.PICKUP_HEADING
+    );
+    
+    const instruction = isDelivery 
+      ? (state.arrLocation?.checkout_note || TEXTS.DELIVERY_FALLBACK)
+      : TEXTS.PICKUP_INSTRUCTION;
+    
+    const text = root.createComponent(Text, null, instruction);
+    
+    container.appendChild(heading);
+    container.appendChild(text);
+    
+    // Add delivery link if available
+    if (isDelivery && state.arrLocation?.checkout_hyperlink) {
+      const link = root.createComponent(
+        Link,
+        { to: state.arrLocation.checkout_hyperlink, external: true },
+        state.arrLocation.checkout_hyperlink_text || TEXTS.DELIVERY_LINK_DEFAULT
+      );
+      container.appendChild(link);
+    }
   }
 
-  renderApp();
-  initializeAndFetch();
+  // Initialize the extension
+  renderApp(); // Show loading state immediately
+  initializeAndFetch(); // Start data fetching
 }
 
-// --- Extension Exports ---
-
-const checkoutComponents = {
-  BlockStack: CheckoutBlockStack,
-  View: CheckoutView,
-  Text: CheckoutText,
-  TextBlock: CheckoutTextBlock,
-  Image: CheckoutImage,
-  Heading: CheckoutHeading,
-  Link: CheckoutLink,
-  Spinner: CheckoutSpinner,
-  QRCode: CheckoutQRCode,
-  InlineStack: CheckoutInlineStack,
-  InlineLayout: CheckoutInlineLayout,
-};
-
-const customerAccountComponents = {
-  BlockStack: CustomerAccountBlockStack,
-  View: CustomerAccountView,
-  Text: CustomerAccountText,
-  TextBlock: CustomerAccountTextBlock,
-  Image: CustomerAccountImage, // Assuming available, may need to check docs
-  Heading: CustomerAccountHeading,
-  Link: CustomerAccountLink,
-  Spinner: CustomerAccountSpinner,
-  QRCode: CustomerAccountQRCode, // Assuming available, may need to check docs
-  InlineStack: CustomerAccountInlineStack, // Assuming available
-  InlineLayout: CustomerAccountInlineLayout, // Assuming available
-};
-
-// Export for Thank You page
-export const thankYouExtension = checkoutExtension(
+// Optimized Extension Exports
+export const thankYouExtension = CheckoutComponents.extension(
   "purchase.thank-you.block.render",
   (root, api) => {
-    AppLogic(root, api, "purchase.thank-you.block.render", checkoutComponents);
+    try {
+      AppLogic(root, api, "purchase.thank-you.block.render");
+    } catch (error) {
+      log("purchase.thank-you.block.render", 'error', 'Extension initialization failed:', error);
+      // Fallback UI
+      if (root?.createComponent && CheckoutComponents.Text) {
+        const fallback = root.createComponent(
+          CheckoutComponents.Text, 
+          { appearance: 'critical' }, 
+          'Extension failed to load. Please refresh the page.'
+        );
+        root.appendChild?.(fallback);
+      }
+    }
   }
 );
 
-// Export for Order Status page
-export const orderStatusExtension = customerAccountExtension(
+export const orderStatusExtension = CustomerAccountComponents.extension(
   "customer-account.order-status.block.render",
   (root, api) => {
-    AppLogic(root, api, "customer-account.order-status.block.render", customerAccountComponents);
+    try {
+      AppLogic(root, api, "customer-account.order-status.block.render");
+    } catch (error) {
+      log("customer-account.order-status.block.render", 'error', 'Extension initialization failed:', error);
+      // Fallback UI
+      if (root?.createComponent && CustomerAccountComponents.Text) {
+        const fallback = root.createComponent(
+          CustomerAccountComponents.Text, 
+          { appearance: 'critical' }, 
+          'Extension failed to load. Please refresh the page.'
+        );
+        root.appendChild?.(fallback);
+      }
+    }
   }
 );
 
