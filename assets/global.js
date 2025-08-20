@@ -15,6 +15,10 @@ if (localStorage.getItem("uuid") == null) {
   localStorage.setItem("uuid", uuid);
 }
 
+function getQueryParams() {
+  return new URLSearchParams(window.location.search);
+}
+
 // if (localStorage.getItem("location") != null && sessionStorage.getItem("location") == null) {
 //   sessionStorage.setItem("location", localStorage.getItem("location"));
 // }
@@ -39,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return $.ajax({
       type: "POST",
       url: window.Shopify.routes.root + "cart/clear.js",
+      async: false,
       dataType: "json"
     }).then(() => {
       console.log('[Cart Manager] Cart cleared successfully');
@@ -90,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function () {
     e.preventDefault();
 
     //get url params
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = getQueryParams();
     const location = urlParams.get('location');
     const date = urlParams.get('date');
     const uuid = urlParams.get('uuid');
@@ -99,74 +104,136 @@ document.addEventListener('DOMContentLoaded', function () {
     const additional_inventory = urlParams.get('additional_inventory');
     const additional_inventory_time = urlParams.get('additional_inventory_time');
 
-    if(immediate_inventory == "N"){
+    // Fallbacks when URL params are missing (e.g., on /cart)
+    const effectiveLocation = location || sessionStorage.getItem("location");
+    const effectiveDate = date || sessionStorage.getItem("date");
+    const effectiveImmediate = (immediate_inventory != null) ? immediate_inventory : sessionStorage.getItem("immediate_inventory");
+    const isSameDayPreorder = effectiveImmediate === "N" && !!effectiveDate && effectiveDate === getFormattedDate();
+    let shouldPreventCheckout = false;
+
+    if (isSameDayPreorder) {
       $.ajax({
-        url: `https://dev.sushi.catering/getLocations/${location}`,
+        url: `https://dev.sushi.catering/getLocations/${effectiveLocation}`,
         type: "GET",
         async: false,
-        cache:true,
+        cache: true,
         dataType: "json",
-        success: function(data) {
+        success: function (data) {
           // Save the same-day preorder end time
           window.samedayPreorderEndTime = data.sameday_preorder_end_time;
-          // window.immediate_inventory = data.immediate_inventory;
+          // const additionalInventoryEnabled = data.additional_inventory === 'Y';
+          // const additionalInventoryEndTime = data.second_additional_inventory_end_time;
 
           // Get the current date and time in Germany
           const now = new Date();
           const options = {
-              timeZone: 'Europe/Berlin',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
+            timeZone: 'Europe/Berlin',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
           };
           const formatter = new Intl.DateTimeFormat('en-GB', options); // 'en-GB' for 24-hour format
           const parts = formatter.formatToParts(now);
-      
+
           let dateObj = {};
           parts.forEach(({ type, value }) => {
-              dateObj[type] = value;
+            dateObj[type] = value;
           });
-      
+
           const currentHours = parseInt(dateObj.hour, 10);
           const currentMinutes = parseInt(dateObj.minute, 10);
           const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
-          // Parse the same-day preorder end time
-          if(window.samedayPreorderEndTime){
-            const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
-            window.cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
-            if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime) {
+          // Determine applicable cutoff (additional inventory may extend same-day window)
+          let cutoffTimeInMinutes = null;
+          // if (additionalInventoryEnabled && additionalInventoryEndTime) {
+          //   const [addHours, addMinutes] = additionalInventoryEndTime.split(':').map(Number);
+          //   cutoffTimeInMinutes = addHours * 60 + addMinutes;
+          // } else 
+          if (window.samedayPreorderEndTime) {
+            const [coHours, coMinutes] = window.samedayPreorderEndTime.split(':').map(Number);
+            cutoffTimeInMinutes = coHours * 60 + coMinutes;
+          }
 
-              //give alert to the user that the same day pre-order is closed now
-              alert("Die Vorbestellung für heute ist abgeschlossen. Bitte wählen Sie ein anderes Datum.");
-              //clear the cart and redirect to /pages/bestellen
-              $.ajax({
-                type: "POST",
-                url: window.Shopify.routes.root + "cart/clear.js",
-                dataType: "json",
-                success: function(response) {
-                  window.location.href = "/pages/bestellen";
-                },
-                error: function(xhr, status, error) {
-                  console.error('[Cart Manager] Failed to clear cart:', error);
-                }
-              });
-
-            }
+          if (cutoffTimeInMinutes !== null && currentTimeInMinutes >= cutoffTimeInMinutes) {
+            // Same-day preorder time window has expired
+            alert("Die Vorbestellung für heute ist abgeschlossen. Bitte wählen Sie ein anderes Datum.");
+            $.ajax({
+              type: "POST",
+              url: window.Shopify.routes.root + "cart/clear.js",
+              async: false,
+              dataType: "json",
+              success: function () {
+                window.location.href = "/pages/bestellen";
+              },
+              error: function (xhr, status, error) {
+                console.error('[Cart Manager] Failed to clear cart:', error);
+              }
+            });
+            shouldPreventCheckout = true;
           }
 
         },
-        error: function(xhr, status, error) {
+        error: function (xhr, status, error) {
           console.error('[Cart Manager] Failed to get locations:', error);
         }
       });
     }
-
+    if (shouldPreventCheckout) {
+      return;
+    }
     $.ajax({
       type: "GET",
       url: window.Shopify.routes.root + "cart.js",
       dataType: "json",
       success: function (cart) {
+
+        // Server-side check for same-day preorder cutoff, leveraging existing API
+        let timeExpired = false;
+        const isPreorder = (sessionStorage.getItem("immediate_inventory") || "N") === "N";
+        const isToday = cart.items.length > 0 && cart.items[0].properties.date === getFormattedDate();
+
+        if (isPreorder && isToday) {
+          $.ajax({
+            type: "POST",
+            url: "https://dev.sushi.catering/api/checkOrderInventory",
+            async: false,
+            cache: false,
+            data: {
+              items: JSON.stringify(cart.items)
+            },
+            dataType: "json",
+            success: function (response) {
+              if (response.sameday_preorder_time_expired == 1) {
+                timeExpired = true;
+                alert("Die Vorbestellung für heute ist abgeschlossen. Bitte wählen Sie ein anderes Datum.");
+
+                $.ajax({
+                  type: "POST",
+                  url: window.Shopify.routes.root + "cart/clear.js",
+                  dataType: "json",
+                  async: false,
+                  success: function () {
+                    window.location.href = "/pages/bestellen";
+                  },
+                  error: function () {
+                    window.location.href = "/pages/bestellen"; // Still redirect on error
+                  }
+                });
+              }
+            },
+            error: function () {
+              console.error('Cart Check order Inventory API error on checkout');
+              alert('Es gab einen Fehler bei der Überprüfung Ihrer Bestellung. Bitte versuchen Sie es erneut.');
+              timeExpired = true;
+            }
+          });
+        }
+
+        if (timeExpired) {
+          return; // Stop checkout process
+        }
+
         console.log('[Cart Manager] Cart validation started');
 
         // 1. Delivery Minimum Check
@@ -385,6 +452,7 @@ document.addEventListener('DOMContentLoaded', function () {
       $.ajax({
         type: "POST",
         url: window.Shopify.routes.root + "cart/clear.js",
+        async: false,
         dataType: "json",
         success: function (response) {
           window.location.href = "/pages/bestellen";
@@ -428,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (window.location.pathname.includes('/products/')) {
-    const queryParams = new URLSearchParams(window.location.search);
+    const queryParams = getQueryParams();
 
     // Check if 'location', 'date', and 'uuid' parameters are missing in the URL
     if (!queryParams.has('location') || !queryParams.has('date') || !queryParams.has('uuid')) {
@@ -450,6 +518,7 @@ document.addEventListener('DOMContentLoaded', function () {
       $.ajax({
         type: "POST",
         url: window.Shopify.routes.root + "cart/clear.js",
+        async: false,
         dataType: "json",
         success: function (response) {
         },
@@ -470,26 +539,28 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  if (queryParams.has('uuid')) {
-    localStorage.setItem("uuid", queryParams.get('uuid'));
+  const qp = getQueryParams();
+  if (qp.has('uuid')) {
+    localStorage.setItem("uuid", qp.get('uuid'));
   }
 
   // Check if required parameters are missing and redirect accordingly
   if (
-    sessionStorage.getItem("location") == null ||
-    sessionStorage.getItem("date") == null ||
-    localStorage.getItem("uuid") == null
+    (sessionStorage.getItem("location") == null ||
+      sessionStorage.getItem("date") == null ||
+      localStorage.getItem("uuid") == null) &&
+    (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart")
   ) {
     window.location.href = "/pages/bestellen";
   } else if (window.location.pathname === "/pages/datum") {
-    const queryParams = new URLSearchParams(window.location.search);
+    const queryParams = getQueryParams();
     if (queryParams.has('location')) {
       sessionStorage.setItem("location", queryParams.get('location'));
     } else if (sessionStorage.getItem("location") == null && localStorage.getItem("location") == null) {
       window.location.href = "/pages/bestellen";
     }
 
-    if (sessionStorage.getItem("date") != null) {
+    if (sessionStorage.getItem("date") != null && !queryParams.has('location')) {
       sessionStorage.clear();
       window.location.replace("/pages/bestellen");
     }
@@ -529,7 +600,7 @@ function updateLocationBar() {
   if (strLocation || strDate) {
     // Make sure the location bar exists before trying to update it.
     if ($(".location_bar").length > 0) {
-        $(".location_bar_text").html(`&nbsp;${strLocation}&nbsp;${strDate}`);
+      $(".location_bar_text").html(`&nbsp;${strLocation}&nbsp;${strDate}`);
     }
   } else {
     $(".location_bar").remove();
@@ -556,6 +627,7 @@ if (window.location.pathname === "/pages/order-menue" || window.location.pathnam
       $.ajax({
         type: "POST",
         url: window.Shopify.routes.root + "cart/clear.js",
+        async: false,
         dataType: "json",
         async: false, // Crucial for completing before redirect
         success: function () {
@@ -579,13 +651,13 @@ if (window.location.pathname === "/pages/order-menue" || window.location.pathnam
 if (window.jQuery) {
   let $ = window.jQuery;
 
-  $(document).ready(function() {
+  $(document).ready(function () {
     //when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
     const currentPathForParams = window.location.pathname;
     const pagesForParams = ["/pages/bestellen", "/pages/datum", "/pages/order-menue"];
 
     if (pagesForParams.includes(currentPathForParams)) {
-      const queryParams = new URLSearchParams(window.location.search);
+      const queryParams = getQueryParams();
 
       // Always overwrite session storage from URL params if they exist.
       if (queryParams.has('location')) sessionStorage.setItem("location", queryParams.get('location'));
@@ -615,7 +687,7 @@ if (window.jQuery) {
           }
         }
       } else if (currentPathForParams === "/pages/datum") {
-        const queryParams = new URLSearchParams(window.location.search);
+        const queryParams = getQueryParams();
 
         // Only redirect if a date is present AND a new location wasn't just passed in the URL.
         if (!queryParams.has('location') && sessionStorage.getItem("date") != null) {
@@ -692,6 +764,7 @@ if (window.jQuery) {
                 $.ajax({
                   type: "POST",
                   url: window.Shopify.routes.root + "cart/clear.js",
+                  async: false,
                   dataType: "json",
                   success: function (response) {
                     window.location.href = "/pages/bestellen";
@@ -763,6 +836,7 @@ if (window.jQuery) {
             $.ajax({
               type: "POST",
               url: window.Shopify.routes.root + "cart/clear.js",
+              async: false,
               dataType: "json",
               async: false, // Crucial for completing before redirect
               success: function () {
@@ -792,6 +866,7 @@ if (window.jQuery) {
     $.ajax({
       type: "POST",
       url: window.Shopify.routes.root + "cart/clear.js",
+      async: false,
       dataType: "json",
       success: function (response) {
         window.location.href = "/";
