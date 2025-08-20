@@ -546,13 +546,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Check if required parameters are missing and redirect accordingly
   if (
-    sessionStorage.getItem("location") == null ||
-    sessionStorage.getItem("date") == null ||
-    localStorage.getItem("uuid") == null
+    (sessionStorage.getItem("location") == null ||
+      sessionStorage.getItem("date") == null ||
+      localStorage.getItem("uuid") == null) &&
+    (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart")
   ) {
-    if (window.location.pathname !== "/pages/bestellen" && window.location.pathname !== "/pages/datum" && !window.location.pathname.includes('/products/')) {
-      window.location.href = "/pages/bestellen";
-    }
+    window.location.href = "/pages/bestellen";
   } else if (window.location.pathname === "/pages/datum") {
     const queryParams = getQueryParams();
     if (queryParams.has('location')) {
