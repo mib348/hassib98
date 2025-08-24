@@ -862,39 +862,196 @@ class ShopifyController extends Controller
 		return json_encode($arr);
 	}
 
-    static public function getImmediateInventoryByLocation($location = null) {
-        $nQty = 0;
+    // static public function getImmediateInventoryByLocation($location = null) {
+    //     $nQty = 0;
 
-        $immediateProducts = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
-                                                            ->where('products.status', 'active')
-                                                            ->where('location_products_tables.location', $location)
-                                                            ->where('inventory_type', 'immediate')
-                                                            ->where('day', date('l'))
-                                                            ->get();
+    //     $immediateProducts = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
+    //                                                         ->where('products.status', 'active')
+    //                                                         ->where('location_products_tables.location', $location)
+    //                                                         ->where('inventory_type', 'immediate')
+    //                                                         ->whereIn('day', [Carbon::now('Europe/Berlin')->format('l'), Carbon::now('Europe/Berlin')->subDay()->format('l')])
+    //                                                         ->get();
 
-                                                            $shop = User::find(env('db_shop_id', 1));
 
-        foreach ($immediateProducts as $product) {
-            // Get metafields for each product
-            $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$product['product_id']}/metafields.json", ['namespace'=>'custom', 'key'=>'json']);
-            $metafields = $metafieldsResponse['body']['metafields'] ?? [];
+    //     $shop = User::find(env('db_shop_id', 1));
 
-            foreach ($metafields as $field) {
-                if (isset($field['key']) && $field['key'] == 'json') {
-                    $value = json_decode($field['value'], true);
+    //     foreach ($immediateProducts as $product) {
+    //         // Get metafields for each product
+    //         $metafieldsResponse = $shop->api()->rest('GET', "/admin/products/{$product['product_id']}/metafields.json", ['namespace'=>'custom', 'key'=>'json']);
+    //         $metafields = $metafieldsResponse['body']['metafields'] ?? [];
 
-                    foreach ($value as $item) {
-                        [$productLocation, $date, $qty] = explode(':', $item);
+    //         foreach ($metafields as $field) {
+    //             if (isset($field['key']) && $field['key'] == 'json') {
+    //                 $value = json_decode($field['value'], true);
+					
+    //                 foreach ($value as $item) {
+    //                     [$productLocation, $date, $qty] = explode(':', $item);
 
-                        if($productLocation == $location && $date == date('d-m-Y'))
-                            $nQty += $qty;
-                    }
-                }
-            }
-        }
+    //                     if($productLocation == $location && ($date == Carbon::now('Europe/Berlin')->format('d-m-Y') || $date == Carbon::now('Europe/Berlin')->subDay()->format('d-m-Y')))
+    //                         $nQty += $qty;
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        return $nQty;
-    }
+    //     return $nQty;
+    // }
+
+    public static function getImmediateInventoryByLocationForYesterday($location = null) {
+		$totalQty = 0;
+
+		$nowBerlin     = Carbon::now('Europe/Berlin');
+		$todayDate     = $nowBerlin->format('d-m-Y');
+		$yesterdayDate = $nowBerlin->copy()->subDay()->format('d-m-Y');
+		$todayDay      = $nowBerlin->format('l');
+		$yesterdayDay  = $nowBerlin->copy()->subDay()->format('l');
+
+		$rows = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
+			->where('products.status', 'active')
+			->where('location_products_tables.location', $location)
+			->where('inventory_type', 'immediate')
+			->where('day', $yesterdayDay)
+			->get(['location_products_tables.product_id', 'products.title', 'location_products_tables.day']);
+
+		$shop = User::find(env('db_shop_id', 1));
+
+		$metafieldsCache = [];
+		$processedByDay  = []; // productId:day
+
+		foreach ($rows as $row) {
+			$productId = $row['product_id'];
+			$rowDay    = $row['day'];
+			$key       = $productId . ':' . $rowDay;
+
+			// prevent duplicate counting for same product/day
+			if (isset($processedByDay[$key])) {
+				continue;
+			}
+			$processedByDay[$key] = true;
+
+			// fetch and cache 'custom.json' metafield once per product
+			if (!isset($metafieldsCache[$productId])) {
+				$resp = $shop->api()->rest('GET', "/admin/products/{$productId}/metafields.json", ['namespace' => 'custom', 'key' => 'json']);
+				$metafields = $resp['body']['metafields'] ?? [];
+				$list = [];
+				foreach ($metafields as $field) {
+					if (isset($field['key']) && $field['key'] === 'json') {
+						$value = json_decode($field['value'], true);
+						if (is_array($value)) {
+							$list = $value;
+						}
+						break;
+					}
+				}
+				$metafieldsCache[$productId] = $list;
+			}
+
+			$items = $metafieldsCache[$productId];
+			if (empty($items)) {
+				continue;
+			}
+
+			$targetDate = $rowDay === $yesterdayDay ? $yesterdayDate : null;
+			if ($targetDate === null) {
+				continue;
+			}
+
+			$sumForThisProductDay = 0;
+			foreach ($items as $item) {
+				$parts = explode(':', $item);
+				if (count($parts) !== 3) {
+					continue;
+				}
+				[$productLocation, $date, $qty] = $parts;
+
+				if ($productLocation === $location && $date === $targetDate) {
+					$sumForThisProductDay += (int) $qty;
+				}
+			}
+
+			$totalQty += $sumForThisProductDay;
+		}
+
+		return $totalQty;
+	}
+
+    public static function getImmediateInventoryByLocation($location = null) {
+		$totalQty = 0;
+
+		$nowBerlin     = Carbon::now('Europe/Berlin');
+		$todayDate     = $nowBerlin->format('d-m-Y');
+		$yesterdayDate = $nowBerlin->copy()->subDay()->format('d-m-Y');
+		$todayDay      = $nowBerlin->format('l');
+		$yesterdayDay  = $nowBerlin->copy()->subDay()->format('l');
+
+		$rows = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
+			->where('products.status', 'active')
+			->where('location_products_tables.location', $location)
+			->where('inventory_type', 'immediate')
+			->whereIn('day', [$todayDay, $yesterdayDay])
+			->get(['location_products_tables.product_id', 'products.title', 'location_products_tables.day']);
+
+		$shop = User::find(env('db_shop_id', 1));
+
+		$metafieldsCache = [];
+		$processedByDay  = []; // productId:day
+
+		foreach ($rows as $row) {
+			$productId = $row['product_id'];
+			$rowDay    = $row['day'];
+			$key       = $productId . ':' . $rowDay;
+
+			// prevent duplicate counting for same product/day
+			if (isset($processedByDay[$key])) {
+				continue;
+			}
+			$processedByDay[$key] = true;
+
+			// fetch and cache 'custom.json' metafield once per product
+			if (!isset($metafieldsCache[$productId])) {
+				$resp = $shop->api()->rest('GET', "/admin/products/{$productId}/metafields.json", ['namespace' => 'custom', 'key' => 'json']);
+				$metafields = $resp['body']['metafields'] ?? [];
+				$list = [];
+				foreach ($metafields as $field) {
+					if (isset($field['key']) && $field['key'] === 'json') {
+						$value = json_decode($field['value'], true);
+						if (is_array($value)) {
+							$list = $value;
+						}
+						break;
+					}
+				}
+				$metafieldsCache[$productId] = $list;
+			}
+
+			$items = $metafieldsCache[$productId];
+			if (empty($items)) {
+				continue;
+			}
+
+			$targetDate = $rowDay === $todayDay ? $todayDate : ($rowDay === $yesterdayDay ? $yesterdayDate : null);
+			if ($targetDate === null) {
+				continue;
+			}
+
+			$sumForThisProductDay = 0;
+			foreach ($items as $item) {
+				$parts = explode(':', $item);
+				if (count($parts) !== 3) {
+					continue;
+				}
+				[$productLocation, $date, $qty] = $parts;
+
+				if ($productLocation === $location && $date === $targetDate) {
+					$sumForThisProductDay += (int) $qty;
+				}
+			}
+
+			$totalQty += $sumForThisProductDay;
+		}
+
+		return $totalQty;
+	}
 
     static public function getLocations($location = null) {
         // Check if the optional parameter is passed

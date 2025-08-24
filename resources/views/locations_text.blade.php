@@ -149,6 +149,25 @@
                     </div>
                 </div>
                 <br>
+                <div class="form-group row immediate_inventory_48h_portion" style="display:none;">
+                    <div class="col-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Y" id="immediate_inventory_48h" name="immediate_inventory_48h">
+                            <label class="form-check-label" for="immediate_inventory_48h">
+                                Immediate Inventory 48H
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-4 immediate_inventory_quantity_check_time_portion" style="display:none;">
+                        <label class="label" for="immediate_inventory_quantity_check_time">Immediate Inventory Quantity Check Time</label>
+                        <input class="form-control" type="time" value="00:00" id="immediate_inventory_quantity_check_time" name="immediate_inventory_quantity_check_time">
+                    </div>
+                    <div class="col-5 immediate_inventory_48h_portion immediate_inventory_order_quantity_limit_portion" style="display:none;">
+                        <label class="label" for="immediate_inventory_order_quantity_limit">Immediate Inventory Order Quantity Limit</label>
+                        <input class="form-control" type="number" value="2" id="immediate_inventory_order_quantity_limit" name="immediate_inventory_order_quantity_limit">
+                    </div>
+                </div>
+                <br>
                 <div class="row location_order_portion">
                     <div class="col-12">
                         <label class="label fw-bold font-bold" for="location_order">Order</label>
@@ -279,6 +298,7 @@
                     $(".no_station_portion").hide();
                     $(".additional_inventory_portion").hide();
                     $(".immediate_inventory_portion").hide();
+                    $(".immediate_inventory_48h_portion").hide();
                     $(".location_order_portion").hide();
                     $(".checkout_note_portion").hide();
                     $(".location_public_private_portion").hide();
@@ -289,6 +309,7 @@
                     $(".no_station_portion").hide();
                     $(".additional_inventory_portion").hide();
                     $(".immediate_inventory_portion").hide();
+                    $(".immediate_inventory_48h_portion").hide();
                     $(".location_order_portion").hide();
                     $(".checkout_note_portion").show();
                     $(".location_public_private_portion").hide();
@@ -299,6 +320,7 @@
                     $(".no_station_portion").show();
                     $(".additional_inventory_portion").show();
                     $(".immediate_inventory_portion").show();
+                    $(".immediate_inventory_48h_portion").show();
                     $(".location_order_portion").show();
                     $(".checkout_note_portion").hide();
                     $(".location_public_private_portion").show();
@@ -307,6 +329,24 @@
                 LoadList();
               });
 
+              $(document).on('change', '#immediate_inventory', function(e){
+                if($(this).is(":checked"))
+                    $(".immediate_inventory_48h_portion").show();
+                else
+                    $(".immediate_inventory_48h_portion").hide();
+              });
+
+              $(document).on('change', '#immediate_inventory_48h', function(e){
+                if($(this).is(":checked")){
+                    $(".immediate_inventory_order_quantity_limit_portion").show();
+                    $(".immediate_inventory_quantity_check_time_portion").show();
+                }
+                else{
+                    $(".immediate_inventory_order_quantity_limit_portion").hide();
+                    $(".immediate_inventory_quantity_check_time_portion").hide();
+                }
+              });
+              
               // Handle save location text data
               $(document).on('click', '#save_btn', function(e){
                 $.ajax({
@@ -483,6 +523,24 @@
                         $("#no_station").prop('checked', data.no_station === 'Y');
                         $("#additional_inventory").prop('checked', data.additional_inventory === 'Y');
                         $("#immediate_inventory").prop('checked', data.immediate_inventory === 'Y');
+                        $("#immediate_inventory_48h").prop('checked', data.immediate_inventory_48h === 'Y');
+                        $("#immediate_inventory_order_quantity_limit").val(data.immediate_inventory_order_quantity_limit);
+                        $("#immediate_inventory_quantity_check_time").val(data.immediate_inventory_quantity_check_time);
+
+                        if(data.immediate_inventory == "Y")
+                            $(".immediate_inventory_48h_portion").show();
+                        else
+                            $(".immediate_inventory_48h_portion").hide();
+                        
+                        if(data.immediate_inventory_48h == "Y"){
+                            $(".immediate_inventory_order_quantity_limit_portion").show();
+                            $(".immediate_inventory_quantity_check_time_portion").show();
+                        }
+                        else{
+                            $(".immediate_inventory_order_quantity_limit_portion").hide();
+                            $(".immediate_inventory_quantity_check_time_portion").hide();
+                        }
+
                         $("#location_public_private").prop('checked', data.location_public_private === 'PUBLIC');
                     }
                     else{
@@ -493,12 +551,16 @@
                         $("#note").val('');
                         $("#checkout_note").val('');
                         $("#location_order").val('');
+                        $("#immediate_inventory_order_quantity_limit").val('2');
                         $("#rows").html('');
                         $("#location_toggle").prop('checked', false);
                         $("#accept_only_preorders").prop('checked', false);
                         $("#no_station").prop('checked', false);
                         $("#additional_inventory").prop('checked', false);
                         $("#immediate_inventory").prop('checked', false);
+                        $("#immediate_inventory_48h").prop('checked', false);
+                        $(".immediate_inventory_48h_portion").hide();
+                        $("#immediate_inventory_quantity_check_time").val('--:--');
                         $("#location_public_private").prop('checked', false);
                     }
                 },

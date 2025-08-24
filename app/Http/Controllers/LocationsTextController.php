@@ -92,6 +92,9 @@ class LocationsTextController extends Controller
         $arrLocation->no_station = $request->has('no_station') ? 'Y' : 'N';
         $arrLocation->additional_inventory = $request->has('additional_inventory') ? 'Y' : 'N';
         $arrLocation->immediate_inventory = $request->has('immediate_inventory') ? 'Y' : 'N';
+        $arrLocation->immediate_inventory_48h = $request->has('immediate_inventory_48h') ? 'Y' : 'N';
+        $arrLocation->immediate_inventory_order_quantity_limit = $request->input('immediate_inventory_order_quantity_limit');
+        $arrLocation->immediate_inventory_quantity_check_time = $request->input('immediate_inventory_quantity_check_time');
         $arrLocation->location_order = $request->input('location_order');
         $arrLocation->location_public_private = $request->has('location_public_private') ? 'PUBLIC' : 'PRIVATE';
         return $arrLocation->save();
@@ -448,6 +451,9 @@ class LocationsTextController extends Controller
                 'no_station' => $arrLocation['no_station'],
                 'additional_inventory' => $arrLocation['additional_inventory'],
                 'immediate_inventory' => $arrLocation['immediate_inventory'],
+                'immediate_inventory_48h' => $arrLocation['immediate_inventory_48h'],
+                'immediate_inventory_order_quantity_limit' => $arrLocation['immediate_inventory_order_quantity_limit'],
+                'immediate_inventory_quantity_check_time' => $arrLocation['immediate_inventory_quantity_check_time'],
                 'location_order' => $arrLocation['location_order'],
                 'location_public_private' => $arrLocation['location_public_private']
             ]);
