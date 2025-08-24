@@ -6,6 +6,7 @@ use App\Http\Controllers\ShopifyController;
 use App\Models\AmountProductsLocationWeekday;
 use App\Models\LocationProductsTable;
 use App\Models\User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Auth;
@@ -60,7 +61,8 @@ class UpdateProductMetafields extends Command
         // $available_on_metafield_values = $available_on_metafield ? json_decode($available_on_metafield['value'], true) : [];
 
         $updatedValues = [];
-        $today = strtotime('today');
+        $today = strtotime(Carbon::now('Europe/Berlin')->toDateString());
+        $yesterday = strtotime(Carbon::now('Europe/Berlin')->subDay()->toDateString());
 
         $handler = new ShopifyController();
         $locations = $handler->getLocations();
@@ -87,7 +89,7 @@ class UpdateProductMetafields extends Command
                 [$valueLocation, $date, $quantity] = explode(':', $value);
 
                 $dateTimestamp = strtotime($date);
-                if ($dateTimestamp >= $today) {
+                if ($dateTimestamp >= $yesterday) {
                     if (isset($updatedValues[$valueLocation])) {
                         // $updatedValues[$valueLocation] = [];
 
