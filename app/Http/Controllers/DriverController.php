@@ -54,6 +54,7 @@ class DriverController extends Controller
 
                 $sameday_preorder_end_time = Carbon::parse($arrLocation->sameday_preorder_end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
                 $immediate_inventory_end_time = Carbon::parse($arrLocation->end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
+                $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
 
                 // Initialize location_data here
                 if (!isset($arrData[$location_name]['location_data'])) {
@@ -76,27 +77,41 @@ class DriverController extends Controller
 
                 $bItemsFound = false;
 
+                $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
+                $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format("H:i");
+                
                 //immediate orders
-                $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
-                                        ->where('location', $location_name)
-                                        ->where('day', Carbon::now('Europe/Berlin')->format('l'))
-                                        ->where('inventory_type', 'immediate')
-                                        ->get();
-
-                if (!$arrImmediateInventory->isEmpty()) {
-                    foreach ($arrImmediateInventory as $key => $arrProduct) {
-                        $product_name = $arrProduct['title'];
-                        $quantity = $arrProduct['quantity'];
-
-                        // Initialize product data if not already set
-                        if (!isset($arrData[$location_name]['immediate_inventory_slot']['products'][$product_name])) {
-                            $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] = 0;
-                        }
-
-                        // Accumulate quantity
-                        $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] += $quantity;
-                        $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
+                if($arrLocation->immediate_inventory == "Y"){
+                    if($arrLocation->immediate_inventory_48h == "Y" && ShopifyController::getImmediateInventoryByLocationForYesterday($location_name) > $arrLocation->immediate_inventory_order_quantity_limit && $currentTime >= $immediate_inventory_quantity_check_time){
+                        $arrData[$location_name]['immediate_inventory_slot']['products'] = [];
                     }
+                    else{
+                        $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
+                                            ->where('location', $location_name)
+                                            ->where('day', Carbon::now('Europe/Berlin')->format('l'))
+                                            ->where('inventory_type', 'immediate')
+                                            ->get();
+
+                        if (!$arrImmediateInventory->isEmpty()) {
+                            foreach ($arrImmediateInventory as $key => $arrProduct) {
+                                $product_name = $arrProduct['title'];
+                                $quantity = $arrProduct['quantity'];
+
+                            
+                                // Initialize product data if not already set
+                                if (!isset($arrData[$location_name]['immediate_inventory_slot']['products'][$product_name])) {
+                                    $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] = 0;
+                                }
+
+                                // Accumulate quantity
+                                $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] += $quantity;
+                                $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
+                            }
+                        }
+                    }
+                }
+                else{
+                    $arrData[$location_name]['immediate_inventory_slot']['products'] = [];
                 }
 
                 //preorders

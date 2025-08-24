@@ -63,29 +63,42 @@ class KitchenController extends Controller
                         ];
                     }
 
+                    $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
+                    $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format("H:i");
+
                     //immediate orders
-                    $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', "location_products_tables.product_id")
-                                                                    ->where('location', $location_name)
-                                                                    ->where('day', Carbon::parse($date, 'Europe/Berlin')->format("l"))
-                                                                    ->where('inventory_type', 'immediate')
-                                                                    ->get();
-
-
-
-                    if (!$arrImmediateInventory->isEmpty()) {
-                        foreach ($arrImmediateInventory as $key => $arrProduct) {
-                            $product_name = $arrProduct['title'];
-                            $quantity = $arrProduct['quantity'];
-
-                            // Initialize product data if not already set
-                            if (!isset($arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name])) {
-                                $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] = 0;
-                            }
-
-                            // Accumulate quantity
-                            $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] += $quantity;
-                            $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] += $quantity;
+                    if($arrLocation->immediate_inventory == "Y"){
+                        if($arrLocation->immediate_inventory_48h == "Y" && ShopifyController::getImmediateInventoryByLocationForYesterday($location_name) > $arrLocation->immediate_inventory_order_quantity_limit && $currentTime >= $immediate_inventory_quantity_check_time){
+                            $arrTotalOrders[$date]['total_orders']['immediate_inventory'] = [];
                         }
+                        else{
+                            $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', "location_products_tables.product_id")
+                                                                        ->where('location', $location_name)
+                                                                        ->where('day', Carbon::parse($date, 'Europe/Berlin')->format("l"))
+                                                                        ->where('inventory_type', 'immediate')
+                                                                        ->get();
+
+
+
+                            if (!$arrImmediateInventory->isEmpty()) {
+                                foreach ($arrImmediateInventory as $key => $arrProduct) {
+                                    $product_name = $arrProduct['title'];
+                                    $quantity = $arrProduct['quantity'];
+
+                                    // Initialize product data if not already set
+                                    if (!isset($arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name])) {
+                                        $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] = 0;
+                                    }
+
+                                    // Accumulate quantity
+                                    $arrTotalOrders[$date]['total_orders']['immediate_inventory'][$product_name] += $quantity;
+                                    $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] += $quantity;
+                                }
+                            }
+                        }
+                    }
+                    else{
+                        $arrTotalOrders[$date]['total_orders']['immediate_inventory'] = [];
                     }
 
                     // Fetch orders for the given date and location
