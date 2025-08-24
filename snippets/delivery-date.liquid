@@ -49,7 +49,8 @@
       location: null,
       locationData: null,
       jqueryReady: false,
-      domReady: false
+      domReady: false,
+      strYStockOnlyCheck: "N"
     };
   
     // Initialize everything when ready
@@ -74,6 +75,96 @@
       processLocationAndSetup();
       
       window.deliveryDateState.isInitialized = true;
+    }
+
+    function toggleBadgeCounter(data, location, currentTimeInMinutes, nQty){
+      function updateBadgeDisplay(qty){
+        if (qty > 0) {
+          $('#badge-counter')
+            .html(qty)
+            .removeClass('text-bg-danger')
+            .addClass('text-bg-success')
+            .css('display', 'inline-block');
+        } else if (qty < 1) {
+          $('#badge-counter')
+            .html(0)
+            .removeClass('text-bg-success')
+            .addClass('text-bg-danger')
+            .css('display', 'inline-block');
+        } else {
+          $('#badge-counter').css('display', 'none');
+        }
+      }
+
+      function fetchYesterdayQty(callback){
+        $.ajax({
+          url: `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${location}`,
+          type: "GET",
+          async: true,
+          cache: true,
+          dataType: "json",
+          success: function(yQty){ callback(yQty); },
+          error: function(request, status, error){ console.error('Error fetching Immediate Inventory Yesterday Quantity:', error); }
+        });
+      }
+
+      function fetchCombinedAndDisplay(){
+        $.ajax({
+          url: `https://dev.sushi.catering/getImmediateInventoryByLocation/${location}`,
+          type: "GET",
+          async: true,
+          cache: true,
+          dataType: "json",
+          success: function(cQty){ updateBadgeDisplay(cQty); },
+          error: function(request, status, error){ console.error('Error fetching Immediate Inventory Combined Quantity:', error); }
+        });
+      }
+
+      // If feature flags/time config not set, default to combined
+      if(!(data.immediate_inventory == "Y" && data.immediate_inventory_48h == "Y" && window.immediate_inventory_quantity_check_time)){
+        window.deliveryDateState.strYStockOnlyCheck = "N";
+        fetchCombinedAndDisplay();
+        console.log((window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time||'NA') + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + (nQty==null?"NA":nQty) + "-" + data.immediate_inventory_order_quantity_limit);
+        return;
+      }
+
+      const [cutoffHours_immediate_inventory_quantity_check_time, cutoffMinutes_immediate_inventory_quantity_check_time] = window.immediate_inventory_quantity_check_time.split(':').map(Number);
+      window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time = cutoffHours_immediate_inventory_quantity_check_time * 60 + cutoffMinutes_immediate_inventory_quantity_check_time;
+
+      // Before kitchen inventory check time: always show yesterday only
+      if (currentTimeInMinutes < window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time) {
+        window.deliveryDateState.strYStockOnlyCheck = "Y";
+        if (nQty != null) {
+          updateBadgeDisplay(nQty);
+          console.log(window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + nQty + "-" + data.immediate_inventory_order_quantity_limit);
+        } else {
+          fetchYesterdayQty(function(yQty){
+            updateBadgeDisplay(yQty);
+            console.log(window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + yQty + "-" + data.immediate_inventory_order_quantity_limit);
+          });
+        }
+        return;
+      }
+
+      // At/after kitchen inventory check time: show combined only if yesterday qty is below threshold, else show yesterday
+      var decideWithYesterdayQty = function(yQty){
+        if (yQty < data.immediate_inventory_order_quantity_limit) {
+          window.deliveryDateState.strYStockOnlyCheck = "N";
+          fetchCombinedAndDisplay();
+        } else {
+          window.deliveryDateState.strYStockOnlyCheck = "Y";
+          updateBadgeDisplay(yQty);
+        }
+        console.log(window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + yQty + "-" + data.immediate_inventory_order_quantity_limit);
+      };
+
+      if (nQty != null) {
+        // Use provided yesterday qty from initial load to decide
+        decideWithYesterdayQty(nQty);
+      } else {
+        // Re-fetch yesterday qty on interval to avoid stale decisions
+        fetchYesterdayQty(decideWithYesterdayQty);
+      }
     }
   
     // Process location and setup all functionality
@@ -114,6 +205,7 @@
       window.samedayPreorderEndTime = data.sameday_preorder_end_time;
       window.firstAdditionalInventoryPreorderEndTime = data.first_additional_inventory_end_time;
       window.additionalInventoryPreorderEndTime = data.second_additional_inventory_end_time;
+      window.immediate_inventory_quantity_check_time = data.immediate_inventory_quantity_check_time;
       window.b_additional_inventory = data.additional_inventory;
       window.accept_only_preorders = data.accept_only_preorders;
       window.immediate_inventory = data.immediate_inventory;
@@ -158,7 +250,7 @@
           minDate = 1;                       
         }
       }
-                         
+
       if (data.note)
         $("#note").html(data.note);
     
@@ -172,41 +264,47 @@
         //today order button aka immediate order button aka instant order button
         if (data.start_time && data.end_time && data.is_active === 'Y' && data.accept_only_preorders === 'N' && data.immediate_inventory == "Y" && minDate == 1) {
           toggleButton(data.start_time, data.end_time);
-          setInterval(() => toggleButton(data.start_time, data.end_time), 60000);                     
+          setInterval(() => {toggleButton(data.start_time, data.end_time);}, 60000);   
+
+          // **Set the badge count**
+          $.ajax({
+            url: `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`,
+            type: "GET",
+            async: true, // Changed from false to true
+            cache: true,
+            dataType: "json",
+            success: function(nQty) {
+              //handling of quantity counter badge for immediate button
+              toggleBadgeCounter(data, window.deliveryDateState.location, currentTimeInMinutes, nQty);
+              setInterval(() => {
+                // Get fresh current time for each interval execution
+                const now = new Date();
+                const options = {
+                  timeZone: 'Europe/Berlin',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                };
+                const formatter = new Intl.DateTimeFormat('en-GB', options);
+                const parts = formatter.formatToParts(now);
+                let dateObj = {};
+                parts.forEach(({ type, value }) => {
+                  dateObj[type] = value;
+                });
+                const currentHours = parseInt(dateObj.hour, 10);
+                const currentMinutes = parseInt(dateObj.minute, 10);
+                const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+    
+                toggleBadgeCounter(data, window.deliveryDateState.location, currentTimeInMinutes, null);
+              }, 60000);
+            },
+            error: function(request, status, error) {
+              console.error('Error fetching Immediate Inventory Page load Yesterday Quantity:', error);
+            }
+          });
+          
+          
   
-          //handling of quantity counter badge for immediate button
-          if(data.immediate_inventory == "Y"){
-            // **Set the badge count**
-            $.ajax({
-              url: `https://dev.sushi.catering/getImmediateInventoryByLocation/${window.deliveryDateState.location}`,
-              type: "GET",
-              async: true, // Changed from false to true
-              cache: true,
-              dataType: "json",
-              success: function(nQty) {
-                if (nQty > 0) {
-                  $('#badge-counter')
-                    .html(nQty)
-                    .removeClass('text-bg-danger')
-                    .addClass('text-bg-success')
-                    .css('display', 'inline-block');
-                } 
-                else if (nQty < 1) {
-                  $('#badge-counter')
-                    .html(0)
-                    .removeClass('text-bg-success')
-                    .addClass('text-bg-danger')
-                    .css('display', 'inline-block');
-                } 
-                else {
-                  $('#badge-counter').css('display', 'none');
-                }
-              },
-              error: function(request, status, error) {
-                console.error('Error fetching Immediate Inventory Quantity:', error);
-              }
-            });
-          }
         } else if (data.error) {
           console.error('Error fetching location Settings:', data.error);
         }
@@ -289,7 +387,7 @@
           async: true, // Changed from false to true
           dataType: "json",
           success: function(data) {
-            window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+            window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid") + "&strYStockOnlyCheck=" + window.deliveryDateState.strYStockOnlyCheck + "&nocache=" + randomNum;
           },
           error: function(request, status, error) {
             alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
