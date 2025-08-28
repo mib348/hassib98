@@ -737,31 +737,65 @@ class ShopifyController extends Controller
                 $shop = User::find(env('db_shop_id', 1));
             }
 
+            // Build GraphQL query
+            $gid = 'gid://shopify/Order/' . $order_id;
+            $query = '
+                query {
+                    order(id: "' . $gid . '") {
+                        name
+                        lineItems(first: 1) {
+                            edges {
+                                node {
+                                    customAttributes {
+                                        key
+                                        value
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ';
 
-            // Log the order ID being processed
-            // Log::info("Fetching order number for order id {$order_id}");
+            // Make the GraphQL API request
+            $response = $shop->api()->graph($query);
 
-            // Make the API request to fetch the order details
-            $updateResponse = $shop->api()->rest('GET', "/admin/api/2024-01/orders/{$order_id}.json");
+            // Check if the response is successful and contains order data
+            if (isset($response['body']['data']['order'])) {
+                $order = $response['body']['data']['order'];
+                
+                // Extract order number from name (remove # prefix if present)
+                $orderNumber = str_contains($order['name'], '#') ? 
+                    explode('#', $order['name'])[1] : $order['name'];
 
-            // Check if the response contains the order number
-            if (isset($updateResponse['body']['order']['order_number'])) {
-                // Log success and return the order number
-                // Log::info("Successfully fetched order number for order id {$order_id}");
-                $location = $updateResponse['body']['order']['line_items'][0]['properties'][1]['value'];
-                $arrLocation = Locations::where('name', $location)->first();
-                return ['order_number' => $updateResponse['body']['order']['order_number'], 'arrLocation' => $arrLocation];
+                //make $orderNumber number numeric
+                $orderNumber = (int) $orderNumber;
+
+                // Extract location from line item properties
+                $location = null;
+                if (isset($order['lineItems']['edges'][0]['node']['customAttributes'])) {
+                    $properties = $order['lineItems']['edges'][0]['node']['customAttributes'];
+                    // Find the location property (assuming it's the second property based on original code)
+                    if (count($properties) >= 2) {
+                        $location = $properties[1]['value'];
+                    }
+                }
+
+                // Get location details
+                $arrLocation = $location ? Locations::where('name', $location)->first() : null;
+
+                return ['order_number' => $orderNumber, 'arrLocation' => $arrLocation];
             } else {
-                // Log an error if the order number is not found
-                Log::error("Order number not found in response for order id {$order_id}: " . json_encode($updateResponse));
-                throw new Exception("Error Processing Request: " . json_encode($updateResponse), 1);
+                // Log an error if the order is not found
+                Log::error("Order not found in GraphQL response for order id {$order_id}: " . json_encode($response));
+                throw new Exception("Error Processing Request: " . json_encode($response), 1);
             }
         } catch (\Throwable $th) {
             // Log the exception with more detailed information
             Log::error("Exception occurred while fetching order number for order id {$order_id}: " . $th->getMessage(), [
                 'order_id' => $order_id,
                 'exception' => $th,
-                'response' => isset($updateResponse) ? $updateResponse : null
+                'response' => isset($response) ? $response : null
             ]);
             // Rethrow the exception to ensure it is not silently caught
             throw $th;
