@@ -260,6 +260,25 @@ document.addEventListener('DOMContentLoaded', function () {
             stored_qty = 99; // For Delivery, max quantity is 99
           }
 
+          //check if item properties are empty then gracefully clear the cart and ask the customer to add the item again
+          if (item.properties.length === 0) {
+            alert("Es gab einen Fehler bei der Überprüfung Ihres Warenkorbs. Bitte versuchen Sie es erneut, indem Sie das Produkt erneut hinzufügen.");
+            $.ajax({
+              type: "POST",
+              url: window.Shopify.routes.root + "cart/clear.js",
+              async: false,
+              dataType: "json",
+              success: function (response) {
+                window.location.href = "/pages/bestellen";
+              },
+              error: function (xhr, status, error) {
+                alert("Cart clear error:");
+                console.log("Cart clear error:", error);
+              },
+            });
+            return;
+          }
+
           const quantityInput = $(`input.quantity__input[data-quantity-variant-id="${item.id}"]`);
           const quantityContainer = quantityInput.closest(".cart-item__quantity");
 
