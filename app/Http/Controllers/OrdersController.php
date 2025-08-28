@@ -216,8 +216,8 @@ class OrdersController extends Controller
                                 'product_id' => $productId,
                                 'order_number' => $order->number,
                                 'quantity' => $arrLineItem['quantity'],
-                                'location' => $arrLineItem['properties'][1]['value'],
-                                'date' => $arrLineItem['properties'][2]['value'],
+                                'location' => ($arrLineItem['properties'][1]['value'] ?? null),
+                                'date' => ($arrLineItem['properties'][2]['value'] ?? null),
                                 'title' => $title
                             ];
                         }
