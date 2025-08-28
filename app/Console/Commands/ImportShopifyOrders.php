@@ -233,22 +233,21 @@ class ImportShopifyOrders extends Command
                 'image_after'
             ];
 
-            // Build identifiers for GraphQL metafields query (namespace assumed 'custom')
-            $identifiers = [];
-            foreach ($requiredMetafields as $key) {
-                $identifiers[] = '{namespace: "custom", key: "' . $key . '"}';
-            }
 
             $gid = 'gid://shopify/Order/' . $order['id'];
             $query = '
                 query {
                     order(id: "' . $gid . '") {
-                        metafields(identifiers: [' . implode(', ', $identifiers) . ']) {
-                            id
-                            key
-                            value
-                            createdAt
-                            updatedAt
+                        metafields(first: 250, namespace: "custom") {
+                            edges {
+                                node {
+                                    id
+                                    key
+                                    value
+                                    createdAt
+                                    updatedAt
+                                }
+                            }
                         }
                     }
                 }
@@ -258,8 +257,10 @@ class ImportShopifyOrders extends Command
             $response = $api->graph($query);
 
             $metafields = [];
-            if (isset($response['body']['data']['order']['metafields'])) {
-                $metafields = $response['body']['data']['order']['metafields'];
+            if (isset($response['body']['data']['order']['metafields']['edges'])) {
+                foreach ($response['body']['data']['order']['metafields']['edges'] as $edge) {
+                    $metafields[] = $edge['node'];
+                }
             }
 
             // Fetch existing metafields for the order
@@ -284,13 +285,19 @@ class ImportShopifyOrders extends Command
                     if (in_array($field['key'], $requiredMetafields)) {
                         $metafieldValues[$field['key']] = $field['value'];
 
+                        // Extract numeric ID from Shopify GID
+                        $metafieldId = null;
+                        if (isset($field['id'])) {
+                            $metafieldId = preg_replace('/^gid:\/\/shopify\/Metafield\//', '', $field['id']);
+                        }
+
                         // Update/Create existing metafields with actual values
                         Metafields::updateOrCreate(
                             ['order_id' => $order['id'], 'key' => $field['key']],
                             [
                                 'order_id' => $order['id'],
                                 'order_number' => $order['order_number'],
-                                'metafield_id' => $field['id'] ?? null,
+                                'metafield_id' => $metafieldId,
                                 'key' => $field['key'],
                                 'value' => $field['value'],
                                 'created_at' => isset($field['createdAt']) ? date('Y-m-d H:i:s', strtotime($field['createdAt'])) : now(),
