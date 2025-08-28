@@ -22,61 +22,146 @@ class ImportShopifyOrders extends Command
     {
         try {
             $shop = Auth::user(); // Ensure you have a way to authenticate and set the current shop.
-            if(!isset($shop) || !$shop)
+            if (!isset($shop) || !$shop)
                 $shop = User::find(env('db_shop_id', 1));
             $api = $shop->api(); // Get the API instance for the shop.
 
-            // $orders = $api->rest('GET', '/admin/orders.json', [
-            //     'created_at_min' => now()->subDays(15)->toIso8601String(),
-            //     'status' => 'any'
-            // ])['body']['orders'];
+            $createdAtMin = now()->subDays(15)->toIso8601String();
+            $createdAtMax = now()->addDays(7)->toIso8601String();
 
+            $this->info("Fetching orders created between {$createdAtMin} and {$createdAtMax}");
 
-			$createdAtMin = now()->subDays(15)->toIso8601String();
-			$createdAtMax = now()->addDays(7)->toIso8601String();
+            $allOrders = [];
+            $cursor = null;
 
-			$limit = 250; // Maximum allowed limit per request
-			$allOrders = []; // Array to hold all orders
-			$params = [
-				'created_at_min' => $createdAtMin,
-				'created_at_max' => $createdAtMax,
-				'status' => 'any',
-				'limit' => $limit
-			];
+            do {
+                $query = '
+                {
+                    orders(
+                        first: 250,
+                        query: "created_at:>=' . $createdAtMin . ' AND created_at:<=' . $createdAtMax . '"' . ($cursor ? ', after: "' . $cursor . '"' : '') . '
+                    ) {
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                        edges {
+                            node {
+                                id
+                                name
+                                createdAt
+                                updatedAt
+                                cancelledAt
+                                cancelReason
+                                totalPriceSet { shopMoney { amount } }
+                                email
+                                displayFinancialStatus
+                                displayFulfillmentStatus
+                                paymentGatewayNames
+                                note
+                                statusPageUrl
+                                lineItems(first: 100) {
+                                    edges {
+                                        node {
+                                            id
+                                            title
+                                            name
+                                            quantity
+                                            product { id }
+                                            variant { id title price }
+                                            customAttributes { key value }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }';
 
-			do {
-				// Fetch orders from Shopify API
-				$response = $api->rest('GET', '/admin/orders.json', $params);
+                $response = $api->graph($query);
 
-				// Check if the response contains orders
-				if (isset($response['body']['orders'])) {
-					$orders = $response['body']['orders'];
-					$orders = (array) $orders ?? [];
-					$orders = $orders['container'];
-					// Merge the fetched orders with the allOrders array
-					$allOrders = array_merge($allOrders, $orders);
-				}
+                if (isset($response['body']['data']['orders']['edges']) && count($response['body']['data']['orders']['edges']) > 0) {
+                    $orderEdges = $response['body']['data']['orders']['edges'];
+                    $orders = [];
 
-				// Check if there is a 'next' page link
-				$nextPageInfo = null;
-				if (isset($response['body']['next_page_info'])) {
-					$nextPageInfo = $response['body']['next_page_info'];
-					$params['page_info'] = $nextPageInfo; // Set page_info for the next request
-				}
+                    foreach ($orderEdges as $edge) {
+                        $node = $edge['node'];
 
-				// Log the current number of orders fetched
-				Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
-				$this->info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders)) . PHP_EOL;
+                        $order = [
+                            'id' => preg_replace('/^gid:\\/\\/shopify\\/Order\\//', '', $node['id']),
+                            'order_number' => str_contains($node['name'], '#') ? explode('#', $node['name'])[1] : $node['name'],
+                            'total_price' => $node['totalPriceSet']['shopMoney']['amount'],
+                            'email' => $node['email'],
+                            'financial_status' => $node['displayFinancialStatus'],
+                            'fulfillment_status' => $node['displayFulfillmentStatus'],
+                            'cancel_reason' => $node['cancelReason'],
+                            'payment_gateway_names' => [],
+                            'note' => $node['note'],
+                            'order_status_url' => $node['statusPageUrl'],
+                            'created_at' => $node['createdAt'],
+                            'updated_at' => $node['updatedAt'],
+                            'cancelled_at' => !empty($node['cancelledAt']) ? date("Y-m-d H:i:s", strtotime($node['cancelledAt'])) : $node['cancelledAt'],
+                        ];
 
-			} while (isset($nextPageInfo));
+                        try {
+                            if (is_array($node['paymentGatewayNames'])) {
+                                $order['payment_gateway_names'] = $node['paymentGatewayNames'];
+                            } else {
+                                $pgNames = [];
+                                foreach ($node['paymentGatewayNames'] as $key => $value) {
+                                    $pgNames[] = $value;
+                                }
+                                $order['payment_gateway_names'] = $pgNames;
+                            }
+                        } catch (\Exception $e) {
+                            Log::info("Could not process payment gateway names for order {$node['name']}: {$e->getMessage()}");
+                            $order['payment_gateway_names'] = [];
+                        }
 
-			$allOrders = (array) $allOrders;
+                        $lineItems = [];
+                        foreach ($node['lineItems']['edges'] as $lineItemEdge) {
+                            $lineItem = $lineItemEdge['node'];
 
-			// Now $allOrders contains all the orders within the specified date range
+                            $properties = [];
+                            foreach ($lineItem['customAttributes'] as $attr) {
+                                $properties[] = [
+                                    'name' => $attr['key'],
+                                    'value' => $attr['value']
+                                ];
+                            }
 
-            // foreach ($orders as $order) {
-                $this->importOrders($api, $allOrders);
-            // }
+                            $processedLineItem = [
+                                'id' => preg_replace('/^gid:\\/\\/shopify\\/LineItem\\//', '', $lineItem['id']),
+                                'product_id' => isset($lineItem['product']['id']) ? preg_replace('/^gid:\\/\\/shopify\\/Product\\//', '', $lineItem['product']['id']) : null,
+                                'title' => $lineItem['title'],
+                                'name' => $lineItem['name'],
+                                'quantity' => $lineItem['quantity'],
+                                'properties' => $properties,
+                                'variant_id' => isset($lineItem['variant']['id']) ? preg_replace('/^gid:\\/\\/shopify\\/ProductVariant\\//', '', $lineItem['variant']['id']) : null,
+                                'variant_title' => isset($lineItem['variant']['title']) ? $lineItem['variant']['title'] : null,
+                                'price' => isset($lineItem['variant']['price']) ? $lineItem['variant']['price'] : null,
+                            ];
+
+                            $lineItems[] = $processedLineItem;
+                        }
+
+                        $order['line_items'] = $lineItems;
+                        $orders[] = $order;
+                    }
+
+                    $allOrders = array_merge($allOrders, $orders);
+                    Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
+                    $this->info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders)) . PHP_EOL;
+                }
+
+                $hasNextPage = $response['body']['data']['orders']['pageInfo']['hasNextPage'] ?? false;
+                if ($hasNextPage) {
+                    $cursor = $response['body']['data']['orders']['pageInfo']['endCursor'];
+                }
+            } while ($hasNextPage && $cursor);
+
+            $allOrders = (array) $allOrders;
+            $this->importOrders($api, $allOrders);
         } catch (\Throwable $th) {
             Log::error("Error running job for importing orders: " . json_encode($th));
             $this->error("Error running job for importing orders: " . json_encode($th));
@@ -84,8 +169,9 @@ class ImportShopifyOrders extends Command
         }
     }
 
-    public function importOrders($api, $orders){
-		echo PHP_EOL;
+    public function importOrders($api, $orders)
+    {
+        echo PHP_EOL;
         foreach ($orders as $order) {
             // Default values in case properties are missing
             $location = null;
@@ -131,27 +217,50 @@ class ImportShopifyOrders extends Command
         }
     }
 
-    public function importOrdersMetafields($api, $order) {
+    public function importOrdersMetafields($api, $order)
+    {
         try {
-            // Fetch metafields from the API
-            $metafieldsResponse = $api->rest('GET', "/admin/orders/{$order['id']}/metafields.json");
-
-            if (isset($metafieldsResponse['body']) && isset($metafieldsResponse['body']['metafields'])) {
-                $metafields = (array) $metafieldsResponse['body']['metafields'];
-            }
-
-            if (isset($metafields['container'])) {
-                $metafields = $metafields['container'];
-            } else {
-                $metafields = [];
-            }
-
             // List of required metafields
             $requiredMetafields = [
-                'status', 'pick_up_date', 'location', 'right_items_removed',
-                'wrong_items_removed', 'time_of_pick_up', 'door_open_time',
-                'image_before', 'image_after'
+                'status',
+                'pick_up_date',
+                'location',
+                'right_items_removed',
+                'wrong_items_removed',
+                'time_of_pick_up',
+                'door_open_time',
+                'image_before',
+                'image_after'
             ];
+
+            // Build identifiers for GraphQL metafields query (namespace assumed 'custom')
+            $identifiers = [];
+            foreach ($requiredMetafields as $key) {
+                $identifiers[] = '{namespace: "custom", key: "' . $key . '"}';
+            }
+
+            $gid = 'gid://shopify/Order/' . $order['id'];
+            $query = '
+                query {
+                    order(id: "' . $gid . '") {
+                        metafields(identifiers: [' . implode(', ', $identifiers) . ']) {
+                            id
+                            key
+                            value
+                            createdAt
+                            updatedAt
+                        }
+                    }
+                }
+            ';
+
+            // Execute GraphQL query
+            $response = $api->graph($query);
+
+            $metafields = [];
+            if (isset($response['body']['data']['order']['metafields'])) {
+                $metafields = $response['body']['data']['order']['metafields'];
+            }
 
             // Fetch existing metafields for the order
             $existingMetafields = Metafields::where('order_id', $order['id'])
@@ -166,9 +275,12 @@ class ImportShopifyOrders extends Command
                 $metafieldValues[$key] = $metafieldData ? $metafieldData->value : null;
             }
 
-            // Process metafields from API response
-            if (isset($metafields)) {
+            // Process metafields from GraphQL response
+            if (!empty($metafields)) {
                 foreach ($metafields as $field) {
+                    if (!$field) {
+                        continue;
+                    }
                     if (in_array($field['key'], $requiredMetafields)) {
                         $metafieldValues[$field['key']] = $field['value'];
 
@@ -181,8 +293,8 @@ class ImportShopifyOrders extends Command
                                 'metafield_id' => $field['id'] ?? null,
                                 'key' => $field['key'],
                                 'value' => $field['value'],
-                                'created_at' => $field['created_at'] ?? now(),
-                                'updated_at' => $field['updated_at'] ?? now(),
+                                'created_at' => isset($field['createdAt']) ? date('Y-m-d H:i:s', strtotime($field['createdAt'])) : now(),
+                                'updated_at' => isset($field['updatedAt']) ? date('Y-m-d H:i:s', strtotime($field['updatedAt'])) : now(),
                             ]
                         );
 
@@ -213,37 +325,8 @@ class ImportShopifyOrders extends Command
                 }
             }
 
-            /*
-
-            // Clean up obsolete records with NULL values using temporary table approach
-            DB::statement('
-                CREATE TEMPORARY TABLE temp_keep_ids AS
-                SELECT id
-                FROM metafields m1
-                WHERE value IS NOT NULL
-                AND (order_id IS NOT NULL OR order_number IS NOT NULL)
-                AND id = (
-                    SELECT MAX(id)
-                    FROM metafields m2
-                    WHERE m2.order_id = m1.order_id
-                    AND m2.`key` = m1.`key`
-                )
-            ');
-
-            DB::statement('
-                DELETE FROM metafields
-                WHERE id NOT IN (
-                    SELECT id
-                    FROM temp_keep_ids
-                )
-            ');
-
-            DB::statement('DROP TEMPORARY TABLE temp_keep_ids');
-*/
-
             Log::info("Obsolete records have been cleaned up successfully.");
             $this->info("Obsolete records have been cleaned up successfully.");
-
         } catch (\Exception $e) {
             Log::error("An error occurred: " . $e->getMessage());
             $this->error("An error occurred: " . $e->getMessage());
@@ -251,6 +334,4 @@ class ImportShopifyOrders extends Command
 
         echo PHP_EOL;
     }
-
-
 }
