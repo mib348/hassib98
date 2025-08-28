@@ -69,7 +69,7 @@ class ImportProducts extends Command
         }
 
         // List of required metafields
-        $requiredMetafields = ['product_id', 'available_on', 'json', 'preorder_inventory', 'zusatzstoffe', 'allergene'];
+        $requiredMetafields = ['status_delivery_today', 'product_id', 'available_on', 'json', 'preorder_inventory', 'zusatzstoffe', 'allergene'];
         $metafieldValues = [];
 
         // Initialize metafieldValues with null
