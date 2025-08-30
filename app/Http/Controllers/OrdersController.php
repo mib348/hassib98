@@ -7,6 +7,8 @@ use App\Models\Orders;
 use App\Models\PersonalNotepad;
 use App\Models\User;
 use App\Models\DriverFulfilledStatus;
+use App\Models\LocationProductsTable;
+use App\Models\Locations;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -76,7 +78,8 @@ class OrdersController extends Controller
         //
     }
 
-    public function getOrdersList(Request $request) {
+    public function getOrdersList(Request $request)
+    {
         $html = "";
 
         // Calculate the date range once
@@ -89,11 +92,19 @@ class OrdersController extends Controller
 
         $strFilterLocation = $request->input('strFilterLocation');
 
+
         // Fetch all orders and related metafields in one go
         $query = Orders::whereBetween('date', [$startDate, $endDate]);
         if (!empty($strFilterLocation)) {
+            $arrLocation = Locations::where('name', $strFilterLocation)->first();
             $query->where('location', $strFilterLocation);
+        } else {
+            $arrLocations = Locations::where('is_active', 'Y')
+                ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
+                ->orderBy('name', 'ASC')
+                ->get();
         }
+
         $orders = $query->orderBy('date', 'asc')->get();
 
         // Ensure orders are fetched
@@ -117,7 +128,7 @@ class OrdersController extends Controller
         if (!empty($strFilterLocation)) {
             $driverImagesQuery->where('location', $strFilterLocation);
         }
-        $driverImages = $driverImagesQuery->get()->groupBy(function($item) {
+        $driverImages = $driverImagesQuery->get()->groupBy(function ($item) {
             return $item->date->format('Y-m-d');
         });
 
@@ -129,8 +140,8 @@ class OrdersController extends Controller
             $html .= "<tr>";
             $html .= "<td>" . $date . " " . Carbon::parse($date, 'Europe/Berlin')->format("l") . "</td>";
 
-            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = $arr_cancelled = $arr_refunded = $arr_items = $item_quantities = [];
-            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = 0;
+            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = $arr_cancelled = $arr_refunded = $arr_items = $item_quantities = $final_items_created = [];
+            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = $items_created = 0;
 
 
             // Track locations with images for this date (and potentially filtered location)
@@ -186,8 +197,7 @@ class OrdersController extends Controller
                                 $arr_fulfilled[$order->order_id] = $order->number;
                                 $fulfilled++;
                             }
-                        }
-                        else{
+                        } else {
                             $arr_no_status[$order->order_id] = $order->number;
                             $no_status++;
                         }
@@ -206,12 +216,14 @@ class OrdersController extends Controller
                     $refunded++;
                 }
 
+                //items sold
                 if (empty($order->cancel_reason) && empty($order->cancelled_at)) {
                     if (isset($arrLineItems)) {
                         foreach ($arrLineItems as $key => $arrLineItem) {
                             $productId = $arrLineItem['product_id'];
                             $title = $arrLineItem['title'];
 
+                            //total items
                             $arr_items[] = [
                                 'product_id' => $productId,
                                 'order_number' => $order->number,
@@ -220,12 +232,31 @@ class OrdersController extends Controller
                                 'date' => ($arrLineItem['properties'][2]['value'] ?? null),
                                 'title' => $title
                             ];
+
+                            //items created - counting preorder items
+                            if (!empty($arrLineItem['properties'])) {
+                                if ($arrLineItem['properties'][6]['name'] == "immediate_inventory" && $arrLineItem['properties'][6]['value'] == "Y") {
+                                    //skip if immediate inventory because it's being counted separately below
+                                    continue;
+                                }
+                            }
+                            // Initialize product data if not already set
+                            if (!isset($final_items_created['preorder_inventory'][$productId])) {
+                                $final_items_created['preorder_inventory'][$productId] = [];
+                                $final_items_created['preorder_inventory'][$productId]['quantity'] = 0;
+                            }
+
+                            $final_items_created['preorder_inventory'][$productId]['quantity'] += $arrLineItem['quantity'];
+                            $final_items_created['preorder_inventory'][$productId]['title'] = "{$title} <span class='badge text-bg-primary align-text-top'>{$final_items_created['preorder_inventory'][$productId]['quantity']}</span>";
+                            $final_items_created['preorder_inventory'][$productId]['order_id'][] = $order->order_id;
+                            $items_created += $arrLineItem['quantity'];
                         }
                         // $items += count($arrLineItems);
                     }
                 }
             }
 
+            //items sold
             // Now count the total quantity for each unique product
             $item_quantities = [];
             $order_html = "<ol>";
@@ -245,30 +276,110 @@ class OrdersController extends Controller
             }
             $order_html .= "</ol>";
 
+            //items sold
             // Build the final array with the desired format
             $final_items = [];
             foreach ($item_quantities as $productId => $data) {
                 $final_items[$productId] = "{$data['title']} <span class='badge text-bg-primary align-text-top'>{$data['quantity']}</span>";
             }
 
+            //items created - fetch immediate inventory
+            if (isset($strFilterLocation)) {
+                // Single location: use as-is
+                $arrImmediateInventoryCount = $this->GetImmediateOrderInventoryCount($date, $arrLocation);
+                $final_items_created['immediate_inventory'] = $arrImmediateInventoryCount['immediate_inventory'];
+                $items_created += $arrImmediateInventoryCount['immediate_inventory_quantity'];
+            } else {
+                // All active locations: aggregate per product instead of overwriting
+                if (!isset($final_items_created['immediate_inventory'])) {
+                    $final_items_created['immediate_inventory'] = [];
+                }
+                foreach ($arrLocations as $arrLocation) {
+                    $arrImmediateInventoryCount = $this->GetImmediateOrderInventoryCount($date, $arrLocation);
+
+                    // Sum quantities per product across locations
+                    foreach ($arrImmediateInventoryCount['immediate_inventory'] as $productId => $data) {
+                        if (!isset($final_items_created['immediate_inventory'][$productId])) {
+                            $final_items_created['immediate_inventory'][$productId] = [
+                                'quantity' => 0,
+                                'title' => ''
+                            ];
+                        }
+
+                        $final_items_created['immediate_inventory'][$productId]['quantity'] += ($data['quantity'] ?? 0);
+
+                        // Normalize title text (strip existing badge and rebuild with aggregated quantity)
+                        $baseTitle = $data['title'] ?? '';
+                        // Remove any existing badge span if present
+                        $baseTitle = explode('<span', $baseTitle)[0];
+                        $baseTitle = trim($baseTitle);
+                        $qty = $final_items_created['immediate_inventory'][$productId]['quantity'];
+                        $final_items_created['immediate_inventory'][$productId]['title'] = "{$baseTitle} <span class='badge text-bg-primary align-text-top'>{$qty}</span>";
+                    }
+
+                    // Keep numeric total for the column
+                    $items_created += ($arrImmediateInventoryCount['immediate_inventory_quantity'] ?? 0);
+                }
+            }
+
 
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Total' data-orders='" . json_encode($arr_totalOrders) . "'>" . $totalOrders . "</a></td>";
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='Fulfilled' data-orders='" . json_encode($arr_fulfilled) . "'>" . $fulfilled . "</a></td>";
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='Took-Zero' data-orders='" . json_encode($arr_took_zero) . "'>" . $took_zero . "</a></td>";
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='Took-Less' data-orders='" . json_encode($arr_took_less) . "'>" . $took_less . "</a></td>";
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='Wrong-Item' data-orders='" . json_encode($arr_wrong_item) . "'>" . $wrong_item . "</a></td>";
+            // $html .= "<td><a class='text-decoration-none order_counter' data-type='Fulfilled' data-orders='" . json_encode($arr_fulfilled) . "'>" . $fulfilled . "</a></td>";
+            // $html .= "<td><a class='text-decoration-none order_counter' data-type='Took-Zero' data-orders='" . json_encode($arr_took_zero) . "'>" . $took_zero . "</a></td>";
+            // $html .= "<td><a class='text-decoration-none order_counter' data-type='Took-Less' data-orders='" . json_encode($arr_took_less) . "'>" . $took_less . "</a></td>";
+            // $html .= "<td><a class='text-decoration-none order_counter' data-type='Wrong-Item' data-orders='" . json_encode($arr_wrong_item) . "'>" . $wrong_item . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='No Status' data-orders='" . json_encode($arr_no_status) . "'>" . $no_status . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Cancelled' data-orders='" . json_encode($arr_cancelled) . "'>" . $cancelled . "</a></td>";
             $html .= "<td><a class='text-decoration-none order_counter' data-type='Refunded' data-orders='" . json_encode($arr_refunded) . "'>" . $refunded . "</a></td>";
             $html .= "<td><a class='text-decoration-none items_counter' data-type='Items Sold' data-items='" . htmlspecialchars(json_encode($final_items), ENT_QUOTES, 'UTF-8') . "'>" . $items . "</a></td>";
+            $html .= "<td><a class='text-decoration-none items_created_counter' data-type='Items Created' data-items-created='" . htmlspecialchars(json_encode($final_items_created), ENT_QUOTES, 'UTF-8') . "'>" . $items_created . "</a></td>";
             $html .= "<td><a class='text-decoration-none view_images' data-type='View' data-images='" . htmlspecialchars(json_encode($locationImages), ENT_QUOTES, 'UTF-8') . "'><i class='fa-solid fa-eye'></i></a></td>";
             $html .= "</tr>";
         }
 
+
         return $html;
     }
 
+    public function GetImmediateOrderInventoryCount($date, $arrLocation)
+    {
+        $final_items_created = [];
+        $items_created = 0;
+        $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
+        $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format("H:i");
 
+        //immediate orders
+        if ($arrLocation->immediate_inventory == "Y") {
+            if ($arrLocation->immediate_inventory_48h == "Y" && ShopifyController::getImmediateInventoryByLocationForYesterday($arrLocation->name) > $arrLocation->immediate_inventory_order_quantity_limit && $currentTime >= $immediate_inventory_quantity_check_time) {
+            } else {
+                $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', "location_products_tables.product_id")
+                    ->where('location', $arrLocation->name)
+                    ->where('day', Carbon::parse($date, 'Europe/Berlin')->format("l"))
+                    ->where('inventory_type', 'immediate')
+                    ->get();
 
+                if (!$arrImmediateInventory->isEmpty()) {
+                    foreach ($arrImmediateInventory as $key => $arrProduct) {
+                        $title = $arrProduct['title'];
+                        $quantity = $arrProduct['quantity'];
+                        $productId = $arrProduct['product_id'];
 
+                        // Initialize product data if not already set
+                        if (!isset($final_items_created[$productId])) {
+                            $final_items_created[$productId] = [];
+                            $final_items_created[$productId]['quantity'] = 0;
+                        }
+
+                        // Accumulate quantity
+                        $final_items_created[$productId]['quantity'] += $quantity;
+                        $final_items_created[$productId]['title'] = "{$title} <span class='badge text-bg-primary align-text-top'>{$final_items_created[$productId]['quantity']}</span>";
+                        $items_created += $quantity;
+                    }
+                }
+            }
+        } else {
+        }
+
+        return array('immediate_inventory' => $final_items_created, 'immediate_inventory_quantity' => $items_created);
+    }
 }
