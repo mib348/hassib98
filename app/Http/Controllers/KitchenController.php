@@ -69,7 +69,8 @@ class KitchenController extends Controller
                     //immediate orders
                     if($arrLocation->immediate_inventory == "Y"){
                         if($arrLocation->immediate_inventory_48h == "Y" && ShopifyController::getImmediateInventoryByLocationForYesterday($location_name) > $arrLocation->immediate_inventory_order_quantity_limit && $currentTime >= $immediate_inventory_quantity_check_time){
-                            $arrTotalOrders[$date]['total_orders']['immediate_inventory'] = [];
+                            // $arrTotalOrders[$date]['total_orders']['immediate_inventory'] = [];
+                            // $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] = 0;
                         }
                         else{
                             $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', "location_products_tables.product_id")
@@ -98,7 +99,8 @@ class KitchenController extends Controller
                         }
                     }
                     else{
-                        $arrTotalOrders[$date]['total_orders']['immediate_inventory'] = [];
+                        // $arrTotalOrders[$date]['total_orders']['immediate_inventory'] = [];
+                        // $arrTotalOrders[$date]['total_orders_count']['immediate_inventory'] = 0;
                     }
 
                     // Fetch orders for the given date and location
