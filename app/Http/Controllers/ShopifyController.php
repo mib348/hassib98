@@ -931,6 +931,68 @@ class ShopifyController extends Controller
     //     return $nQty;
     // }
 
+    /**
+     * Fetch metafields for multiple products using GraphQL in a single request
+     * This replaces multiple REST API calls with one efficient GraphQL query
+     * 
+     * @param \Osiset\ShopifyApp\Objects\Shop $api
+     * @param array $productIds - Array of product IDs to fetch metafields for
+     * @param string $metafieldKey - The metafield key to fetch (e.g., 'json')
+     * @return array - Array keyed by product ID containing metafield values
+     */
+    protected static function fetchProductMetafieldsViaGraphQL($api, array $productIds, string $metafieldKey = 'json')
+    {
+        if (empty($productIds)) {
+            return [];
+        }
+
+        // Build GraphQL query with aliases for each product to fetch metafields in bulk
+        $productQueries = [];
+        foreach ($productIds as $index => $productId) {
+            $alias = "product_{$index}";
+            $productQueries[] = "
+                {$alias}: product(id: \"gid://shopify/Product/{$productId}\") {
+                    id
+                    metafield(namespace: \"custom\", key: \"{$metafieldKey}\") {
+                        id
+                        value
+                    }
+                }
+            ";
+        }
+
+        $query = "
+            {
+                " . implode("\n", $productQueries) . "
+            }
+        ";
+
+        // Execute the GraphQL query
+        $response = $api->graph($query);
+
+        $metafieldsCache = [];
+
+        // Parse the GraphQL response using the same pattern as LocationProductsTableController
+        // The ResponseAccess object implements ArrayAccess, so we can use array notation
+        if (isset($response['body']['container']['data'])) {
+            foreach ($response['body']['container']['data'] as $key => $productData) {
+                // Only process product aliases (skip extensions and other fields)
+                if (strpos($key, 'product_') === 0 && isset($productData['id']) && isset($productData['metafield']['value'])) {
+                    // Extract product ID from the GraphQL ID
+                    $nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
+                    
+                    // Parse the metafield value (should be JSON array)
+                    $metafieldValue = json_decode($productData['metafield']['value'], true);
+                    if (is_array($metafieldValue)) {
+                        $metafieldsCache[$nProductId] = $metafieldValue;
+                    }
+                }
+            }
+        }
+
+        return $metafieldsCache;
+    }
+
     public static function getImmediateInventoryByLocationForYesterday($location = null) {
 		$totalQty = 0;
 
@@ -949,7 +1011,17 @@ class ShopifyController extends Controller
 
 		$shop = User::find(env('db_shop_id', 1));
 
-		$metafieldsCache = [];
+		// Collect all unique product IDs from the rows to fetch metafields in bulk via GraphQL
+		$uniqueProductIds = [];
+		foreach ($rows as $row) {
+			$productId = $row['product_id'];
+			if (!in_array($productId, $uniqueProductIds)) {
+				$uniqueProductIds[] = $productId;
+			}
+		}
+
+		// Fetch all metafields at once using GraphQL instead of multiple REST calls
+		$metafieldsCache = self::fetchProductMetafieldsViaGraphQL($shop->api(), $uniqueProductIds, 'json');
 		$processedByDay  = []; // productId:day
 
 		foreach ($rows as $row) {
@@ -963,24 +1035,8 @@ class ShopifyController extends Controller
 			}
 			$processedByDay[$key] = true;
 
-			// fetch and cache 'custom.json' metafield once per product
-			if (!isset($metafieldsCache[$productId])) {
-				$resp = $shop->api()->rest('GET', "/admin/products/{$productId}/metafields.json", ['namespace' => 'custom', 'key' => 'json']);
-				$metafields = $resp['body']['metafields'] ?? [];
-				$list = [];
-				foreach ($metafields as $field) {
-					if (isset($field['key']) && $field['key'] === 'json') {
-						$value = json_decode($field['value'], true);
-						if (is_array($value)) {
-							$list = $value;
-						}
-						break;
-					}
-				}
-				$metafieldsCache[$productId] = $list;
-			}
-
-			$items = $metafieldsCache[$productId];
+			// Get cached metafields for this product (already fetched via GraphQL)
+			$items = $metafieldsCache[$productId] ?? [];
 			if (empty($items)) {
 				continue;
 			}
@@ -1027,7 +1083,17 @@ class ShopifyController extends Controller
 
 		$shop = User::find(env('db_shop_id', 1));
 
-		$metafieldsCache = [];
+		// Collect all unique product IDs from the rows to fetch metafields in bulk via GraphQL
+		$uniqueProductIds = [];
+		foreach ($rows as $row) {
+			$productId = $row['product_id'];
+			if (!in_array($productId, $uniqueProductIds)) {
+				$uniqueProductIds[] = $productId;
+			}
+		}
+
+		// Fetch all metafields at once using GraphQL instead of multiple REST calls
+		$metafieldsCache = self::fetchProductMetafieldsViaGraphQL($shop->api(), $uniqueProductIds, 'json');
 		$processedByDay  = []; // productId:day
 
 		foreach ($rows as $row) {
@@ -1041,24 +1107,8 @@ class ShopifyController extends Controller
 			}
 			$processedByDay[$key] = true;
 
-			// fetch and cache 'custom.json' metafield once per product
-			if (!isset($metafieldsCache[$productId])) {
-				$resp = $shop->api()->rest('GET', "/admin/products/{$productId}/metafields.json", ['namespace' => 'custom', 'key' => 'json']);
-				$metafields = $resp['body']['metafields'] ?? [];
-				$list = [];
-				foreach ($metafields as $field) {
-					if (isset($field['key']) && $field['key'] === 'json') {
-						$value = json_decode($field['value'], true);
-						if (is_array($value)) {
-							$list = $value;
-						}
-						break;
-					}
-				}
-				$metafieldsCache[$productId] = $list;
-			}
-
-			$items = $metafieldsCache[$productId];
+			// Get cached metafields for this product (already fetched via GraphQL)
+			$items = $metafieldsCache[$productId] ?? [];
 			if (empty($items)) {
 				continue;
 			}
