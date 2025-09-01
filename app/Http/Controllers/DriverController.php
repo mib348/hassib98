@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DriverFulfilledStatus;
 use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Orders;
-use App\Models\DriverFulfilledStatus;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -22,12 +22,12 @@ class DriverController extends Controller
     public function index()
     {
         $arrLocations = Locations::where('is_active', 'Y')
-                                    ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
+            ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
                                     // ->where('immediate_inventory', 'Y')
                                     // ->orderBy('location_order', 'asc')
-                                    ->orderByRaw('location_order IS NULL, location_order ASC')
-                                    ->orderBy('name', 'ASC')
-                                    ->get();
+            ->orderByRaw('location_order IS NULL, location_order ASC')
+            ->orderBy('name', 'ASC')
+            ->get();
 
         // Check if locations exist before proceeding
         $arrData = $arrTotalOrders = [];
@@ -40,11 +40,18 @@ class DriverController extends Controller
         // Get fulfilled locations for today
         $currentDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
         $fulfilledLocations = DriverFulfilledStatus::where('date', $currentDate)
-                                                ->pluck('location')
-                                                ->toArray();
+            ->pluck('location')
+            ->toArray();
+
+        // Batch fetch all immediate inventory data to avoid N+1 queries
+        $batchedImmediateInventory = $this->getBatchImmediateInventory($arrLocations);
+
+        // Batch fetch all orders data to avoid N+1 queries
+        $locationNames = $arrLocations->pluck('name')->toArray();
+        $batchedOrders = $this->getBatchOrders($locationNames);
 
         foreach ($arrLocations as $arrLocation) {
-            if ($arrLocation && !empty($arrLocation->name)) {
+            if ($arrLocation && ! empty($arrLocation->name)) {
                 $location_name = $arrLocation->name;
 
                 $arrData[$location_name]['preorder_slot']['products'] = [];
@@ -52,14 +59,14 @@ class DriverController extends Controller
                 $arrData[$location_name]['immediate_inventory_slot']['products'] = [];
                 $arrTotalOrders[$location_name]['total_orders_count'] = [];
 
-                $sameday_preorder_end_time = Carbon::parse($arrLocation->sameday_preorder_end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
-                $immediate_inventory_end_time = Carbon::parse($arrLocation->end_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
-                $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format("Y-m-d H:i:s");
+                $sameday_preorder_end_time = Carbon::parse($arrLocation->sameday_preorder_end_time, 'Europe/Berlin')->format('Y-m-d H:i:s');
+                $immediate_inventory_end_time = Carbon::parse($arrLocation->end_time, 'Europe/Berlin')->format('Y-m-d H:i:s');
+                $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('Y-m-d H:i:s');
 
                 // Initialize location_data here
-                if (!isset($arrData[$location_name]['location_data'])) {
+                if (! isset($arrData[$location_name]['location_data'])) {
                     $arrLocation['driver_fulfillment_time'] = DriverFulfilledStatus::select('created_at')->where('location', $location_name)->where('date', $currentDate)->latest()->first();
-                    $arrLocation['driver_fulfillment_time'] = $arrLocation['driver_fulfillment_time'] ? "geliefert " . Carbon::parse($arrLocation['driver_fulfillment_time']->created_at, 'Europe/Berlin')->format('H:i') . " Uhr" : null;
+                    $arrLocation['driver_fulfillment_time'] = $arrLocation['driver_fulfillment_time'] ? 'geliefert '.Carbon::parse($arrLocation['driver_fulfillment_time']->created_at, 'Europe/Berlin')->format('H:i').' Uhr' : null;
 
                     $arrData[$location_name]['location_data'] = $arrLocation;
                     $arrTotalOrders[$location_name]['total_orders_count'] = 0;
@@ -69,115 +76,64 @@ class DriverController extends Controller
                     // Get fulfillment image if exists
                     if ($arrData[$location_name]['is_fulfilled']) {
                         $fulfillment = DriverFulfilledStatus::where('location', $location_name)
-                                        ->where('date', $currentDate)
-                                        ->first();
+                            ->where('date', $currentDate)
+                            ->first();
                         $arrData[$location_name]['fulfillment_image'] = $fulfillment ? $fulfillment->image_url : null;
                     }
                 }
 
                 $bItemsFound = false;
 
-                $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
-                $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format("H:i");
-                
-                //immediate orders
-                if($arrLocation->immediate_inventory == "Y"){
-                    if($arrLocation->immediate_inventory_48h == "Y" && ShopifyController::getImmediateInventoryByLocationForYesterday($location_name) > $arrLocation->immediate_inventory_order_quantity_limit && $currentTime >= $immediate_inventory_quantity_check_time){
-                        $arrData[$location_name]['immediate_inventory_slot']['products'] = [];
-                    }
-                    else{
-                        $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
-                                            ->where('location', $location_name)
-                                            ->where('day', Carbon::now('Europe/Berlin')->format('l'))
-                                            ->where('inventory_type', 'immediate')
-                                            ->get();
-
-                        if (!$arrImmediateInventory->isEmpty()) {
-                            foreach ($arrImmediateInventory as $key => $arrProduct) {
-                                $product_name = $arrProduct['title'];
-                                $quantity = $arrProduct['quantity'];
-
-                            
-                                // Initialize product data if not already set
-                                if (!isset($arrData[$location_name]['immediate_inventory_slot']['products'][$product_name])) {
-                                    $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] = 0;
-                                }
-
-                                // Accumulate quantity
-                                $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] += $quantity;
-                                $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
-                            }
+                // Immediate Inventory from batched data
+                if (isset($batchedImmediateInventory[$location_name])) {
+                    foreach ($batchedImmediateInventory[$location_name] as $product_name => $quantity) {
+                        // Initialize product data if not already set
+                        if (! isset($arrData[$location_name]['immediate_inventory_slot']['products'][$product_name])) {
+                            $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] = 0;
                         }
+
+                        // Accumulate quantity
+                        $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] += $quantity;
+                        $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
                     }
                 }
-                else{
-                    $arrData[$location_name]['immediate_inventory_slot']['products'] = [];
-                }
 
-                //preorders
-                $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
-                                    ->where('location', $location_name)
-                                    ->whereNull(['cancel_reason', 'cancelled_at'])
-                                    ->orderBy('id', 'asc')
-                                    ->get();
+                // PreOrders from batched data
+                $locationOrders = $batchedOrders->get($location_name, collect());
 
+                foreach ($locationOrders as $arrOrder) {
+                    if ($arrOrder && ! empty($arrOrder->line_items)) {
+                        $arrLineItems = json_decode($arrOrder->line_items, true);
 
-                // Process orders if any
-                if (!$arrOrders->isEmpty()) {
-
-                    foreach ($arrOrders as $arrOrder) {
-                        if ($arrOrder && !empty($arrOrder->line_items)) {
-                            $arrLineItems = json_decode($arrOrder->line_items, true);
-                            $order_created_datetime = Carbon::parse($arrOrder->date, 'Europe/Berlin')->format("Y-m-d H:i:s");
-
-                            //do not show immediate orders
-                            if(isset($arrLineItems[0]['properties'][6])){
-                                if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
-                                    continue;
-                                }
-                            }
-
-                            foreach ($arrLineItems as $arrLineItem) {
-                                $product_name = $arrLineItem['name'];
-                                $quantity = $arrLineItem['quantity'];
-
-                                // $is_immediate_inventory_order = ($arrLineItem['properties'][6]['name'] == 'immediate_inventory') ? $arrLineItem['properties'][6]['value'] : "";
-
-                                // dd($is_immediate_inventory_order, $arrLineItem['properties'][6], $order_created_datetime, $sameday_preorder_end_time, $immediate_inventory_end_time);
-
-                                // if($order_created_datetime <= $sameday_preorder_end_time && $is_immediate_inventory_order != "Y"){
-                                    // Initialize product data if not already set
-                                    if (!isset($arrData[$location_name]['preorder_slot']['products'][$product_name])) {
-                                        $arrData[$location_name]['preorder_slot']['products'][$product_name] = 0;
-                                    }
-
-                                    // Accumulate quantity
-                                    $arrData[$location_name]['preorder_slot']['products'][$product_name] += $quantity;
-                                    $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
-                                // }
-                                // else if($order_created_datetime >= $sameday_preorder_end_time && $order_created_datetime <= $immediate_inventory_end_time && $is_immediate_inventory_order === "Y"){
-                                //     $product_name = $arrLineItem['name'];
-                                //     $quantity = $arrLineItem['quantity'];
-
-                                //     // Initialize product data if not already set
-                                //     if (!isset($arrData[$location_name]['immediate_inventory_slot']['products'][$product_name])) {
-                                //         $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] = 0;
-                                //     }
-
-                                //     // Accumulate quantity
-                                //     $arrData[$location_name]['immediate_inventory_slot']['products'][$product_name] += $quantity;
-                                // }
+                        //do not show immediate orders
+                        if (isset($arrLineItems[0]['properties'][6])) {
+                            if ($arrLineItems[0]['properties'][6]['name'] == 'immediate_inventory' && $arrLineItems[0]['properties'][6]['value'] == 'Y') {
+                                continue;
                             }
                         }
 
+                        foreach ($arrLineItems as $arrLineItem) {
+                            $product_name = $arrLineItem['name'];
+                            $quantity = $arrLineItem['quantity'];
+
+                            // Initialize product data if not already set
+                            if (! isset($arrData[$location_name]['preorder_slot']['products'][$product_name])) {
+                                $arrData[$location_name]['preorder_slot']['products'][$product_name] = 0;
+                            }
+
+                            // Accumulate quantity
+                            $arrData[$location_name]['preorder_slot']['products'][$product_name] += $quantity;
+                            $arrTotalOrders[$location_name]['total_orders_count'] += $quantity;
+                        }
                     }
                 }
             }
         }
 
         foreach ($arrData as $key => $arr) {
-            if(empty($arr['immediate_inventory_slot']['products']) && empty($arr['preorder_slot']['products']))
+            if (empty($arr['immediate_inventory_slot']['products']) && empty($arr['preorder_slot']['products'])) {
                 unset($arrData[$key]);
+            }
         }
 
         // dd($arrData);
@@ -220,19 +176,19 @@ class DriverController extends Controller
 
             //immediate orders
             $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
-            ->where('location', $request->location)
-            ->where('day', $currentDay)
-            ->where('inventory_type', 'immediate')
-            ->get();
+                ->where('location', $request->location)
+                ->where('day', $currentDay)
+                ->where('inventory_type', 'immediate')
+                ->get();
 
-            if (!$arrImmediateInventory->isEmpty()) {
+            if (! $arrImmediateInventory->isEmpty()) {
                 foreach ($arrImmediateInventory as $key => $arrProduct) {
                     // $product_name = $arrProduct['title'];
                     $product_name = $arrProduct['product_id'];
                     $quantity = $arrProduct['quantity'];
 
                     // Initialize product data if not already set
-                    if (!isset($arrData[$request->location]['immediate_inventory_slot']['products'][$product_name])) {
+                    if (! isset($arrData[$request->location]['immediate_inventory_slot']['products'][$product_name])) {
                         $arrData[$request->location]['immediate_inventory_slot']['products'][$product_name] = 0;
                     }
 
@@ -244,22 +200,21 @@ class DriverController extends Controller
 
             //preorders
             $arrOrders = Orders::where('date', Carbon::now('Europe/Berlin')->format('Y-m-d'))
-            ->where('location', $request->location)
-            ->whereNull(['cancel_reason', 'cancelled_at'])
-            ->orderBy('id', 'asc')
-            ->get();
-
+                ->where('location', $request->location)
+                ->whereNull(['cancel_reason', 'cancelled_at'])
+                ->orderBy('id', 'asc')
+                ->get();
 
             // Process orders if any
-            if (!$arrOrders->isEmpty()) {
+            if (! $arrOrders->isEmpty()) {
                 foreach ($arrOrders as $arrOrder) {
-                    if ($arrOrder && !empty($arrOrder->line_items)) {
+                    if ($arrOrder && ! empty($arrOrder->line_items)) {
                         $arrLineItems = json_decode($arrOrder->line_items, true);
-                        $order_created_datetime = Carbon::parse($arrOrder->date, 'Europe/Berlin')->format("Y-m-d H:i:s");
+                        $order_created_datetime = Carbon::parse($arrOrder->date, 'Europe/Berlin')->format('Y-m-d H:i:s');
 
                         //do not show immediate orders
-                        if(isset($arrLineItems[0]['properties'][6])){
-                            if($arrLineItems[0]['properties'][6]['name'] == "immediate_inventory" && $arrLineItems[0]['properties'][6]['value'] == "Y"){
+                        if (isset($arrLineItems[0]['properties'][6])) {
+                            if ($arrLineItems[0]['properties'][6]['name'] == 'immediate_inventory' && $arrLineItems[0]['properties'][6]['value'] == 'Y') {
                                 continue;
                             }
                         }
@@ -270,7 +225,7 @@ class DriverController extends Controller
                             $quantity = $arrLineItem['quantity'];
 
                             // Initialize product data if not already set
-                            if (!isset($arrData[$request->location]['preorder_slot']['products'][$product_name])) {
+                            if (! isset($arrData[$request->location]['preorder_slot']['products'][$product_name])) {
                                 $arrData[$request->location]['preorder_slot']['products'][$product_name] = 0;
                             }
 
@@ -283,8 +238,8 @@ class DriverController extends Controller
 
             }
 
-            foreach($arrData as $key => $arr){
-                if(empty($arr['immediate_inventory_slot']['products']) && empty($arr['preorder_slot']['products'])){
+            foreach ($arrData as $key => $arr) {
+                if (empty($arr['immediate_inventory_slot']['products']) && empty($arr['preorder_slot']['products'])) {
                     unset($arrData[$key]);
                 }
             }
@@ -308,18 +263,18 @@ class DriverController extends Controller
             if ($imageData === false || empty($imageData)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Invalid image data provided'
+                    'message' => 'Invalid image data provided',
                 ], 400);
             }
 
             // Generate unique filename with correct extension
             $extension = $imageType === 'jpeg' ? 'jpg' : $imageType;
-            $imageName = Str::slug($request->location) . '-' . $currentDate . '-' . Str::random(10) . '.' . $extension;
-            $storagePath = 'public/driver_location/' . $imageName;
+            $imageName = Str::slug($request->location).'-'.$currentDate.'-'.Str::random(10).'.'.$extension;
+            $storagePath = 'public/driver_location/'.$imageName;
 
             // Store the image
             Storage::put($storagePath, $imageData);
-            $imageUrl = Storage::url('driver_location/' . $imageName);
+            $imageUrl = Storage::url('driver_location/'.$imageName);
 
             // Create database record
             $fulfillment = new DriverFulfilledStatus();
@@ -335,20 +290,21 @@ class DriverController extends Controller
             $new_fulfillment_id = $fulfillment->id;
 
             //update metafields
-            if($new_fulfillment_id){
+            if ($new_fulfillment_id) {
                 $shop = Auth::user();
-                if(!isset($shop) || !$shop)
+                if (! isset($shop) || ! $shop) {
                     $shop = User::find(env('db_shop_id', 1));
+                }
                 $api = $shop->api();
 
                 $productIds = array_keys($arrData[$request->location]['immediate_inventory_slot']['products']);
                 $productIds = array_merge($productIds, array_keys($arrData[$request->location]['preorder_slot']['products']));
                 $productIds = array_unique($productIds);
-                
-                if(count($productIds) > 0){
+
+                if (count($productIds) > 0) {
                     // Fetch existing metafields for all products in a single GraphQL query
                     $existingMetafields = $this->fetchExistingMetafields($api, $productIds);
-                    
+
                     // Prepare metafield updates for updated products
                     $metafieldMutations = [];
                     $i = 0;
@@ -356,11 +312,11 @@ class DriverController extends Controller
                         $currentMetafield = $existingMetafields[$productId] ?? null;
                         $existingValue = $currentMetafield['value'] ?? '[]';
                         $existingData = json_decode($existingValue, true) ?? [];
-                        
+
                         $updatedData = $this->prepareMetafieldValue($request->location, $currentDateTime, $existingData);
-                        
+
                         $metafieldMutations[] = [
-                            'ownerId' => "gid://shopify/Product/" . $productId,
+                            'ownerId' => 'gid://shopify/Product/'.$productId,
                             'namespace' => 'custom',
                             'key' => 'status_delivery_today',
                             'value' => json_encode($updatedData),
@@ -383,13 +339,13 @@ class DriverController extends Controller
                 'data' => [
                     'image_url' => $imageUrl,
                     'location' => $request->location,
-                    'date' => $currentDate
-                ]
+                    'date' => $currentDate,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to mark location as fulfilled: ' . $e->getMessage()
+                'message' => 'Failed to mark location as fulfilled: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -411,29 +367,28 @@ class DriverController extends Controller
             ";
         }
 
-        $query = "
+        $query = '
             {
-                " . implode("\n", $productQueries) . "
+                '.implode("\n", $productQueries).'
             }
-        ";
+        ';
 
         $response = $api->graph($query);
 
         $existingMetafields = [];
 
-		//if(isset($response['body']['container']['data'])){
-			foreach ($response['body']['container']['data'] as $key => $productData) {
-				if (isset($productData['metafield'])) {
-					$nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
-					$existingMetafields[$nProductId] = [
-						'id' => $nProductId,
-						'metafield_id' => $productData['metafield']['id'],
-						'value' => $productData['metafield']['value'],
-					];
-				}
-			}
-		//}
-
+        //if(isset($response['body']['container']['data'])){
+        foreach ($response['body']['container']['data'] as $key => $productData) {
+            if (isset($productData['metafield'])) {
+                $nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
+                $existingMetafields[$nProductId] = [
+                    'id' => $nProductId,
+                    'metafield_id' => $productData['metafield']['id'],
+                    'value' => $productData['metafield']['value'],
+                ];
+            }
+        }
+        //}
 
         return $existingMetafields;
     }
@@ -446,7 +401,7 @@ class DriverController extends Controller
         foreach ($existingData as $entry) {
             //extract location and time without breaking the time because exploding at : is breaking the time
             $entryLocation = explode(':', $entry)[0];
-            $entryArrivalTime = explode($entryLocation . ':', $entry)[1];
+            $entryArrivalTime = explode($entryLocation.':', $entry)[1];
             // $entryArrivalTime = Carbon::parse($entry, 'Europe/Berlin')->format("Y-m-d H:i:s");
             $parsedData[$entryLocation] = $entryArrivalTime;
         }
@@ -456,15 +411,16 @@ class DriverController extends Controller
 
         // Reformat the data back into the required string format
         $formattedData = [];
-        foreach($parsedData as $location => $arrival_time){
+        foreach ($parsedData as $location => $arrival_time) {
             $formattedData[] = "{$location}:{$arrival_time}";
         }
+
         return $formattedData;
     }
 
     protected function batchUpdateMetafields($api, array $metafieldsToSet)
-	{
-		$mutation = <<<'GRAPHQL'
+    {
+        $mutation = <<<'GRAPHQL'
 						mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
 							metafieldsSet(metafields: $metafields) {
 								metafields {
@@ -482,28 +438,105 @@ class DriverController extends Controller
 						}
 						GRAPHQL;
 
-		$variables = [
-			'metafields' => $metafieldsToSet,
-		];
+        $variables = [
+            'metafields' => $metafieldsToSet,
+        ];
 
-		$response = $api->graph($mutation, $variables);
+        $response = $api->graph($mutation, $variables);
 
-		// Examine the response and handle errors or success
-		$data = $response['data']['metafieldsSet'] ?? null;
-		if ($data) {
-			if (!empty($data['userErrors'])) {
-				Log::error("Metafield set errors: " . json_encode($data['userErrors']));
-			} else {
-				foreach ($data['metafields'] as $mf) {
-					Log::info("Metafield updated/created: " . json_encode($mf));
-				}
-			}
-		} else {
-			Log::error("No response for metafieldsSet mutation");
-		}
+        // Examine the response and handle errors or success
+        $data = $response['data']['metafieldsSet'] ?? null;
+        if ($data) {
+            if (! empty($data['userErrors'])) {
+                Log::error('Metafield set errors: '.json_encode($data['userErrors']));
+            } else {
+                foreach ($data['metafields'] as $mf) {
+                    Log::info('Metafield updated/created: '.json_encode($mf));
+                }
+            }
+        } else {
+            Log::error('No response for metafieldsSet mutation');
+        }
 
         return $response;
-	}
+    }
+
+    /**
+     * Batch fetch immediate inventory data to avoid N+1 queries
+     */
+    private function getBatchImmediateInventory($locations)
+    {
+        $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
+        $currentDay = Carbon::now('Europe/Berlin')->format('l');
+        $batchedData = [];
+
+        // Initialize the result structure
+        foreach ($locations as $location) {
+            $batchedData[$location->name] = [];
+        }
+
+        // Get all location names that have immediate inventory enabled
+        $enabledLocationNames = [];
+
+        foreach ($locations as $location) {
+            if ($location->immediate_inventory == 'Y') {
+                $immediate_inventory_quantity_check_time = Carbon::parse($location->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
+
+                if ($location->immediate_inventory_48h == 'Y' &&
+                    ShopifyController::getImmediateInventoryByLocationForYesterday($location->name) > $location->immediate_inventory_order_quantity_limit &&
+                    $currentTime >= $immediate_inventory_quantity_check_time) {
+                    // Skip this location due to 48h limit
+                    continue;
+                }
+                $enabledLocationNames[] = $location->name;
+            }
+        }
+
+        // If no locations have immediate inventory enabled, return empty data
+        if (empty($enabledLocationNames)) {
+            return $batchedData;
+        }
+
+        // Batch fetch all immediate inventory products for all enabled locations
+        $allImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
+            ->whereIn('location', $enabledLocationNames)
+            ->where('day', $currentDay)
+            ->where('inventory_type', 'immediate')
+            ->get()
+            ->groupBy('location');
+
+        // Process the results and organize by location
+        foreach ($enabledLocationNames as $locationName) {
+            $locationInventory = $allImmediateInventory->get($locationName, collect());
+
+            $products = [];
+            foreach ($locationInventory as $product) {
+                $products[$product['title']] = $product['quantity'];
+            }
+
+            $batchedData[$locationName] = $products;
+        }
+
+        return $batchedData;
+    }
+
+    /**
+     * Batch fetch orders data to avoid N+1 queries
+     */
+    private function getBatchOrders($locationNames)
+    {
+        $currentDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
+
+        // Fetch all orders for today and all locations at once
+        $allOrders = Orders::where('date', $currentDate)
+            ->whereIn('location', $locationNames)
+            ->whereNull(['cancel_reason', 'cancelled_at'])
+            ->orderBy('id', 'asc')
+            ->get()
+            ->groupBy('location');
+
+        return $allOrders;
+    }
 
     /**
      * Display the specified resource.
