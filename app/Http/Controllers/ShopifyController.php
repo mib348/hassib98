@@ -1137,6 +1137,106 @@ class ShopifyController extends Controller
 		return $totalQty;
 	}
 
+    /**
+     * Batch fetch immediate inventory data to avoid N+1 queries
+     * This is a shared method used by multiple controllers to efficiently fetch immediate inventory
+     * 
+     * @param Collection|array $locations - Collection or array of Location models
+     * @param array $dates - Array of dates in various formats depending on usage
+     * @param bool $includeTimeChecks - Whether to include 48h time limit checks (default: true)
+     * @return array - Nested array of inventory data organized by date and location
+     */
+    public static function getBatchImmediateInventory($locations, $dates, $includeTimeChecks = true)
+    {
+        $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
+        $todayDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
+        $batchedData = [];
+
+        // Initialize the result structure
+        foreach ($dates as $date => $day_name) {
+            $batchedData[$date] = [];
+            foreach ($locations as $location) {
+                $batchedData[$date][$location->name] = [];
+            }
+        }
+
+        // Get all location names that have immediate inventory enabled
+        $enabledLocationNames = [];
+        $locationSettings = [];
+        $skipTodayForLocation = [];
+
+        foreach ($locations as $location) {
+            if ($location->immediate_inventory == 'Y') {
+                $shouldSkipToday = false;
+
+                // Check if we should skip today's inventory due to 48h limit
+                if ($includeTimeChecks && $location->immediate_inventory_48h == 'Y') {
+                    $immediate_inventory_quantity_check_time = Carbon::parse($location->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
+                    
+                    if (
+                        self::getImmediateInventoryByLocationForYesterday($location->name) > $location->immediate_inventory_order_quantity_limit &&
+                        $currentTime >= $immediate_inventory_quantity_check_time
+                    ) {
+                        $shouldSkipToday = true;
+                    }
+                }
+
+                $enabledLocationNames[] = $location->name;
+                $locationSettings[$location->name] = $location;
+
+                if ($shouldSkipToday) {
+                    $skipTodayForLocation[$location->name] = true;
+                }
+            }
+        }
+
+        // If no locations have immediate inventory enabled, return empty data
+        if (empty($enabledLocationNames)) {
+            return $batchedData;
+        }
+
+        // Get all unique days for the date range
+        $uniqueDays = [];
+        foreach ($dates as $date => $day_name) {
+            $dayOfWeek = Carbon::parse($date, 'Europe/Berlin')->format('l');
+            if (! in_array($dayOfWeek, $uniqueDays)) {
+                $uniqueDays[] = $dayOfWeek;
+            }
+        }
+
+        // Batch fetch all immediate inventory products for all enabled locations and all days
+        $allImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
+            ->whereIn('location', $enabledLocationNames)
+            ->whereIn('day', $uniqueDays)
+            ->where('inventory_type', 'immediate')
+            ->get()
+            ->groupBy(['location', 'day']);
+
+        // Process the results and organize by date and location
+        foreach ($dates as $date => $day_name) {
+            $dayOfWeek = Carbon::parse($date, 'Europe/Berlin')->format('l');
+
+            foreach ($enabledLocationNames as $locationName) {
+                // Only skip for today if flagged
+                if (isset($skipTodayForLocation[$locationName]) && $date == $todayDate) {
+                    continue;
+                }
+
+                $locationInventory = $allImmediateInventory->get($locationName, collect());
+                $dayInventory = $locationInventory->get($dayOfWeek, collect());
+
+                $products = [];
+                foreach ($dayInventory as $product) {
+                    $products[$product['title']] = $product['quantity'];
+                }
+
+                $batchedData[$date][$locationName] = $products;
+            }
+        }
+
+        return $batchedData;
+    }
+
     static public function getLocations($location = null) {
         // Check if the optional parameter is passed
         if ($location) {

@@ -130,8 +130,10 @@ class OrdersController extends Controller
         });
 
         // Batch fetch all immediate inventory data to avoid N+1 queries
-        $locationsToProcess = ! empty($strFilterLocation) ? [$arrLocation] : $arrLocations->toArray();
-        $batchedImmediateInventory = $this->getBatchImmediateInventory($locationsToProcess, $dates);
+        // Using shared method from ShopifyController and formatting for orders view
+        $locationsToProcess = ! empty($strFilterLocation) ? [$arrLocation] : $arrLocations;
+        $batchedImmediateInventory = $this->formatImmediateInventoryForOrdersView($locationsToProcess, $dates);
+        // dd($locationsToProcess, $batchedImmediateInventory);
 
         for ($i = -14; $i <= 7; $i++) {
             $date = $dates[$i];
@@ -343,149 +345,124 @@ class OrdersController extends Controller
         return $html;
     }
 
-    public function GetImmediateOrderInventoryCount($date, $arrLocation)
+    // public function GetImmediateOrderInventoryCount($date, $arrLocation)
+    // {
+    //     $final_items_created = [];
+    //     $items_created = 0;
+    //     $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
+    //     $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
+
+    //     //immediate orders
+    //     if ($arrLocation->immediate_inventory == 'Y') {
+    //         if ($arrLocation->immediate_inventory_48h == 'Y' && ShopifyController::getImmediateInventoryByLocationForYesterday($arrLocation->name) > $arrLocation->immediate_inventory_order_quantity_limit && $currentTime >= $immediate_inventory_quantity_check_time) {
+    //         } else {
+    //             $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
+    //                 ->where('location', $arrLocation->name)
+    //                 ->where('day', Carbon::parse($date, 'Europe/Berlin')->format('l'))
+    //                 ->where('inventory_type', 'immediate')
+    //                 ->get();
+
+    //             if (! $arrImmediateInventory->isEmpty()) {
+    //                 foreach ($arrImmediateInventory as $key => $arrProduct) {
+    //                     $title = $arrProduct['title'];
+    //                     $quantity = $arrProduct['quantity'];
+    //                     $productId = $arrProduct['product_id'];
+
+    //                     // Initialize product data if not already set
+    //                     if (! isset($final_items_created[$productId])) {
+    //                         $final_items_created[$productId] = [];
+    //                         $final_items_created[$productId]['quantity'] = 0;
+    //                     }
+
+    //                     // Accumulate quantity
+    //                     $final_items_created[$productId]['quantity'] += $quantity;
+    //                     $final_items_created[$productId]['title'] = "{$title} <span class='badge text-bg-primary align-text-top'>{$final_items_created[$productId]['quantity']}</span>";
+    //                     $items_created += $quantity;
+    //                 }
+    //             }
+    //         }
+    //     } else {
+    //     }
+
+    //     return ['immediate_inventory' => $final_items_created, 'immediate_inventory_quantity' => $items_created];
+    // }
+
+    /**
+     * Format immediate inventory data for the orders view
+     * This method wraps the shared getBatchImmediateInventory from ShopifyController
+     * and formats the output specifically for the orders view with HTML badges and quantity totals
+     * 
+     * @param \Illuminate\Support\Collection|array $locations - Collection or array of Location models
+     * @param array $dates - Array of dates with numeric indices mapping to 'dd.mm.yyyy' format
+     * @return array - Formatted inventory data with HTML badges and quantity totals
+     */
+    private function formatImmediateInventoryForOrdersView($locations, $dates)
     {
-        $final_items_created = [];
-        $items_created = 0;
-        $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
-        $immediate_inventory_quantity_check_time = Carbon::parse($arrLocation->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
-
-        //immediate orders
-        if ($arrLocation->immediate_inventory == 'Y') {
-            if ($arrLocation->immediate_inventory_48h == 'Y' && ShopifyController::getImmediateInventoryByLocationForYesterday($arrLocation->name) > $arrLocation->immediate_inventory_order_quantity_limit && $currentTime >= $immediate_inventory_quantity_check_time) {
-            } else {
-                $arrImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
-                    ->where('location', $arrLocation->name)
-                    ->where('day', Carbon::parse($date, 'Europe/Berlin')->format('l'))
-                    ->where('inventory_type', 'immediate')
-                    ->get();
-
-                if (! $arrImmediateInventory->isEmpty()) {
-                    foreach ($arrImmediateInventory as $key => $arrProduct) {
-                        $title = $arrProduct['title'];
-                        $quantity = $arrProduct['quantity'];
-                        $productId = $arrProduct['product_id'];
-
-                        // Initialize product data if not already set
-                        if (! isset($final_items_created[$productId])) {
-                            $final_items_created[$productId] = [];
-                            $final_items_created[$productId]['quantity'] = 0;
-                        }
-
-                        // Accumulate quantity
-                        $final_items_created[$productId]['quantity'] += $quantity;
-                        $final_items_created[$productId]['title'] = "{$title} <span class='badge text-bg-primary align-text-top'>{$final_items_created[$productId]['quantity']}</span>";
-                        $items_created += $quantity;
-                    }
-                }
-            }
-        } else {
-        }
-
-        return ['immediate_inventory' => $final_items_created, 'immediate_inventory_quantity' => $items_created];
-    }
-
-    private function getBatchImmediateInventory($locations, $dates)
-    {
-        $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
         $batchedData = [];
 
-        // Initialize the result structure
-        foreach ($dates as $date) {
-            $batchedData[$date] = [];
+        // Initialize the result structure with the special format needed for orders view
+        // The dates array uses numeric indices, so we preserve them
+        foreach ($dates as $index => $dateString) {
+            $batchedData[$dateString] = [];
             foreach ($locations as $location) {
-                $batchedData[$date][$location->name] = [
+                $batchedData[$dateString][$location->name] = [
                     'immediate_inventory' => [],
                     'immediate_inventory_quantity' => 0,
                 ];
             }
         }
 
-        // Get all location names that have immediate inventory enabled
-        $enabledLocationNames = [];
-        $locationSettings = [];
+        // Convert dates array format for the shared method
+        // The shared method expects ['Y-m-d' => 'Day Name'] format
+        $datesForSharedMethod = [];
+        foreach ($dates as $index => $dateString) {
+            // Convert dd.mm.yyyy to Y-m-d format using Carbon with Berlin timezone
+            $dateObj = Carbon::parse($dateString, 'Europe/Berlin');
+            $ymdDate = $dateObj->format('Y-m-d');
+            $dayName = $dateObj->format('l');
 
-        foreach ($locations as $location) {
-            if ($location->immediate_inventory == 'Y') {
-                $enabledLocationNames[] = $location->name;
-                $locationSettings[$location->name] = $location;
-            }
-        }
-
-        // If no locations have immediate inventory enabled, return empty data
-        if (empty($enabledLocationNames)) {
-            return $batchedData;
-        }
-
-        // Check 48h limits for all locations at once (if needed)
-        $locationsWithin48hLimit = [];
-        foreach ($enabledLocationNames as $locationName) {
-            $location = $locationSettings[$locationName];
-            $immediate_inventory_quantity_check_time = Carbon::parse($location->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
-
-            if ($location->immediate_inventory_48h == 'Y' &&
-                ShopifyController::getImmediateInventoryByLocationForYesterday($locationName) > $location->immediate_inventory_order_quantity_limit &&
-                $currentTime >= $immediate_inventory_quantity_check_time) {
-                // Skip this location due to 48h limit
+            //skip immediate inventory count for future dates
+            if($dateObj > Carbon::now('Europe/Berlin'))
                 continue;
-            }
-            $locationsWithin48hLimit[] = $locationName;
+
+            $datesForSharedMethod[$ymdDate] = $dayName;
         }
 
-        // If all locations are blocked by 48h limit, return empty data
-        if (empty($locationsWithin48hLimit)) {
-            return $batchedData;
-        }
+        // Get raw inventory data from the shared method
+        // This matches how the original implementation worked
+        $rawInventoryData = ShopifyController::getBatchImmediateInventory($locations, $datesForSharedMethod, true);
 
-        // Get all unique days for the date range
-        $uniqueDays = [];
-        foreach ($dates as $date) {
-            $dayOfWeek = Carbon::parse($date, 'Europe/Berlin')->format('l');
-            if (! in_array($dayOfWeek, $uniqueDays)) {
-                $uniqueDays[] = $dayOfWeek;
-            }
-        }
+        // Process and format the raw data for the orders view
+        foreach ($dates as $index => $dateString) {
+            // Convert dd.mm.yyyy to Y-m-d to match the rawInventoryData keys
+            $dateObj = Carbon::parse($dateString, 'Europe/Berlin');
+            $ymdDate = $dateObj->format('Y-m-d');
+            
+            if (isset($rawInventoryData[$ymdDate])) {
+                foreach ($rawInventoryData[$ymdDate] as $locationName => $products) {
+                    $final_items_created = [];
+                    $items_created = 0;
 
-        // Batch fetch all immediate inventory products for all enabled locations and all days
-        $allImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
-            ->whereIn('location', $locationsWithin48hLimit)
-            ->whereIn('day', $uniqueDays)
-            ->where('inventory_type', 'immediate')
-            ->get()
-            ->groupBy(['location', 'day']);
-
-        // Process the results and organize by date and location
-        foreach ($dates as $date) {
-            $dayOfWeek = Carbon::parse($date, 'Europe/Berlin')->format('l');
-
-            foreach ($locationsWithin48hLimit as $locationName) {
-                $locationInventory = $allImmediateInventory->get($locationName, collect());
-                $dayInventory = $locationInventory->get($dayOfWeek, collect());
-
-                $final_items_created = [];
-                $items_created = 0;
-
-                foreach ($dayInventory as $product) {
-                    $title = $product['title'];
-                    $quantity = $product['quantity'];
-                    $productId = $product['product_id'];
-
-                    // Initialize product data if not already set
-                    if (! isset($final_items_created[$productId])) {
-                        $final_items_created[$productId] = [];
-                        $final_items_created[$productId]['quantity'] = 0;
+                    // Convert the simple product=>quantity structure to the formatted structure
+                    // The shared method returns products with title as key and quantity as value
+                    foreach ($products as $productTitle => $quantity) {
+                        // We need to get product IDs - for now, use title as key since that's what's available
+                        // This maintains backward compatibility with the existing view logic
+                        $productKey = $productTitle; // Could be enhanced to use product_id if needed
+                        
+                        $final_items_created[$productKey] = [
+                            'quantity' => $quantity,
+                            'title' => "{$productTitle} <span class='badge text-bg-primary align-text-top'>{$quantity}</span>"
+                        ];
+                        
+                        $items_created += $quantity;
                     }
 
-                    // Accumulate quantity
-                    $final_items_created[$productId]['quantity'] += $quantity;
-                    $final_items_created[$productId]['title'] = "{$title} <span class='badge text-bg-primary align-text-top'>{$final_items_created[$productId]['quantity']}</span>";
-                    $items_created += $quantity;
+                    $batchedData[$dateString][$locationName] = [
+                        'immediate_inventory' => $final_items_created,
+                        'immediate_inventory_quantity' => $items_created,
+                    ];
                 }
-
-                $batchedData[$date][$locationName] = [
-                    'immediate_inventory' => $final_items_created,
-                    'immediate_inventory_quantity' => $items_created,
-                ];
             }
         }
 
