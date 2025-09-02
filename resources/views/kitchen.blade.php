@@ -1,4 +1,5 @@
-@extends('layouts.app')
+@extends((int) request('menu') === 1 ? 'shopify-app::layouts.default' : 'layouts.app')
+
 
 @section('styles')
 <style>
@@ -50,6 +51,8 @@
 @endsection
 
 @section('content')
+
+@if((int) request('menu') !== 1)
 <nav class="navbar row navbar-dark bg-dark" style="margin-top: -25px;">
     <div class="container-fluid">
         <!-- Logo on the left -->
@@ -67,6 +70,7 @@
     </div>
 </nav>
 <br>
+@endif
 <div class="container-fluid p-2">
     <div class="row">
         <div class="col-12">
@@ -385,6 +389,109 @@
 
 @section('scripts')
     @parent
+
+    @if((int) request('menu') === 1)
+    <script>
+        // Assuming 'app' is already initialized and available
+        // var actions = window['app-bridge'].actions;
+        var Button = actions.Button;
+        var TitleBar = actions.TitleBar;
+        var Redirect = actions.Redirect; // Ensure Redirect is defined
+
+        // // Create a button for 'Products'
+        // var productsButton = Button.create(app, { label: 'Products' });
+        // productsButton.subscribe(Button.Action.CLICK, function() {
+        //     var redirect = Redirect.create(app);
+        //     redirect.dispatch(Redirect.Action.APP, '/products');
+        //     // Add your logic for when the 'Products' button is clicked
+        // });
+
+        // // Create a button for 'Operation'
+        // var operationdays = Button.create(app, { label: 'Operation Days' });
+        // operationdays.subscribe(Button.Action.CLICK, function() {
+        //     var redirect = Redirect.create(app);
+        //     redirect.dispatch(Redirect.Action.APP, '/operationdays');
+        //     // Add your logic for when the 'Operation' button is clicked
+        // });
+
+        // Create a button for 'Location Products'
+        var location_products = Button.create(app, { label: 'Location Products' });
+        location_products.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/location_products');
+            // Add your logic for when the 'Operation' button is clicked
+        });
+
+
+        // Create a button for 'Locations Revenue'
+        var locations_revenue = Button.create(app, { label: 'Locations Revenue' });
+        locations_revenue.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Locations Text'
+        var locations_text = Button.create(app, { label: 'Location Settings' });
+        locations_text.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/locations_text');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Home Delivery Overview'
+        var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
+        homedeliveryButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/home_delivery');
+            // Add your logic for when the 'Orders' button is clicked
+        });
+
+        // Create a button for 'Orders'
+        var ordersButton = Button.create(app, { label: 'Location Order Overview' });
+        ordersButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/orders');
+            // Add your logic for when the 'Orders' button is clicked
+        });
+
+        // Create a button for 'Store'
+        var stores = Button.create(app, { label: 'Stores' });
+        stores.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/stores');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+        
+        // Create a button for 'Kitchen'
+        var kitchen = Button.create(app, { label: 'Kitchen' });
+        kitchen.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Drivers'
+        var drivers = Button.create(app, { label: 'Drivers' });
+        drivers.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/drivers/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+
+        // Update the title bar with the new buttons
+        var titleBar = TitleBar.create(app, {
+            title: 'Kitchen',
+            buttons: {
+                primary: location_products,
+                secondary: [stores, drivers, locations_revenue, locations_text, ordersButton, homedeliveryButton]
+            },
+        });
+    </script>
+    @endif
+
+
     <script>
         setInterval(function() {
             window.location.reload();

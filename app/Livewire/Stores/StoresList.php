@@ -154,12 +154,23 @@ class StoresList extends Component
                 
                 // Only show kitchen and drivers buttons if UUID exists
                 if (!empty($arrStore->uuid)) {
-                    $html .= " <a href='" . route('kitchen.display', $arrStore->uuid) . "' target='_blank' class='btn btn-sm btn-primary kitchen_btn'><i class='fa fa-kitchen-set'></i></a>";
-                    $html .= " <a href='" . route('drivers.display', $arrStore->uuid) . "' target='_blank' class='btn btn-sm btn-primary drivers_btn'><i class='fa fa-truck-fast'></i></a>";
+                    // Kitchen button group: open + share
+                    $kitchenUrl = route('kitchen.display', $arrStore->uuid);
+                    $html .= " <div class='btn-group me-1' role='group'>";
+                    $html .= "<a href='" . $kitchenUrl . "' target='_blank' class='btn btn-sm btn-primary kitchen_btn' title='Open Kitchen'><i class='fa fa-kitchen-set'></i></a>";
+                    $html .= "<button type='button' class='btn btn-sm btn-outline-secondary share-link-btn' data-href='" . $kitchenUrl . "' title='Copy link'><i class='fa fa-share'></i></button>";
+                    $html .= "</div>";
+
+                    // Drivers button group: open + share
+                    $driversUrl = route('drivers.display', $arrStore->uuid);
+                    $html .= " <div class='btn-group me-1' role='group'>";
+                    $html .= "<a href='" . $driversUrl . "' target='_blank' class='btn btn-sm btn-primary drivers_btn' title='Open Drivers'><i class='fa fa-truck-fast'></i></a>";
+                    $html .= "<button type='button' class='btn btn-sm btn-outline-secondary share-link-btn' data-href='" . $driversUrl . "' title='Copy link'><i class='fa fa-share'></i></button>";
+                    $html .= "</div>";
                 } else {
                     // Show disabled buttons if no UUID
-                    $html .= " <button type='button' class='btn btn-sm btn-secondary' disabled title='UUID required'><i class='fa fa-kitchen-set'></i></button>";
-                    $html .= " <button type='button' class='btn btn-sm btn-secondary' disabled title='UUID required'><i class='fa fa-truck-fast'></i></button>";
+                    // $html .= " <button type='button' class='btn btn-sm btn-secondary' disabled title='UUID required'><i class='fa fa-kitchen-set'></i></button>";
+                    // $html .= " <button type='button' class='btn btn-sm btn-secondary' disabled title='UUID required'><i class='fa fa-truck-fast'></i></button>";
                 }
 
                 $html .= "</td>";

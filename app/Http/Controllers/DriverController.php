@@ -204,13 +204,15 @@ class DriverController extends Controller
     public function store(Request $request)
     {
         try {
-            // Validate request data
+            // Validate request data including store_uuid
             $request->validate([
                 'location' => 'required|string',
                 'image' => 'required|string',
+                'store_uuid' => 'required|string',
             ], [
                 'location.required' => 'Location is required',
                 'image.required' => 'Photo is required',
+                'store_uuid.required' => 'Store UUID is required',
             ]);
 
             // Get current date and day
@@ -326,9 +328,11 @@ class DriverController extends Controller
             $imageUrl = Storage::url('driver_location/'.$imageName);
 
 
-            // Create database record
+            // Create database record with proper store_id lookup
             $fulfillment = new DriverFulfilledStatus();
-            $fulfillment->store_id = (Stores::where('uuid', $request->uuid)->pluck('id')->first()) ?? null;
+            // Look up the store ID using the UUID from the request
+            $store = Stores::where('uuid', $request->store_uuid)->first();
+            $fulfillment->store_id = $store ? $store->id : null;
             $fulfillment->location = $request->location;
             $fulfillment->date = $currentDate;
             $fulfillment->day = $currentDay;

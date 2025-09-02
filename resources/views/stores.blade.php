@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/fontawesome.min.css" integrity="sha512-v8QQ0YQ3H4K6Ic3PJkym91KoeNT5S3PnDKvqnwqFD1oiqIl653crGZplPdU5KKtHjO0QKcQ2aUlQZYjHczkmGw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/solid.min.css" integrity="sha512-DzC7h7+bDlpXPDQsX/0fShhf1dLxXlHuhPBkBo/5wJWRoTU6YL7moeiNoej6q3wh5ti78C57Tu1JwTNlcgHSjg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <style>
-    .edit_button, .delete_button, .kitchen_btn{margin-right: 5px;}
+    .edit_button, .delete_button { margin-right: 5px; }
 </style>
 @endsection
 
@@ -68,11 +68,6 @@
             redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
         });
 
-        var kitchen = Button.create(app, { label: 'Kitchen' });
-        kitchen.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN');
-        });
 
         var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
         homedeliveryButton.subscribe(Button.Action.CLICK, function() {
@@ -87,12 +82,36 @@
             redirect.dispatch(Redirect.Action.APP, '/locations_text');
         });
 
+        // Create a button for 'Store'
+        var stores = Button.create(app, { label: 'Stores' });
+        stores.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/stores');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+        
+        // Create a button for 'Kitchen'
+        var kitchen = Button.create(app, { label: 'Kitchen' });
+        kitchen.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Drivers'
+        var drivers = Button.create(app, { label: 'Drivers' });
+        drivers.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/drivers/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
         // Update the title bar with buttons
         var titleBar = TitleBar.create(app, {
             title: 'Stores',
             buttons: {
                 primary: ordersButton,
-                secondary: [location_products, locations_revenue, kitchen, homedeliveryButton, locations_text]
+                secondary: [location_products, locations_revenue, kitchen, drivers, homedeliveryButton, locations_text]
             },
         });
     </script>
@@ -132,6 +151,42 @@
                     // Call Livewire delete method
                     Livewire.dispatch('deleteStore', { storeId: storeId });
                 }
+            });
+
+            // Handle share link button clicks (delegated) to copy URL
+            $(document).on('click', '.share-link-btn', async function() {
+                var $btn = $(this);
+                var href = $btn.data('href');
+                if (!href) {
+                    // Fallback: try to find sibling anchor
+                    href = $btn.siblings('a').attr('href') || '';
+                }
+                if (!href) return;
+
+                const icon = $btn.find('i');
+                const originalClass = icon.attr('class');
+
+                // Try modern clipboard API first
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(href);
+                    } else {
+                        throw new Error('Insecure context or no clipboard API');
+                    }
+                } catch (e) {
+                    // Fallback to execCommand copy
+                    var $temp = $('<input>');
+                    $('body').append($temp);
+                    $temp.val(href).select();
+                    document.execCommand('copy');
+                    $temp.remove();
+                }
+
+                // Quick visual feedback: swap icon to check briefly
+                icon.removeClass().addClass('fa fa-check text-success');
+                setTimeout(function(){
+                    icon.removeClass().addClass(originalClass);
+                }, 1200);
             });
         });
 

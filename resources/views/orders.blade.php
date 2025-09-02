@@ -252,13 +252,6 @@
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
-        // Create a button for 'Kitchen'
-        var kitchen = Button.create(app, { label: 'Kitchen' });
-        kitchen.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/kitchen_admin');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
 
         // Create a button for 'Home Delivery Overview'
         var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
@@ -275,6 +268,22 @@
             redirect.dispatch(Redirect.Action.APP, '/stores');
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
+        
+        // Create a button for 'Kitchen'
+        var kitchen = Button.create(app, { label: 'Kitchen' });
+        kitchen.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Drivers'
+        var drivers = Button.create(app, { label: 'Drivers' });
+        drivers.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/drivers/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
 
 
         // Update the title bar with the new buttons
@@ -282,7 +291,7 @@
             title: 'Location Order Overview',
             buttons: {
                 primary: location_products,
-                secondary: [stores, locations_revenue, locations_text, kitchen, homedeliveryButton]
+                secondary: [stores, locations_revenue, locations_text, kitchen, drivers, homedeliveryButton]
             },
         });
     </script>

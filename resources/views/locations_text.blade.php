@@ -266,11 +266,6 @@
             redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
         });
 
-        var kitchen = Button.create(app, { label: 'Kitchen' });
-        kitchen.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/kitchen_admin');
-        });
 
         var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
         homedeliveryButton.subscribe(Button.Action.CLICK, function() {
@@ -285,13 +280,29 @@
             redirect.dispatch(Redirect.Action.APP, '/stores');
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
+        
+        // Create a button for 'Kitchen'
+        var kitchen = Button.create(app, { label: 'Kitchen' });
+        kitchen.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Drivers'
+        var drivers = Button.create(app, { label: 'Drivers' });
+        drivers.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/drivers/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
 
         // Update the title bar with buttons
         var titleBar = TitleBar.create(app, {
             title: 'Location Settings',
             buttons: {
                 primary: ordersButton,
-                secondary: [stores, location_products, locations_revenue, kitchen, homedeliveryButton]
+                secondary: [stores, location_products, locations_revenue, kitchen, drivers, homedeliveryButton]
             },
         });
     </script>

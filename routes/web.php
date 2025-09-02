@@ -38,12 +38,15 @@ use Illuminate\Support\Facades\Route;
 // })->middleware(['verify.shopify'])->name('home');
 
 //Route::domain('{subdomain}.sushi.catering')->group(function () {
-    Route::get('/kitchen_admin', [KitchenController::class, 'kitchen_admin'])->name('kitchen_admin');
+    // Route::get('/kitchen_admin', [KitchenController::class, 'kitchen_admin'])->name('kitchen_admin');
     Route::get('/kitchen/{uuid}', [KitchenController::class, 'display'])->name('kitchen.display');
     Route::resource('kitchen', KitchenController::class);
+
+    // Route::get('/drivers_admin', [DriverController::class, 'drivers_admin'])->name('drivers_admin');
     Route::get('/drivers/{uuid}', [DriverController::class, 'display'])->name('drivers.display');
     Route::resource('drivers', DriverController::class);
     Route::resource('drivers_additional', DriverAdditionalController::class);
+
     Route::post('/delivery/fulfilled/{order_id}', [DeliveryController::class, 'MarkAsDelivered'])->name('delivery.MarkAsDelivered');
     Route::resource('delivery', DeliveryController::class);
 

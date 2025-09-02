@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends((int) request('menu') === 1 ? 'shopify-app::layouts.default' : 'layouts.app')
 
 @section('styles')
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/fontawesome.min.css" integrity="sha512-v8QQ0YQ3H4K6Ic3PJkym91KoeNT5S3PnDKvqnwqFD1oiqIl653crGZplPdU5KKtHjO0QKcQ2aUlQZYjHczkmGw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -239,6 +239,7 @@
 @endsection
 
 @section('content')
+@if((int) request('menu') !== 1)
 <nav class="navbar row navbar-dark bg-dark" style="margin-top: -25px;">
     <div class="container-fluid">
         <!-- Logo on the left -->
@@ -256,6 +257,7 @@
     </div>
 </nav>
 <br>
+@endif
 <div class="container-full p-2">
     <div class="row">
         <div class="col-12">
@@ -451,6 +453,106 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFGRlqpzt4EZKMT9f65pHWsI_hza6QNQ0&libraries=places&loading=async"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
+        @if((int) request('menu') === 1)
+        // Shopify App Bridge code - only run when in Shopify layout
+        // Assuming 'app' is already initialized and available
+        // var actions = window['app-bridge'].actions;
+        var Button = actions.Button;
+        var TitleBar = actions.TitleBar;
+        var Redirect = actions.Redirect; // Ensure Redirect is defined
+
+        // // Create a button for 'Products'
+        // var productsButton = Button.create(app, { label: 'Products' });
+        // productsButton.subscribe(Button.Action.CLICK, function() {
+        //     var redirect = Redirect.create(app);
+        //     redirect.dispatch(Redirect.Action.APP, '/products');
+        //     // Add your logic for when the 'Products' button is clicked
+        // });
+
+        // // Create a button for 'Operation'
+        // var operationdays = Button.create(app, { label: 'Operation Days' });
+        // operationdays.subscribe(Button.Action.CLICK, function() {
+        //     var redirect = Redirect.create(app);
+        //     redirect.dispatch(Redirect.Action.APP, '/operationdays');
+        //     // Add your logic for when the 'Operation' button is clicked
+        // });
+
+        // Create a button for 'Location Products'
+        var location_products = Button.create(app, { label: 'Location Products' });
+        location_products.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/location_products');
+            // Add your logic for when the 'Operation' button is clicked
+        });
+
+
+        // Create a button for 'Locations Revenue'
+        var locations_revenue = Button.create(app, { label: 'Locations Revenue' });
+        locations_revenue.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Locations Text'
+        var locations_text = Button.create(app, { label: 'Location Settings' });
+        locations_text.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/locations_text');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Home Delivery Overview'
+        var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
+        homedeliveryButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/home_delivery');
+            // Add your logic for when the 'Orders' button is clicked
+        });
+
+        // Create a button for 'Orders'
+        var ordersButton = Button.create(app, { label: 'Location Order Overview' });
+        ordersButton.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/orders');
+            // Add your logic for when the 'Orders' button is clicked
+        });
+
+        // Create a button for 'Store'
+        var stores = Button.create(app, { label: 'Stores' });
+        stores.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/stores');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+        
+        // Create a button for 'Kitchen'
+        var kitchen = Button.create(app, { label: 'Kitchen' });
+        kitchen.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+        // Create a button for 'Drivers'
+        var drivers = Button.create(app, { label: 'Drivers' });
+        drivers.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/drivers/ADMIN?menu=1');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
+
+        // Update the title bar with the new buttons
+        var titleBar = TitleBar.create(app, {
+            title: 'Drivers',
+            buttons: {
+                primary: kitchen,
+                secondary: [stores, location_products, locations_revenue, locations_text, ordersButton, homedeliveryButton]
+            },
+        });
+        @endif  // End of Shopify-specific code
+
         // Save current page scroll position before reload
         $(window).on('beforeunload', function() {
             localStorage.setItem('scrollPosition', $(window).scrollTop());
@@ -998,7 +1100,7 @@
                     data: {
                         location: locationName,
                         image: capturedImageData,
-                        store_id: store_id,
+                        store_uuid: store_uuid,  // Changed from store_id to store_uuid for clarity
                         _token: $('meta[name="csrf-token"]').attr('content')
                     },
                     async: false,

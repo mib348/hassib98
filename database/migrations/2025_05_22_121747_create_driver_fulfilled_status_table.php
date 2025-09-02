@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('driver_fulfilled_status', function (Blueprint $table) {
             $table->id();
-            $table->int('store_id')->index()->nullable();
+            $table->integer('store_id')->index()->nullable();
             $table->string('location')->index()->nullable();
             $table->date('date')->index()->nullable();
             $table->string('day')->index()->nullable();

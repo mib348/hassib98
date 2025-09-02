@@ -437,13 +437,21 @@
             // Add your logic for when the 'Locations Revenue' button is clicked
         });
 
+        // Create a button for 'Store'
+        var drivers_admin = Button.create(app, { label: 'Drivers' });
+        drivers_admin.subscribe(Button.Action.CLICK, function() {
+            var redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, '/drivers_admin');
+            // Add your logic for when the 'Locations Revenue' button is clicked
+        });
+
 
         // Update the title bar with the new buttons
         var titleBar = TitleBar.create(app, {
             title: 'Kitchen',
             buttons: {
                 primary: location_products,
-                secondary: [stores, locations_revenue, locations_text, ordersButton, homedeliveryButton]
+                secondary: [stores, drivers_admin, locations_revenue, locations_text, ordersButton, homedeliveryButton]
             },
         });
     </script>
