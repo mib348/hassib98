@@ -239,10 +239,27 @@
 @endsection
 
 @section('content')
+<nav class="navbar row navbar-dark bg-dark" style="margin-top: -25px;">
+    <div class="container-fluid">
+        <!-- Logo on the left -->
+        <a class="navbar-brand" href="#">
+            <img src="{{ asset('logo.png') }}" alt="Logo" height="40" class="d-inline-block align-text-top">
+        </a>
+        
+        <!-- Title in the center -->
+        <div class="mx-auto">
+            <h5 class="navbar-text text-white mb-0">{{ $title }}</h5>
+        </div>
+        
+        <!-- Empty div for balance (optional) -->
+        <div></div>
+    </div>
+</nav>
+<br>
 <div class="container-full p-2">
     <div class="row">
         <div class="col-12">
-            <h5>Sushi Catering PreOrders & Immediate Inventory</h5>
+            <h5>PreOrders & Immediate Inventory</h5>
         </div>
     </div>
     <div class="row">
@@ -962,6 +979,7 @@
             }
 
             const locationName = $('#location-input').val();
+            const store_uuid = "{{ request()->route('uuid') }}";
 
             // Hide all buttons and show loading state IMMEDIATELY
             $('#capture-btn').hide();
@@ -980,6 +998,7 @@
                     data: {
                         location: locationName,
                         image: capturedImageData,
+                        store_id: store_id,
                         _token: $('meta[name="csrf-token"]').attr('content')
                     },
                     async: false,

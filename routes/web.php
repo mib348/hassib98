@@ -14,6 +14,8 @@ use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\KitchenController;
 use App\Http\Controllers\PersonalNotepadController;
+use App\Http\Controllers\StoresController;
+use App\Livewire\Stores\StoresList;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -37,11 +39,14 @@ use Illuminate\Support\Facades\Route;
 
 //Route::domain('{subdomain}.sushi.catering')->group(function () {
     Route::get('/kitchen_admin', [KitchenController::class, 'kitchen_admin'])->name('kitchen_admin');
+    Route::get('/kitchen/{uuid}', [KitchenController::class, 'display'])->name('kitchen.display');
     Route::resource('kitchen', KitchenController::class);
+    Route::get('/drivers/{uuid}', [DriverController::class, 'display'])->name('drivers.display');
     Route::resource('drivers', DriverController::class);
     Route::resource('drivers_additional', DriverAdditionalController::class);
     Route::post('/delivery/fulfilled/{order_id}', [DeliveryController::class, 'MarkAsDelivered'])->name('delivery.MarkAsDelivered');
     Route::resource('delivery', DeliveryController::class);
+
     //});
 
 
@@ -106,3 +111,7 @@ Route::resource('personal_notepad', PersonalNotepadController::class);
 
 Route::get('/getImmediateInventoryByLocation/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocation'])->name('getImmediateInventoryByLocation');
 Route::get('/getImmediateInventoryByLocationForYesterday/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocationForYesterday'])->name('getImmediateInventoryByLocationForYesterday');
+
+//store
+Route::get('/getStoresList', [StoresList::class, 'getStoresList'])->name('getStoresList');
+Route::resource('stores', StoresController::class);

@@ -50,10 +50,27 @@
 @endsection
 
 @section('content')
+<nav class="navbar row navbar-dark bg-dark" style="margin-top: -25px;">
+    <div class="container-fluid">
+        <!-- Logo on the left -->
+        <a class="navbar-brand" href="#">
+            <img src="{{ asset('logo.png') }}" alt="Logo" height="40" class="d-inline-block align-text-top">
+        </a>
+        
+        <!-- Title in the center -->
+        <div class="mx-auto">
+            <h5 class="navbar-text text-white mb-0">{{ $title }}</h5>
+        </div>
+        
+        <!-- Empty div for balance (optional) -->
+        <div></div>
+    </div>
+</nav>
+<br>
 <div class="container-fluid p-2">
     <div class="row">
         <div class="col-12">
-            <h5>Sushi Catering PreOrders</h5>
+            <h5>PreOrders</h5>
         </div>
     </div>
     <div class="row">
@@ -282,6 +299,8 @@
                     </tbody>
                 </table>
             </div>
+
+            @if ($title == 'ADMIN')
             <div class="table-responsive">
                 <table class="table table-bordered table-hover table-vcenter table-condensed">
                     <thead>
@@ -357,6 +376,7 @@
                     </tbody>
                 </table>
             </div>
+            @endif
             <br>
         </div>
     </div>
