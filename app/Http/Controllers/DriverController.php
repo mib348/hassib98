@@ -13,28 +13,72 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Models\Stores;
 
 class DriverController extends Controller
 {
+    public function index(){
+        abort(403, 'Access Denied');
+    }
+
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function display($uuid = null)
     {
-        $arrLocations = Locations::where('is_active', 'Y')
-            ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
-                                    // ->where('immediate_inventory', 'Y')
-                                    // ->orderBy('location_order', 'asc')
-            ->orderByRaw('location_order IS NULL, location_order ASC')
-            ->orderBy('name', 'ASC')
-            ->get();
+        $title = "";
+
+        if(!empty($uuid)){
+            if($uuid == 'ADMIN'){
+                $title = "ADMIN";
+
+                $arrLocations = Locations::where('is_active', 'Y')
+                    ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
+                                            // ->where('immediate_inventory', 'Y')
+                                            // ->orderBy('location_order', 'asc')
+                    ->orderByRaw('location_order IS NULL, location_order ASC')
+                    ->orderBy('name', 'ASC')
+                    ->get();
+            }
+            else{
+                $arrStore = Stores::where('uuid', $uuid)->first();
+                
+                if(!$arrStore || $arrStore->is_active == "N"){
+                    abort(403, 'Access Denied');
+                }
+                else
+                    $title = $arrStore->name;
+
+                $arrLocations = Locations::where('is_active', 'Y')
+                    ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
+                                            // ->where('immediate_inventory', 'Y')
+                                            // ->orderBy('location_order', 'asc')
+                    ->whereIn('name', function($query) use ($uuid) {
+                        $query->select('location')
+                                ->from('store_locations')
+                                ->where('store_id', function($subQuery) use ($uuid) {
+                                    $subQuery->select('id')
+                                            ->from('stores')
+                                            ->where('uuid', $uuid);
+                                });
+                    })
+                    ->orderByRaw('location_order IS NULL, location_order ASC')
+                    ->orderBy('name', 'ASC')
+                    ->get();
+            }
+        }
+        else{
+            abort(403, 'Access Denied');
+        }
+
+        
 
         // Check if locations exist before proceeding
         $arrData = $arrTotalOrders = [];
 
         if ($arrLocations->isEmpty()) {
             // Handle case when no locations are found
-            return view('drivers', ['arrData' => [], 'arrTotalOrders' => []]);
+            return view('drivers', ['arrData' => [], 'arrTotalOrders' => [], 'title' => $title]);
         }
 
         // Get fulfilled locations for today
@@ -44,12 +88,17 @@ class DriverController extends Controller
             ->toArray();
 
         // Batch fetch all immediate inventory data to avoid N+1 queries
-        $batchedImmediateInventory = $this->getBatchImmediateInventory($arrLocations);
-
+        // Using shared method from ShopifyController to reduce code duplication
+        // For driver view, we only need today's inventory
+        $dates = [$currentDate => Carbon::now('Europe/Berlin')->format('l')];
+        $batchedImmediateInventoryFull = ShopifyController::getBatchImmediateInventory($arrLocations, $dates);
+        // Extract just today's data in the format expected by the driver view
+        $batchedImmediateInventory = isset($batchedImmediateInventoryFull[$currentDate]) ? 
+            $batchedImmediateInventoryFull[$currentDate] : [];
         // Batch fetch all orders data to avoid N+1 queries
         $locationNames = $arrLocations->pluck('name')->toArray();
         $batchedOrders = $this->getBatchOrders($locationNames);
-
+        
         foreach ($arrLocations as $arrLocation) {
             if ($arrLocation && ! empty($arrLocation->name)) {
                 $location_name = $arrLocation->name;
@@ -138,7 +187,7 @@ class DriverController extends Controller
 
         // dd($arrData);
 
-        return view('drivers', ['arrData' => $arrData, 'arrTotalOrders' => $arrTotalOrders]);
+        return view('drivers', ['arrData' => $arrData, 'arrTotalOrders' => $arrTotalOrders, 'title' => $title]);
     }
 
     /**
@@ -276,8 +325,10 @@ class DriverController extends Controller
             Storage::put($storagePath, $imageData);
             $imageUrl = Storage::url('driver_location/'.$imageName);
 
+
             // Create database record
             $fulfillment = new DriverFulfilledStatus();
+            $fulfillment->store_id = (Stores::where('uuid', $request->uuid)->pluck('id')->first()) ?? null;
             $fulfillment->location = $request->location;
             $fulfillment->date = $currentDate;
             $fulfillment->day = $currentDay;
@@ -461,64 +512,6 @@ class DriverController extends Controller
         return $response;
     }
 
-    /**
-     * Batch fetch immediate inventory data to avoid N+1 queries
-     */
-    private function getBatchImmediateInventory($locations)
-    {
-        $currentTime = Carbon::now('Europe/Berlin')->format('H:i');
-        $currentDay = Carbon::now('Europe/Berlin')->format('l');
-        $batchedData = [];
-
-        // Initialize the result structure
-        foreach ($locations as $location) {
-            $batchedData[$location->name] = [];
-        }
-
-        // Get all location names that have immediate inventory enabled
-        $enabledLocationNames = [];
-
-        foreach ($locations as $location) {
-            if ($location->immediate_inventory == 'Y') {
-                $immediate_inventory_quantity_check_time = Carbon::parse($location->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
-
-                if ($location->immediate_inventory_48h == 'Y' &&
-                    ShopifyController::getImmediateInventoryByLocationForYesterday($location->name) > $location->immediate_inventory_order_quantity_limit &&
-                    $currentTime >= $immediate_inventory_quantity_check_time) {
-                    // Skip this location due to 48h limit
-                    continue;
-                }
-                $enabledLocationNames[] = $location->name;
-            }
-        }
-
-        // If no locations have immediate inventory enabled, return empty data
-        if (empty($enabledLocationNames)) {
-            return $batchedData;
-        }
-
-        // Batch fetch all immediate inventory products for all enabled locations
-        $allImmediateInventory = LocationProductsTable::leftJoin('products', 'products.product_id', '=', 'location_products_tables.product_id')
-            ->whereIn('location', $enabledLocationNames)
-            ->where('day', $currentDay)
-            ->where('inventory_type', 'immediate')
-            ->get()
-            ->groupBy('location');
-
-        // Process the results and organize by location
-        foreach ($enabledLocationNames as $locationName) {
-            $locationInventory = $allImmediateInventory->get($locationName, collect());
-
-            $products = [];
-            foreach ($locationInventory as $product) {
-                $products[$product['title']] = $product['quantity'];
-            }
-
-            $batchedData[$locationName] = $products;
-        }
-
-        return $batchedData;
-    }
 
     /**
      * Batch fetch orders data to avoid N+1 queries
