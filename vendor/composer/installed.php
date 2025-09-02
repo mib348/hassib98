@@ -3,7 +3,7 @@
         'name' => 'laravel/laravel',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'f7cfaeb3b533d7f9201e076387a676224b21b832',
+        'reference' => '8dec5b4d2ffacb123e004f6368fc5c7ac730a7e2',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -461,9 +461,9 @@
             ),
         ),
         'kyon147/laravel-shopify' => array(
-            'pretty_version' => 'v21.1.0',
-            'version' => '21.1.0.0',
-            'reference' => '0ba57b5895d318905ce88da650a690c42175092e',
+            'pretty_version' => 'v21.2.0',
+            'version' => '21.2.0.0',
+            'reference' => 'c9eb7dfadb3d5e1c1e96b7d383de94b325854e7e',
             'type' => 'library',
             'install_path' => __DIR__ . '/../kyon147/laravel-shopify',
             'aliases' => array(),
@@ -481,7 +481,7 @@
         'laravel/laravel' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'f7cfaeb3b533d7f9201e076387a676224b21b832',
+            'reference' => '8dec5b4d2ffacb123e004f6368fc5c7ac730a7e2',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -592,6 +592,15 @@
             'reference' => 'ce0f4d1e8a6f4eb0ddff33f57c69c50fd09f4301',
             'type' => 'library',
             'install_path' => __DIR__ . '/../league/mime-type-detection',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'livewire/livewire' => array(
+            'pretty_version' => 'v3.6.4',
+            'version' => '3.6.4.0',
+            'reference' => 'ef04be759da41b14d2d129e670533180a44987dc',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../livewire/livewire',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
@@ -910,8 +919,8 @@
         'psr/log-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '3.0.0',
-                1 => '1.0|2.0|3.0',
+                0 => '1.0|2.0|3.0',
+                1 => '3.0.0',
             ),
         ),
         'psr/simple-cache' => array(
