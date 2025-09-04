@@ -26,19 +26,22 @@ class StoresList extends Component
             'selectedLocations' => $this->selectedLocations
         ]);
 
+        // Normalize is_active to strict 'Y' or 'N' regardless of how the checkbox binds
+        $isActiveYN = (\in_array($this->is_active, ['Y', 'y', 'on', 1, '1', true], true)) ? 'Y' : 'N';
+
         if ($this->store_id) {
             // Update existing store
             $store = Stores::find($this->store_id);
             $store->update([
                 'name' => $this->name,
-                'is_active' => $this->is_active === 'Y' ? 'Y' : 'N'
+                'is_active' => $isActiveYN
             ]);
         } else {
             // Create new store
             $store = Stores::create([
                 'name' => ucwords($this->name),
                 'uuid' => strtoupper(Str::random(8)), // Generate 8-character short UUID
-                'is_active' => $this->is_active === 'Y' ? 'Y' : 'N'
+                'is_active' => $isActiveYN
             ]);
         }
 
@@ -142,9 +145,12 @@ class StoresList extends Component
                 // Get locations for this store
                 $locations = StoreLocations::where('store_id', $storeId)->pluck('location')->toArray();
                 $locationsDisplay = !empty($locations) ? implode(', ', $locations) : '<span class="text-muted">No locations assigned</span>';
+                $badgeClass = ($arrStore->is_active == "Y") ? "bg-success" : "bg-danger";
+                $badgeText = ($arrStore->is_active == "Y") ? "Enabled" : "Disabled";
 
                 $html .= "<tr data-id='" . $storeId . "'>";
-                $html .= "<td>" . $arrStore->name . "</td>";
+                $html .= "<td>" . $arrStore->uuid . "</td>";
+                $html .= "<td>" . $arrStore->name . " <span class='badge $badgeClass'>$badgeText</span></td>";
                 $html .= "<td>" . $locationsDisplay . "</td>";
                 $html .= "<td>";
                 

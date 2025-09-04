@@ -24,6 +24,7 @@
         <table id="storesTable" class="table table-bordered table-striped table-hover js-dataTable-full">
             <thead>
                 <tr>
+                    <th>UUID</th>
                     <th>Name</th>
                     <th>Locations</th>
                     <th>Actions</th>
