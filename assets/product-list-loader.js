@@ -122,6 +122,38 @@
           });
         });
 
+        /* ---------- Ensure images load on Android after dynamic replace ---------- */
+        try {
+          // Remove any loading state class PageFly might add
+          var mediaLoaders = container.querySelectorAll('.product-media2-inner.product-media-loading');
+          mediaLoaders.forEach(function (el) { el.classList.remove('product-media-loading'); });
+
+          // Force native-lazy images to load now that the container is visible
+          var imgs = container.querySelectorAll('.pf-slider img');
+          imgs.forEach(function (img) {
+            if (img.getAttribute('loading') === 'lazy') {
+              img.setAttribute('loading', 'eager');
+            }
+            // If theme used data-src/srcset, promote them
+            if (img.dataset && img.dataset.src && (!img.getAttribute('src') || img.getAttribute('src').trim() === '')) {
+              img.setAttribute('src', img.dataset.src);
+            }
+            if (img.dataset && img.dataset.srcset && (!img.getAttribute('srcset') || img.getAttribute('srcset').trim() === '')) {
+              img.setAttribute('srcset', img.dataset.srcset);
+            }
+            // Encourage immediate decode
+            try { img.decoding = 'sync'; } catch (e) { }
+          });
+
+          // Nudge browser lazy logic tied to viewport events
+          requestAnimationFrame(function () {
+            try { window.dispatchEvent(new Event('scroll')); } catch (e) { }
+            try { window.dispatchEvent(new Event('resize')); } catch (e) { }
+          });
+        } catch (e) {
+          console.warn('[PF Loader] Image force-load step failed', e);
+        }
+
         console.log('[PF Loader] markup injected & cleaned. Relying on PageFly handlers...');
 
         if (window.jQuery) { console.log('[PF Loader] jQuery present – letting PageFly manage button logic'); }
