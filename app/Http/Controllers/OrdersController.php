@@ -234,28 +234,35 @@ class OrdersController extends Controller
                                 'date' => ($arrLineItem['properties'][2]['value'] ?? null),
                                 'title' => $title,
                             ];
-
-                            //items created - counting preorder items
-                            if (! empty($arrLineItem['properties'])) {
-                                if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
-                                    //skip if immediate inventory because it's being counted separately below
-                                    continue;
-                                }
-                            }
-                            // Initialize product data if not already set
-                            if (! isset($final_items_created['preorder_inventory'][$productId])) {
-                                $final_items_created['preorder_inventory'][$productId] = [];
-                                $final_items_created['preorder_inventory'][$productId]['quantity'] = 0;
-                            }
-
-                            //items created - building preorder inventory data
-                            $final_items_created['preorder_inventory'][$productId]['quantity'] += $arrLineItem['quantity'];
-                            $final_items_created['preorder_inventory'][$productId]['title'] = "{$title} <span class='badge text-bg-primary align-text-top'>{$final_items_created['preorder_inventory'][$productId]['quantity']}</span>";
-                            $final_items_created['preorder_inventory'][$productId]['order_id'][] = $order->order_id;
-                            $items_created += $arrLineItem['quantity'];
                         }
-                        // $items += count($arrLineItems);
                     }
+                }
+
+                if (isset($arrLineItems)) {
+                    foreach ($arrLineItems as $key => $arrLineItem) {
+                        $productId = $arrLineItem['product_id'];
+                        $title = $arrLineItem['title'];
+
+                        //items created - counting preorder items
+                        if (! empty($arrLineItem['properties'])) {
+                            if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
+                                //skip if immediate inventory because it's being counted separately below
+                                continue;
+                            }
+                        }
+                        // Initialize product data if not already set
+                        if (! isset($final_items_created['preorder_inventory'][$productId])) {
+                            $final_items_created['preorder_inventory'][$productId] = [];
+                            $final_items_created['preorder_inventory'][$productId]['quantity'] = 0;
+                        }
+
+                        //items created - building preorder inventory data
+                        $final_items_created['preorder_inventory'][$productId]['quantity'] += $arrLineItem['quantity'];
+                        $final_items_created['preorder_inventory'][$productId]['title'] = "{$title} <span class='badge text-bg-primary align-text-top'>{$final_items_created['preorder_inventory'][$productId]['quantity']}</span>";
+                        $final_items_created['preorder_inventory'][$productId]['order_id'][] = $order->order_id;
+                        $items_created += $arrLineItem['quantity'];
+                    }
+                    // $items += count($arrLineItems);
                 }
             }
 
