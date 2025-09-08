@@ -183,7 +183,7 @@ class LocationRevenueController extends Controller
         $html .= "<tr>";
         $html .= "<td style='width: 20%;'>" . $arrLocation->name . "</td>";
         $html .= "<td style='width: 20%; text-align:center;'>" . $startDatePresentable . " - " . $endDatePresentable . "</td>";
-        $html .= "<td style='width: 20%; text-align:right;'>&euro; " . str_replace('.', ',', number_format($nTotalAmount, 2)) . "</td>";
+        $html .= "<td style='width: 20%; text-align:right;'>&euro; " . number_format($nTotalAmount, 2, ",", ".") . "</td>";
         $html .= "<td style='width: 20%; text-align:right;'>" . $nTotalItemsSold . "</td>";
         $html .= "<td style='width: 20%; text-align:right;'>" . $nTotalItemsCreated . "</td>";
         $html .= "</tr>";
