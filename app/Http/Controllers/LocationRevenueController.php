@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\LocationRevenue;
 use App\Models\Locations;
+use App\Models\Orders;
 use App\Models\PersonalNotepad;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class LocationRevenueController extends Controller
 {
@@ -34,9 +36,9 @@ class LocationRevenueController extends Controller
 
         $arrLocations = Locations::whereNot('name', 'Additional Inventory')->orderBy('name', 'asc')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_REVENUE')->first();
-        $html = $this->getLocationsRevenueList(request());
+        // $html = $this->getLocationsRevenueList(request());
 
-        return view('locations_revenue', ['html' => $html, 'years_months' => $yearsMonths, 'arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
+        return view('locations_revenue', ['years_months' => $yearsMonths, 'arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
     }
 
     /**
@@ -87,20 +89,105 @@ class LocationRevenueController extends Controller
         //
     }
 
-    public function getLocationsRevenueList(Request $request) {
-        $locations_revenue = LocationRevenue::where('location', $request->input('strFilterLocation'))
-                                            ->where('date', $request->input('strFilterDate'))
-                                            ->get()->toArray();
+    public function getLocationsRevenueList(Request $request)
+    {
+
+        $nTotalItemsSold = 0;
+        $nTotalItemsCreated = 0;
+        $nTotalAmount = 0;
+
+        // $locations_revenue = LocationRevenue::where('location', $request->input('strFilterLocation'))
+        //                                     ->where('date', $request->input('strFilterDate'))
+        //                                     ->get()->toArray();
+
+        // $arrOrders = Orders::selectRaw('location, DATE_FORMAT(date, "%Y-%m") as month_year, SUM(total_price) as total_revenue')
+        //                                     ->whereRaw("location in (select name from locations)
+        //                                                 and financial_status = 'paid'")
+        //                                     ->groupBy('location', 'month_year')
+        //                                     ->get()->toArray();
+
+        if (empty($request->input('strFilterFromDate')) || empty($request->input('strFilterToDate')) || empty($request->input('strFilterLocation'))) {
+            return response()->json('No data found', 404);
+        }
+
+        $startDate = Carbon::createFromFormat('d.m.Y', $request->input('strFilterFromDate'), 'Europe/Berlin')->format('Y-m-d');
+        $endDate = Carbon::createFromFormat('d.m.Y', $request->input('strFilterToDate'), 'Europe/Berlin')->format('Y-m-d');
+        $startDatePresentable = Carbon::createFromFormat('d.m.Y', $request->input('strFilterFromDate'), 'Europe/Berlin')->format('j M Y');
+        $endDatePresentable = Carbon::createFromFormat('d.m.Y', $request->input('strFilterToDate'), 'Europe/Berlin')->format('j M Y');
+
+        $dates = [];
+        $currentDate = Carbon::createFromFormat('Y-m-d', $startDate, 'Europe/Berlin');
+        $endDateCarbon = Carbon::createFromFormat('Y-m-d', $endDate, 'Europe/Berlin');
+
+        while ($currentDate->lte($endDateCarbon)) {
+            $dates[$currentDate->format('Y-m-d')] = $currentDate->format('Y-m-d');
+            $currentDate->addDay();
+        }
+
+        $strFilterLocation = $request->input('strFilterLocation');
+        $arrLocation = Locations::where('name', $strFilterLocation)->first();
+
+        // Batch fetch all immediate inventory data to avoid N+1 queries
+        // Using shared method from ShopifyController and formatting for orders view
+        $batchedImmediateInventory = ShopifyController::getBatchImmediateInventory([$arrLocation], $dates, true);
+        foreach ($dates as $date) {
+            $arrImmediateInventory = $batchedImmediateInventory[$date][$arrLocation->name];
+            foreach ($arrImmediateInventory as $product_name => $quantity) {
+                if ($date <= Carbon::now('Europe/Berlin')->format('Y-m-d')) {
+                    $nTotalItemsCreated += $quantity;
+                }
+            }
+        }
+
+        // Fetch all orders and related metafields in one go
+        $query = Orders::whereBetween('date', [$startDate, $endDate]);
+        $query->where('location', $arrLocation->name);
+        $orders = $query->orderBy('date', 'asc')->get();
+
+
+        foreach ($orders as $order) {
+            $arrLineItems = json_decode($order->line_items, true);
+            if (strtolower($order->financial_status) == 'paid') {
+                $nTotalAmount += $order->total_price;
+            }
+
+            //items sold
+            if (empty($order->cancel_reason) && empty($order->cancelled_at)) {
+                if (isset($arrLineItems)) {
+                    foreach ($arrLineItems as $key => $arrLineItem) {
+                        $nTotalItemsSold += (int) $arrLineItem['quantity'];
+                    }
+                }
+            }
+
+            //items created
+            if (isset($arrLineItems)) {
+                foreach ($arrLineItems as $key => $arrLineItem) {
+                    //items created - counting preorder items
+                    if (! empty($arrLineItem['properties'])) {
+                        if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
+                            //skip if immediate inventory because it's being counted separately below
+                            continue;
+                        }
+                    }
+
+                    $nTotalItemsCreated += $arrLineItem['quantity'];
+                }
+            }
+        }
+
 
         $html = "";
 
-        foreach ($locations_revenue as $key => $location_revenue) {
-            $html .= "<tr>";
-            $html .= "<td style='width: 33%;'>" . $location_revenue['location'] . "</td>";
-            $html .= "<td style='width: 33%;'>" . date('F y', strtotime($location_revenue['date'])) . "</td>";
-            $html .= "<td style='width: 33%;'>&euro; " . str_replace('.', ',', number_format($location_revenue['amount'], 2)) . "</td>";
-            $html .= "</tr>";
-        }
+        // foreach ($locations_revenue as $key => $location_revenue) {
+        $html .= "<tr>";
+        $html .= "<td style='width: 20%;'>" . $arrLocation->name . "</td>";
+        $html .= "<td style='width: 20%; text-align:center;'>" . $startDatePresentable . " - " . $endDatePresentable . "</td>";
+        $html .= "<td style='width: 20%; text-align:right;'>&euro; " . str_replace('.', ',', number_format($nTotalAmount, 2)) . "</td>";
+        $html .= "<td style='width: 20%; text-align:right;'>" . $nTotalItemsSold . "</td>";
+        $html .= "<td style='width: 20%; text-align:right;'>" . $nTotalItemsCreated . "</td>";
+        $html .= "</tr>";
+        // }
 
 
         // $html .= "<tr>";

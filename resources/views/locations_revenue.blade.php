@@ -1,6 +1,7 @@
 @extends('shopify-app::layouts.default')
 
 @section('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css" />
 <style>
 </style>
 @endsection
@@ -25,7 +26,7 @@
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
                         <tr>
-                            <th style="width:33%;">
+                            <th style="width:20%;">
                                 Location
                                 <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                                     <option value="" selected>--- Select Location ---</option>
@@ -34,16 +35,15 @@
                                     @endforeach
                                 </select>
                             </th>
-                            <th style="width:33%;">
-                                Month
-                                <select id="strFilterDate" name="strFilterDate" class="form-select">
-                                    <option value="" selected>--- Select Month ---</option>
-                                    @foreach($years_months as $key => $value)
-                                    <option value="{{ $key }}">{{ $value }}</option>
-                                    @endforeach
-                                </select>
+                            <th style="width:20%;">
+                                Date Range
+                                <input type="text" name="strFilterDate" id="strFilterDate" class="form-control" placeholder="Select Date Range">
+                                <input type="hidden" name="strFilterFromDate" id="strFilterFromDate">
+                                <input type="hidden" name="strFilterToDate" id="strFilterToDate">
                             </th>
-                            <th style="width:33%;">Revenue</th>
+                            <th style="width:20%;">Revenue</th>
+                            <th style="width:20%;">Items Sold</th>
+                            <th style="width:20%;">Items Created</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -79,6 +79,9 @@
 
 @section('scripts')
     @parent
+
+    <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js"></script>
 
 
     <script>
@@ -182,6 +185,40 @@
                 autoWidth: false
             });
 
+            // Initialize Bootstrap Date Range Picker
+            $('#strFilterDate').daterangepicker({
+                opens: 'left',
+                autoUpdateInput: false,
+                locale: {
+                    format: 'DD.MM.YYYY',
+                    cancelLabel: 'Clear'
+                },
+                ranges: {
+                    'Today': [moment(), moment()],
+                    'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                    'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                    'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                    'This Month': [moment().startOf('month'), moment().endOf('month')],
+                    'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                }
+            });
+
+            $('#strFilterDate').on('apply.daterangepicker', function(ev, picker) {
+                var start = picker.startDate.format('DD.MM.YYYY');
+                var end = picker.endDate.format('DD.MM.YYYY');
+                $(this).val(start + ' - ' + end);
+                $('#strFilterFromDate').val(start);
+                $('#strFilterToDate').val(end);
+                $(this).trigger('change');
+            });
+
+            $('#strFilterDate').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
+                $('#strFilterFromDate').val('');
+                $('#strFilterToDate').val('');
+                $(this).trigger('change');
+            });
+
             $(document).on('change', '#strFilterLocation, #strFilterDate', function(e){
                 LoadList();
             });
@@ -234,7 +271,9 @@
             	data: {
                     "_token": "{{ csrf_token() }}",
                     "strFilterLocation": $("#strFilterLocation").val(),
-                    "strFilterDate": $("#strFilterDate").val()
+                    // "strFilterDate": $("#strFilterDate").val(),
+                    "strFilterFromDate": $("#strFilterFromDate").val(),
+                    "strFilterToDate": $("#strFilterToDate").val()
             	},
             	cache:false,
             	dataType:"html",
