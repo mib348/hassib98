@@ -150,7 +150,7 @@ class StoresList extends Component
 
                 $html .= "<tr data-id='" . $storeId . "'>";
                 $html .= "<td>" . $arrStore->uuid . "</td>";
-                $html .= "<td>" . $arrStore->name . " <span class='badge $badgeClass'>$badgeText</span></td>";
+                $html .= "<td>" . $arrStore->name . " <span class='badge $badgeClass'>$badgeText</span>&nbsp;<span class='badge bg-info'>" . count($locations) . "</span></td>";
                 $html .= "<td>" . $locationsDisplay . "</td>";
                 $html .= "<td>";
                 
