@@ -24,6 +24,8 @@ class KitchenController extends Controller
     {
         $title = "";
         $dates = $arrTotalOrders = $arrTotalOrdersLocation = $arrTotalDeliveryOrders = [];
+        $nLocations = 0;
+        $strLocations = "";
 
         if(!empty($uuid)){
             if($uuid == 'ADMIN'){
@@ -33,6 +35,9 @@ class KitchenController extends Controller
                     ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
                     ->orderBy('name', 'ASC')
                     ->get();
+
+                $nLocations = count($arrLocations);
+                $strLocations = implode(', ', $arrLocations->pluck('name')->toArray());
             }
             else{
                 $arrStore = Stores::where('uuid', $uuid)->first();
@@ -56,6 +61,9 @@ class KitchenController extends Controller
                     })
                     ->orderBy('name', 'ASC')
                     ->get();
+
+                $nLocations = count($arrLocations);
+                $strLocations = implode(', ', $arrLocations->pluck('name')->toArray());
             }
         }
         else
@@ -64,7 +72,7 @@ class KitchenController extends Controller
         // Check if locations exist before proceeding
         if ($arrLocations->isEmpty()) {
             // Handle case when no locations are found
-            return view('kitchen', ['arrData' => [], 'dates' => [], 'arrTotalOrders' => [], 'arrTotalOrdersLocation' => [], 'title' => $title]);
+            return view('kitchen', ['arrData' => [], 'dates' => [], 'arrTotalOrders' => [], 'arrTotalOrdersLocation' => [], 'title' => $title, 'nLocations' => $nLocations, 'strLocations' => $strLocations]);
         }
 
         // Generate dates for the next 7 days starting from today
@@ -228,7 +236,7 @@ class KitchenController extends Controller
         }
 
         // Pass both arrData and dates to the view
-        return view('kitchen', ['arrData' => $arrData, 'dates' => $dates, 'arrTotalOrders' => $arrTotalOrders, 'arrTotalDeliveryOrders' => $arrTotalDeliveryOrders, 'arrTotalOrdersLocation' => $arrTotalOrdersLocation, 'title' => $title]);
+        return view('kitchen', ['arrData' => $arrData, 'dates' => $dates, 'arrTotalOrders' => $arrTotalOrders, 'arrTotalDeliveryOrders' => $arrTotalDeliveryOrders, 'arrTotalOrdersLocation' => $arrTotalOrdersLocation, 'title' => $title, 'nLocations' => $nLocations, 'strLocations' => $strLocations]);
     }
 
 

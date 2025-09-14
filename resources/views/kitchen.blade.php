@@ -55,15 +55,20 @@
 @if((int) request('menu') !== 1)
 <nav class="navbar row navbar-dark bg-dark" style="margin-top: -25px;">
     <div class="container-fluid">
+        
+        <!-- Title in the center -->
         <!-- Logo on the left -->
         <a class="navbar-brand" href="#">
             <img src="{{ asset('logo.png') }}" alt="Logo" height="40" class="d-inline-block align-text-top">
         </a>
-        
-        <!-- Title in the center -->
         <div class="mx-auto">
-            <h5 class="navbar-text text-white mb-0">{{ $title }}</h5>
+            <h5 class="navbar-text text-white mb-0">{{ $title }} @if($title != 'ADMIN')<span class="badge bg-info">{{ $nLocations }}</span>@endif</h5>
         </div>
+        <br>
+        @if($title != 'ADMIN')
+        <small class="text-white mt-1">{{ $strLocations }}</small>
+        @endif
+
         
         <!-- Empty div for balance (optional) -->
         <div></div>
