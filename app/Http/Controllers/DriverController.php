@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DriverFulfilledStatus;
+use App\Models\LocationCleanedStatus;
 use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Orders;
@@ -84,8 +85,13 @@ class DriverController extends Controller
         // Get fulfilled locations for today
         $currentDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
         $fulfilledLocations = DriverFulfilledStatus::where('date', $currentDate)
-            ->pluck('location')
-            ->toArray();
+                                ->pluck('location')
+                                ->toArray();
+
+        // cleaning status has to be measured for past 7 days, beyond that is not to be considered
+        $cleanedLocations = LocationCleanedStatus::where('date', '>', Carbon::now('Europe/Berlin')->subDays(7)->format('Y-m-d'))
+                            ->pluck('location')
+                            ->toArray();
 
         // Batch fetch all immediate inventory data to avoid N+1 queries
         // Using shared method from ShopifyController to reduce code duplication
@@ -121,6 +127,7 @@ class DriverController extends Controller
                     $arrTotalOrders[$location_name]['total_orders_count'] = 0;
                     // Add fulfilled flag and get image if fulfilled
                     $arrData[$location_name]['is_fulfilled'] = in_array($location_name, $fulfilledLocations);
+                    $arrData[$location_name]['is_cleaned'] = in_array($location_name, $cleanedLocations);
 
                     // Get fulfillment image if exists
                     if ($arrData[$location_name]['is_fulfilled']) {
@@ -128,6 +135,14 @@ class DriverController extends Controller
                             ->where('date', $currentDate)
                             ->first();
                         $arrData[$location_name]['fulfillment_image'] = $fulfillment ? $fulfillment->image_url : null;
+                    }
+                    // Add cleaned flag and get image if cleaned
+                    if ($arrData[$location_name]['is_cleaned']) {
+                        $cleaned = LocationCleanedStatus::where('location', $location_name)
+                            ->where('date', $currentDate)
+                            ->first();
+                        $arrData[$location_name]['cleaned_image'] = $cleaned ? $cleaned->image_url : null;
+                        $arrData[$location_name]['cleaning_time'] = $cleaned ? Carbon::parse($cleaned->created_at, 'Europe/Berlin')->format('d.m.Y H:i') : null;
                     }
                 }
 
@@ -209,6 +224,7 @@ class DriverController extends Controller
                 'location' => 'required|string',
                 'image' => 'required|string',
                 'store_uuid' => 'required|string',
+                'action_type' => 'string|nullable',
             ], [
                 'location.required' => 'Location is required',
                 'image.required' => 'Photo is required',
@@ -321,86 +337,131 @@ class DriverController extends Controller
             // Generate unique filename with correct extension
             $extension = $imageType === 'jpeg' ? 'jpg' : $imageType;
             $imageName = Str::slug($request->location).'-'.$currentDate.'-'.Str::random(10).'.'.$extension;
-            $storagePath = 'public/driver_location/'.$imageName;
-
+            
             // Store the image
-            Storage::put($storagePath, $imageData);
-            $imageUrl = Storage::url('driver_location/'.$imageName);
+            if($request->action_type == 'fulfilled'){
+                $storagePath = 'public/driver_location/'.$imageName;
+                Storage::put($storagePath, $imageData);
+                $imageUrl = Storage::url('driver_location/'.$imageName);
+            }
+            else if($request->action_type == 'cleaned'){
+                $storagePath = 'public/location_cleaned/'.$imageName;
+                Storage::put($storagePath, $imageData);
+                $imageUrl = Storage::url('location_cleaned/'.$imageName);
+            }
+            else{
+                $imageName = "";
+                $storagePath = "";
+                $imageUrl = "";
+            }
 
 
-            // Create database record with proper store_id lookup
-            $fulfillment = new DriverFulfilledStatus();
-            // Look up the store ID using the UUID from the request
-            $store = Stores::where('uuid', $request->store_uuid)->first();
-            $fulfillment->store_id = $store ? $store->id : null;
-            $fulfillment->location = $request->location;
-            $fulfillment->date = $currentDate;
-            $fulfillment->day = $currentDay;
-            $fulfillment->image_name = $imageName;
-            // $fulfillment->image_path = $storagePath;
-            $fulfillment->image_url = $imageUrl;
-            $fulfillment->created_at = $currentDateTime;
-            $fulfillment->updated_at = $currentDateTime;
-            $fulfillment->save();
-            $new_fulfillment_id = $fulfillment->id;
+            if ($request->action_type == 'fulfilled') {
+                // Create database record with proper store_id lookup
+                $fulfillment = new DriverFulfilledStatus();
+                // Look up the store ID using the UUID from the request
+                $store = Stores::where('uuid', $request->store_uuid)->first();
+                $fulfillment->store_id = $store ? $store->id : null;
+                $fulfillment->location = $request->location;
+                $fulfillment->date = $currentDate;
+                $fulfillment->day = $currentDay;
+                $fulfillment->image_name = $imageName;
+                // $fulfillment->image_path = $storagePath;
+                $fulfillment->image_url = $imageUrl;
+                $fulfillment->created_at = $currentDateTime;
+                $fulfillment->updated_at = $currentDateTime;
+                $fulfillment->save();
+                $new_fulfillment_id = $fulfillment->id;
 
-            //update metafields
-            if ($new_fulfillment_id) {
-                $shop = Auth::user();
-                if (! isset($shop) || ! $shop) {
-                    $shop = User::find(env('db_shop_id', 1));
-                }
-                $api = $shop->api();
+                //update metafields
+                if ($new_fulfillment_id) {
+                    $shop = Auth::user();
+                    if (! isset($shop) || ! $shop) {
+                        $shop = User::find(env('db_shop_id', 1));
+                    }
+                    $api = $shop->api();
 
-                $productIds = array_keys($arrData[$request->location]['immediate_inventory_slot']['products']);
-                $productIds = array_merge($productIds, array_keys($arrData[$request->location]['preorder_slot']['products']));
-                $productIds = array_unique($productIds);
+                    $productIds = array_keys($arrData[$request->location]['immediate_inventory_slot']['products']);
+                    $productIds = array_merge($productIds, array_keys($arrData[$request->location]['preorder_slot']['products']));
+                    $productIds = array_unique($productIds);
 
-                if (count($productIds) > 0) {
-                    // Fetch existing metafields for all products in a single GraphQL query
-                    $existingMetafields = $this->fetchExistingMetafields($api, $productIds);
+                    if (count($productIds) > 0) {
+                        // Fetch existing metafields for all products in a single GraphQL query
+                        $existingMetafields = $this->fetchExistingMetafields($api, $productIds);
 
-                    // Prepare metafield updates for updated products
-                    $metafieldMutations = [];
-                    $i = 0;
-                    foreach ($productIds as $productId) {
-                        $currentMetafield = $existingMetafields[$productId] ?? null;
-                        $existingValue = $currentMetafield['value'] ?? '[]';
-                        $existingData = json_decode($existingValue, true) ?? [];
+                        // Prepare metafield updates for updated products
+                        $metafieldMutations = [];
+                        $i = 0;
+                        foreach ($productIds as $productId) {
+                            $currentMetafield = $existingMetafields[$productId] ?? null;
+                            $existingValue = $currentMetafield['value'] ?? '[]';
+                            $existingData = json_decode($existingValue, true) ?? [];
 
-                        $updatedData = $this->prepareMetafieldValue($request->location, $currentDateTime, $existingData);
+                            $updatedData = $this->prepareMetafieldValue($request->location, $currentDateTime, $existingData);
 
-                        $metafieldMutations[] = [
-                            'ownerId' => 'gid://shopify/Product/'.$productId,
-                            'namespace' => 'custom',
-                            'key' => 'status_delivery_today',
-                            'value' => json_encode($updatedData),
-                            'type' => 'json',
-                        ];
-                        $i++;
+                            $metafieldMutations[] = [
+                                'ownerId' => 'gid://shopify/Product/'.$productId,
+                                'namespace' => 'custom',
+                                'key' => 'status_delivery_today',
+                                'value' => json_encode($updatedData),
+                                'type' => 'json',
+                            ];
+                            $i++;
+                        }
+                    }
+
+                    // Split mutations into chunks of 25 to comply with Shopify's limit
+                    $chunks = array_chunk($metafieldMutations, 25);
+                    foreach ($chunks as $chunk) {
+                        $response = $this->batchUpdateMetafields($api, $chunk);
                     }
                 }
 
-                // Split mutations into chunks of 25 to comply with Shopify's limit
-                $chunks = array_chunk($metafieldMutations, 25);
-                foreach ($chunks as $chunk) {
-                    $response = $this->batchUpdateMetafields($api, $chunk);
-                }
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Location marked as fulfilled successfully',
+                    'data' => [
+                        'image_url' => $imageUrl,
+                        'location' => $request->location,
+                        'date' => $currentDate,
+                    ],
+                ]);
+            }
+            else if ($request->action_type == 'cleaned') {
+                // Create database record with proper store_id lookup
+                $cleaned = new LocationCleanedStatus();
+                $store = Stores::where('uuid', $request->store_uuid)->first();
+                $cleaned->store_id = $store ? $store->id : null;
+                $cleaned->location = $request->location;
+                $cleaned->date = $currentDate;
+                $cleaned->day = $currentDay;
+                $cleaned->image_name = $imageName;
+                $cleaned->image_url = $imageUrl;
+                $cleaned->created_at = $currentDateTime;
+                $cleaned->updated_at = $currentDateTime;
+                $cleaned->save();           
+                $new_cleaned_id = $cleaned->id;
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Location marked as cleaned successfully',
+                    'data' => [
+                        'image_url' => $imageUrl,
+                        'location' => $request->location,
+                        'date' => $currentDate,
+                    ],
+                ]);
+            }else{
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid action type',
+                ], 400);
             }
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Location marked as fulfilled successfully',
-                'data' => [
-                    'image_url' => $imageUrl,
-                    'location' => $request->location,
-                    'date' => $currentDate,
-                ],
-            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to mark location as fulfilled: '.$e->getMessage(),
+                'message' => 'Failed to mark location as fulfilled/cleaned: '.$e->getMessage(),
             ], 500);
         }
     }

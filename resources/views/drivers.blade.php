@@ -153,7 +153,7 @@
     .camera-resolution {
         display: none; /* Hide camera resolution captions */
     }
-    .fulfilled-btn-disabled {
+    .fulfilled-btn-disabled, .cleaned-btn-disabled {
         opacity: 0.5;
         pointer-events: none;
     }
@@ -164,6 +164,12 @@
     /* Fulfillment image thumbnail size for desktop */
     @media (min-width: 768px) {
         .fulfillment-thumbnail {
+            max-width: 300px;
+            height: auto;
+            margin: 0;
+            display: block;
+        }
+        .cleaned-thumbnail {
             max-width: 300px;
             height: auto;
             margin: 0;
@@ -271,8 +277,12 @@
                     <div class="accordion-item">
                         <div class="accordion-header" id="heading{{ $loop->index }}">
                             <h5 class="mb-0 ">
-                                <button class="accordion-button {{ $arrProducts['is_fulfilled'] ? 'bg-success-subtle' : 'bg-light' }} d-block text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="false" aria-controls="collapse{{ $loop->index }}">
-                                    {{ ($loop->index + 1) . ". " . $location }} <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span> <span class="text-white">{{ $arrProducts['location_data']['driver_fulfillment_time'] }}</span>
+                                @php
+                                    $bgCleaned = $arrProducts['is_cleaned'] ? '' : '<div class="spinner-grow text-danger" role="status">  <span class="visually-hidden">Loading...</span></div>';
+                                    $bgColor = $arrProducts['is_fulfilled'] ? 'bg-success-subtle' : 'bg-light';
+                                @endphp
+                                <button class="accordion-button {{ $bgColor }}  d-flex justify-content-center align-items-center text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="false" aria-controls="collapse{{ $loop->index }}">
+                                    {!! $bgCleaned !!}   &nbsp; {{ ($loop->index + 1) . ". " . $location }}  &nbsp; <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span> &nbsp; <span class="text-white">{{ $arrProducts['location_data']['driver_fulfillment_time'] }}</span>
                                 </button>
                             </h5>
                         </div>
@@ -296,6 +306,12 @@
                                             class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }}"
                                             data-location="{{ $location }}">
                                             <i class="fa-solid fa-truck-fast"></i> {{ $arrProducts['is_fulfilled'] ? 'Fulfilled' : 'Fulfill' }}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }}"
+                                            data-location="{{ $location }}">
+                                            <i class="fa-solid fa-broom"></i> {{ $arrProducts['is_cleaned'] ? 'Cleaned ' . $arrProducts['cleaning_time'] : 'Clean' }}
                                         </button>
                                     </div>
 
@@ -388,14 +404,21 @@
                                     @endfor
                                 </div>
 
-                                @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
                                 <div class="row mt-3">
-                                    <div class="col-12">
+                                    @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
+                                    <div class="col-12 col-sm-6 col-lg-3">
                                         <h6>FULFILLMENT ATTACHED PHOTO</h6>
                                         <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
                                     </div>
+                                    @endif
+    
+                                    @if(isset($arrProducts['is_cleaned']) && $arrProducts['is_cleaned'] && isset($arrProducts['cleaned_image']))
+                                        <div class="col-12 col-sm-6 col-lg-3">
+                                            <h6>CLEANING ATTACHED PHOTO</h6>
+                                            <img src="{{ $arrProducts['cleaned_image'] }}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                        </div>
+                                    @endif
                                 </div>
-                                @endif
 
                             </div>
                         </div>
@@ -422,6 +445,7 @@
                         <i class="fa-solid fa-camera"></i>
                     </div>
                     <input type="hidden" id="location-input">
+                    <input type="hidden" id="action_type">
                     <input type="file" id="file-input" accept="image/*" style="display: none;">
                 </div>
                 <div class="camera-controls">
@@ -741,6 +765,17 @@
             // Mark fulfilled button click handler
             $(document).on('click', '.mark-fulfilled', function() {
                 const locationName = $(this).data('location');
+                $('#action_type').val('fulfilled');
+                $('#cameraModalLabel').text('Mark as Fulfilled');
+                $('#location-input').val(locationName);
+                $('#cameraModal').modal('show');
+                startCamera();
+            });
+
+            $(document).on('click', '.mark-cleaned', function() {
+                const locationName = $(this).data('location');
+                $('#action_type').val('cleaned');
+                $('#cameraModalLabel').text('Mark as Cleaned');
                 $('#location-input').val(locationName);
                 $('#cameraModal').modal('show');
                 startCamera();
@@ -1100,47 +1135,98 @@
                     data: {
                         location: locationName,
                         image: capturedImageData,
+                        action_type: $('#action_type').val(),
                         store_uuid: store_uuid,  // Changed from store_id to store_uuid for clarity
                         _token: $('meta[name="csrf-token"]').attr('content')
                     },
                     async: false,
                     success: function(response) {
-                        // Disable the fulfilled button for this location
-                        $('button.mark-fulfilled[data-location="' + locationName + '"]')
-                            .addClass('fulfilled-btn-disabled')
-                            .html('<i class="fa-solid fa-truck-fast"></i> Fulfilled');
+                        if($('#action_type').val() == 'fulfilled'){
+                            // Disable the fulfilled button for this location
+                            $('button.mark-fulfilled[data-location="' + locationName + '"]')
+                                .addClass('fulfilled-btn-disabled')
+                                .html('<i class="fa-solid fa-truck-fast"></i> Fulfilled');
 
-                        // Change the accordion button color
-                        $('button.accordion-button')
-                            .filter(function() {
-                                return $(this).text().indexOf(locationName) !== -1;
-                            })
-                            .removeClass('bg-light')
-                            .addClass('bg-success-subtle');
+                            // Change the accordion button color
+                            $('button.accordion-button')
+                                .filter(function() {
+                                    return $(this).text().indexOf(locationName) !== -1;
+                                })
+                                .removeClass('bg-light')
+                                .addClass('bg-success-subtle');
 
-                        // Add the confirmation image to the location section
-                        const accordionId = $('button.accordion-button')
-                            .filter(function() {
-                                return $(this).text().indexOf(locationName) !== -1;
-                            })
-                            .attr('data-bs-target');
+                            // Add the confirmation image to the location section
+                            const accordionId = $('button.accordion-button')
+                                .filter(function() {
+                                    return $(this).text().indexOf(locationName) !== -1;
+                                })
+                                .attr('data-bs-target');
 
-                        const accordionBody = $(accordionId).find('.accordion-body');
+                            const accordionBody = $(accordionId).find('.accordion-body');
 
-                        // Check if we already have a FULFILLMENT ATTACHED PHOTO section
-                        if (accordionBody.find('h6:contains("FULFILLMENT ATTACHED PHOTO")').length === 0 && response.data && response.data.image_url) {
-                            accordionBody.append(`
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <h6>FULFILLMENT ATTACHED PHOTO</h6>
-                                        <img src="${response.data.image_url}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                            // Check if we already have a FULFILLMENT ATTACHED PHOTO section
+                            if (accordionBody.find('h6:contains("FULFILLMENT ATTACHED PHOTO")').length === 0 && response.data && response.data.image_url) {
+                                accordionBody.append(`
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <h6>FULFILLMENT ATTACHED PHOTO</h6>
+                                            <img src="${response.data.image_url}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                        </div>
                                     </div>
-                                </div>
-                            `);
+                                `);
+                            }
+
+                            $('#submission-message').html('<div class="alert alert-success">Location marked as fulfilled successfully!</div>');
+                        }
+                        else if($('#action_type').val() == 'cleaned'){
+                            // Disable the cleaned button for this location
+                            $('button.mark-cleaned[data-location="' + locationName + '"]')
+                                .addClass('cleaned-btn-disabled')
+                                .removeClass('btn-danger')
+                                .addClass('btn-success')
+                                .html('<i class="fa-solid fa-broom"></i> Cleaned' + " " + new Date().toLocaleTimeString());
+
+                            // Change the accordion button color
+                            // $('button.accordion-button')
+                            //     .filter(function() {
+                            //         return $(this).text().indexOf(locationName) !== -1;
+                            //     })
+                            //     .removeClass('bg-danger')
+                            //     .addClass('bg-light');
+                            $('button.accordion-button')
+                                .filter(function() {
+                                    return $(this).text().indexOf(locationName) !== -1;
+                                })
+                                .find('.spinner-grow').remove();
+
+                            // Add the confirmation image to the location section
+                            const accordionId = $('button.accordion-button')
+                                .filter(function() {
+                                    return $(this).text().indexOf(locationName) !== -1;
+                                })
+                                .attr('data-bs-target');
+
+                            const accordionBody = $(accordionId).find('.accordion-body');
+
+                            // Check if we already have a CLEANING ATTACHED PHOTO section
+                            if (accordionBody.find('h6:contains("CLEANING ATTACHED PHOTO")').length === 0 && response.data && response.data.image_url) {
+                                accordionBody.append(`
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <h6>CLEANING ATTACHED PHOTO</h6>
+                                            <img src="${response.data.image_url}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                        </div>
+                                    </div>
+                                `);
+                            }
+
+                            $('#submission-message').html('<div class="alert alert-success">Location marked as cleaned successfully!</div>');
+                        }
+                        else{
+                            $('#submission-message').html('<div class="alert alert-danger">Invalid action type.</div>');
                         }
 
-                        $('#submission-message').html('<div class="alert alert-success">Location marked as fulfilled successfully!</div>');
-                            // Close modal after delay
+                        // Close modal after delay
                         setTimeout(function() {
                             $('#cameraModal').modal('hide');
                         }, 2000);
