@@ -84,14 +84,10 @@ class DriverController extends Controller
 
         // Get fulfilled locations for today
         $currentDate = Carbon::now('Europe/Berlin')->format('Y-m-d');
-        $fulfilledLocations = DriverFulfilledStatus::where('date', $currentDate)
-                                ->pluck('location')
-                                ->toArray();
+        $fulfilledLocations = DriverFulfilledStatus::where('date', $currentDate)->get();
 
         // cleaning status has to be measured for past 7 days, beyond that is not to be considered
-        $cleanedLocations = LocationCleanedStatus::where('date', '>', Carbon::now('Europe/Berlin')->subDays(7)->format('Y-m-d'))
-                            ->pluck('location')
-                            ->toArray();
+        $cleanedLocations = LocationCleanedStatus::where('date', '>', Carbon::now('Europe/Berlin')->subDays(7)->format('Y-m-d'))->get();
 
         // Batch fetch all immediate inventory data to avoid N+1 queries
         // Using shared method from ShopifyController to reduce code duplication
@@ -126,21 +122,17 @@ class DriverController extends Controller
                     $arrData[$location_name]['location_data'] = $arrLocation;
                     $arrTotalOrders[$location_name]['total_orders_count'] = 0;
                     // Add fulfilled flag and get image if fulfilled
-                    $arrData[$location_name]['is_fulfilled'] = in_array($location_name, $fulfilledLocations);
-                    $arrData[$location_name]['is_cleaned'] = in_array($location_name, $cleanedLocations);
+                    $arrData[$location_name]['is_fulfilled'] = $fulfilledLocations->contains('location', $location_name);
+                    $arrData[$location_name]['is_cleaned'] = $cleanedLocations->contains('location', $location_name);
 
                     // Get fulfillment image if exists
                     if ($arrData[$location_name]['is_fulfilled']) {
-                        $fulfillment = DriverFulfilledStatus::where('location', $location_name)
-                            ->where('date', $currentDate)
-                            ->first();
+                        $fulfillment = $fulfilledLocations->firstWhere('location', $location_name);
                         $arrData[$location_name]['fulfillment_image'] = $fulfillment ? $fulfillment->image_url : null;
                     }
                     // Add cleaned flag and get image if cleaned
                     if ($arrData[$location_name]['is_cleaned']) {
-                        $cleaned = LocationCleanedStatus::where('location', $location_name)
-                            ->where('date', $currentDate)
-                            ->first();
+                        $cleaned = $cleanedLocations->firstWhere('location', $location_name);
                         $arrData[$location_name]['cleaned_image'] = $cleaned ? $cleaned->image_url : null;
                         $arrData[$location_name]['cleaning_time'] = $cleaned ? Carbon::parse($cleaned->created_at, 'Europe/Berlin')->format('d.m.Y H:i') : null;
                     }
