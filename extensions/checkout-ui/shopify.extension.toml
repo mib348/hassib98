@@ -13,6 +13,8 @@ network_access = true
 [[extensions]]
 name = "checkout-ui-thank-you"
 handle = "checkout-ui-thank-you"
+
+uid = "6e392f09-390d-21b2-9765-57f4db1c37ccab38b8f5"
 type = "ui_extension"
 # Explicitly define capabilities for the thank-you extension
 [extensions.capabilities]
@@ -27,6 +29,8 @@ export = "thankYouExtension"
 [[extensions]]
 name = "checkout-ui-order-status"
 handle = "checkout-ui-order-status"
+
+uid = "3b0a8a87-ade5-7ed0-9319-ba5306408621bc57cd1f"
 type = "ui_extension"
 # Explicitly define capabilities for the order-status extension
 [extensions.capabilities]
