@@ -174,7 +174,8 @@ function AppLogic(root, api, targetName) {
   async function initializeAndFetch() {
     try {
       await waitForShopifyData();
-      
+      state.retryCount = 0;
+
       const extractedData = extractOrderData();
       if (!extractedData.shopifyOrderId) {
         throw new Error('Order ID could not be extracted');
@@ -201,44 +202,170 @@ function AppLogic(root, api, targetName) {
     }
   }
   
+  // extractOrderData pulls together every identifier we can safely reach so that we have multiple shots at deriving the numeric order id.
+  // This is critical because Shopify can expose different fields depending on where the buyer is in the post-checkout flow.
   function extractOrderData() {
-    let shopifyOrderId = null;
-    
-    if (targetName === "customer-account.order-status.block.render") {
-      shopifyOrderId = api.order?.current?.id;
-    } else if (targetName === "purchase.thank-you.block.render") {
+    const candidates = [];
+
+    if (targetName === 'customer-account.order-status.block.render') {
+      candidates.push(api.order?.current?.id);
+      candidates.push(api.order?.current?.name);
+    } else if (targetName === 'purchase.thank-you.block.render') {
       const orderConfirmation = api.orderConfirmation?.current;
-      shopifyOrderId = orderConfirmation?.order?.id || orderConfirmation?.id;
+      candidates.push(orderConfirmation?.order?.id);
+      candidates.push(orderConfirmation?.id);
+      candidates.push(orderConfirmation?.order?.name);
+      candidates.push(orderConfirmation?.name);
     }
-    
-    // Fallback options
-    if (!shopifyOrderId) {
-      shopifyOrderId = api.extension?.order?.id || api.data?.order?.id;
+
+    // Capture additional ids Shopify might provide on different runtimes (extension api payloads, experimental fields, etc.).
+    candidates.push(api.extension?.order?.id);
+    candidates.push(api.data?.order?.id);
+
+    collectGlobalOrderHints().forEach(hint => candidates.push(hint));
+
+    const filtered = candidates.filter(Boolean);
+    let shopifyOrderId = filtered[0] || null;
+    let numericOrderId = null;
+
+    for (const candidate of filtered) {
+      const extracted = extractNumericId(candidate);
+      if (extracted) {
+        numericOrderId = extracted;
+        shopifyOrderId = shopifyOrderId || candidate;
+        break;
+      }
     }
-    
-    const numericOrderId = extractNumericId(shopifyOrderId);
+
     return { shopifyOrderId, numericOrderId };
   }
-  
-  function extractNumericId(orderId) {
-    if (!orderId) return null;
-    
-    if (typeof orderId === 'string' && 
-        (orderId.startsWith('gid://shopify/Order/') || orderId.startsWith('gid://shopify/OrderIdentity/'))) {
-      const extractedId = orderId.split('/').pop();
-      return (extractedId && extractedId !== '0' && !isNaN(parseInt(extractedId))) ? extractedId : null;
+
+  // collectGlobalOrderHints reads non-API globals such as window.Shopify or URL parameters.
+  // This gives us resilient fallbacks when the extension api is still propagating order data (common on busy stores).
+  function collectGlobalOrderHints() {
+    if (typeof window === 'undefined') return [];
+
+    const hints = [];
+    const shopifyGlobal = window.Shopify;
+
+    if (shopifyGlobal) {
+      hints.push(shopifyGlobal.checkout?.order_id);
+      hints.push(shopifyGlobal.checkout?.orderId);
+      hints.push(shopifyGlobal.order?.id);
+      hints.push(shopifyGlobal.order_id);
     }
-    
-    // Ensure orderId is not null/undefined before calling toString()
-    return orderId ? orderId.toString() : null;
+
+    const search = window.location?.search;
+    if (search) {
+      try {
+        const params = new URLSearchParams(search);
+        ['order_id', 'orderId', 'id'].forEach(key => hints.push(params.get(key)));
+      } catch (error) {
+        log(targetName, 'warn', 'URLSearchParams parse failed', error);
+      }
+    }
+
+    const urlSamples = [window.location?.href, window.location?.pathname];
+    urlSamples.forEach(sample => {
+      if (!sample) return;
+      const match = sample.match(/(?:orders|checkouts)\/(\d+)/i);
+      if (match) hints.push(match[1]);
+    });
+
+    return hints.filter(Boolean);
   }
 
+  // extractNumericId normalizes every candidate and returns the final numeric value we can send to our backend.
+  // The helper understands raw gid strings, base64 encoded gids, and plain numbers embedded in free-form strings.
+  function extractNumericId(orderId) {
+    if (orderId == null) return null;
+
+    if (typeof orderId === 'number') {
+      return orderId > 0 ? Math.trunc(orderId).toString() : null;
+    }
+
+    if (typeof orderId !== 'string') {
+      return null;
+    }
+
+    const trimmed = orderId.trim();
+    if (!trimmed) return null;
+
+    const normalized = normalizeOrderIdentifier(trimmed);
+    if (normalized) {
+      const idSegment = normalized.split('/').pop();
+      if (idSegment && /^[0-9]+$/.test(idSegment)) {
+        return idSegment;
+      }
+    }
+
+    const fallbackMatch = trimmed.match(/(\d{4,})/g);
+    if (fallbackMatch && fallbackMatch.length) {
+      return fallbackMatch[fallbackMatch.length - 1];
+    }
+
+    return null;
+  }
+
+  // normalizeOrderIdentifier makes sure we work with a uniform gid string, decoding base64 ids when Shopify gives us that format.
+  function normalizeOrderIdentifier(value) {
+    if (value.includes('gid://shopify/')) {
+      return value;
+    }
+
+    const decoded = decodePotentialBase64(value);
+    if (decoded && decoded.includes('gid://shopify/')) {
+      return decoded;
+    }
+
+    return null;
+  }
+
+  // decodePotentialBase64 safely attempts to decode values that look like base64-encoded gids without throwing when the input is not base64.
+  function decodePotentialBase64(value) {
+    const text = value.replace(/\s+/g, '');
+    if (!text || text.length < 8) return null;
+
+    const base64Pattern = /^[A-Za-z0-9+/=]+$/;
+    if (!base64Pattern.test(text)) return null;
+
+    try {
+      if (typeof atob === 'function') {
+        return atob(text);
+      }
+      if (typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function') {
+        return globalThis.atob(text);
+      }
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(text, 'base64').toString('utf8');
+      }
+    } catch (error) {
+      return null;
+    }
+
+    return null;
+  }
+
+  // shouldRetryFetch recognises short-lived API issues (eventual consistency, rate limits, network jitters) so we can retry without showing an error.
+  function shouldRetryFetch(error) {
+    if (!error) return false;
+
+    if (error.name === 'AbortError') return true;
+
+    const status = typeof error.status === 'number' ? error.status : null;
+    if (status) {
+      return [404, 409, 423, 425, 429, 500, 502, 503, 504].includes(status);
+    }
+
+    const message = error.message || '';
+    return /network|fetch|timeout|load failed/i.test(message);
+  }
   async function fetchOrderData() {
     try {
-      // Try to get order number from Shopify first
+      // Try to get order number from Shopify first so we can render instantly when data is ready.
       let orderNumberFromShopify = null;
-      
-      if (targetName === "purchase.thank-you.block.render") {
+
+      if (targetName === 'purchase.thank-you.block.render') {
         const orderConfirmation = api.orderConfirmation?.current;
         const orderName = orderConfirmation?.name || orderConfirmation?.order?.name;
         if (orderName) {
@@ -250,50 +377,54 @@ function AppLogic(root, api, targetName) {
           orderNumberFromShopify = orderName.replace('#', '');
         }
       }
-      
+
       if (orderNumberFromShopify) {
-        // Use Shopify data with defaults
+        // Use Shopify data with defaults so buyers see their QR code immediately when Shopify already provided the number.
         state.orderNumber = orderNumberFromShopify;
         state.stationFlag = state.stationFlag || 'N';
         state.arrLocation = state.arrLocation || { name: 'Default' };
       } else {
-        // Fallback to external API
-        const response = await fetch(`${CONFIG.API_BASE_URL}/api/getordernumber/${state.numericOrderId}`);
-        
+        // Fallback to external API when Shopify has not yet returned the number or location metadata.
+        const response = await fetch(`${CONFIG.API_BASE_URL}/api/getordernumber/${state.numericOrderId}`, {
+          method: 'GET',
+          cache: 'no-store'
+        });
+
         if (!response.ok) {
-          const errorMsg = response.status === 404 
-            ? `Order ID '${state.numericOrderId}' not found` 
+          const errorMsg = response.status === 404
+            ? `Order ID '${state.numericOrderId}' not found`
             : `API error (${response.status})`;
-          throw new Error(errorMsg);
+          const fetchError = new Error(errorMsg);
+          fetchError.status = response.status;
+          throw fetchError;
         }
-        
+
         const data = await response.json();
         state.orderNumber = data.order_number?.toString();
         state.stationFlag = data.arrLocation?.no_station;
         state.arrLocation = data.arrLocation;
       }
-      
+
       if (!state.orderNumber) {
         throw new Error('Order number not found');
       }
-      
-      // Success - update state and render
+
       state.isLoading = false;
       state.showError = false;
       state.retryCount = 0;
       renderApp();
-      
+
     } catch (error) {
       log(targetName, 'error', 'Error fetching order data:', error);
-      
-      // Retry logic for recoverable errors
-      if (error.message.includes('Order ID') && state.retryCount < CONFIG.MAX_RETRIES) {
+
+      if (shouldRetryFetch(error) && state.retryCount < CONFIG.MAX_RETRIES) {
         state.retryCount++;
+        state.isLoading = true;
+        state.showError = false;
         setTimeout(() => fetchOrderData(), CONFIG.RETRY_DELAY);
         return;
       }
-      
-      // Final error state
+
       state.isLoading = false;
       state.showError = true;
       renderApp();
@@ -516,3 +647,9 @@ export const orderStatusExtension = CustomerAccountComponents.extension(
 
 // Remove default export if it exists, or ensure it's not used by toml
 // export default ... (No default export needed if using named exports for targets)
+
+
+
+
+
+
