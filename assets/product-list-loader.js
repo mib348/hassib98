@@ -52,6 +52,24 @@
   console.log('[PF Loader] Cache utilities exposed as window.PF_CACHE_UTILS');
   console.log('[PF Loader] Available methods: clearSessionCache(), clearBrowserCache(), hardReset()');
 
+  /* ---------- Browser back/forward cache (bfcache) detection ---------- */
+  // Only reload from bfcache if we haven't already reloaded recently
+  window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+      var lastBfcacheReload = sessionStorage.getItem('pf_bfcache_reload');
+      var now = Date.now();
+
+      // Only reload if we haven't reloaded in the last 5 seconds
+      if (!lastBfcacheReload || (now - parseInt(lastBfcacheReload, 10)) > 5000) {
+        console.log('[PF Loader] Page restored from bfcache - forcing reload');
+        sessionStorage.setItem('pf_bfcache_reload', now.toString());
+        window.location.reload();
+      } else {
+        console.log('[PF Loader] Page restored from bfcache but recently reloaded, skipping');
+      }
+    }
+  });
+
   function initializeLoader() {
     var container = document.querySelector('[data-pf-type="ProductList2"]');
     if (!container) {
@@ -178,6 +196,12 @@
         var newSlider = tmp.querySelector('.pf-slider');
         var originalSlider = container.querySelector('.pf-slider');
 
+        /* ---------- Validate product count before rendering ---------- */
+        var productSlides = tmp.querySelectorAll('.pf-slide');
+        var actualProductCount = productSlides.length;
+
+        console.log('[PF Loader] Product count validation: found', actualProductCount, 'products');
+
         if (newSlider && originalSlider) {
           console.log('[PF Loader] New slider content found. Replacing original slider element to preserve data attributes.');
           originalSlider.parentNode.replaceChild(newSlider, originalSlider);
@@ -303,6 +327,13 @@
             loadingIcon.style.display = 'none';
             console.log('[PF Loader] Loading icon hidden');
           }
+
+          /* ---------- Final validation after render ---------- */
+          // Log product count for debugging
+          setTimeout(function() {
+            var renderedProducts = container.querySelectorAll('.pf-slide');
+            console.log('[PF Loader] Post-render validation: DOM has', renderedProducts.length, 'products');
+          }, 100);
         }, 500); // Show loading icon for at least 500ms
 
         // Notify any listeners (e.g., quantity / ATC handler script) that the
