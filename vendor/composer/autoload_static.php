@@ -351,13 +351,13 @@ class ComposerStaticInitd15a394c36e5cac1cf52ce891676e4c6
         ),
         'Spatie\\LaravelIgnition\\' => 
         array (
-            0 => __DIR__ . '/..' . '/spatie/laravel-ignition/src',
-            1 => __DIR__ . '/..' . '/spatie/error-solutions/legacy/laravel-ignition',
+            0 => __DIR__ . '/..' . '/spatie/error-solutions/legacy/laravel-ignition',
+            1 => __DIR__ . '/..' . '/spatie/laravel-ignition/src',
         ),
         'Spatie\\Ignition\\' => 
         array (
-            0 => __DIR__ . '/..' . '/spatie/ignition/src',
-            1 => __DIR__ . '/..' . '/spatie/error-solutions/legacy/ignition',
+            0 => __DIR__ . '/..' . '/spatie/error-solutions/legacy/ignition',
+            1 => __DIR__ . '/..' . '/spatie/ignition/src',
         ),
         'Spatie\\FlareClient\\' => 
         array (
@@ -681,6 +681,7 @@ class ComposerStaticInitd15a394c36e5cac1cf52ce891676e4c6
         'App\\Http\\Controllers\\LocationProductsTableController' => __DIR__ . '/../..' . '/app/Http/Controllers/LocationProductsTableController.php',
         'App\\Http\\Controllers\\LocationRevenueController' => __DIR__ . '/../..' . '/app/Http/Controllers/LocationRevenueController.php',
         'App\\Http\\Controllers\\LocationsTextController' => __DIR__ . '/../..' . '/app/Http/Controllers/LocationsTextController.php',
+        'App\\Http\\Controllers\\LoyaltyController' => __DIR__ . '/../..' . '/app/Http/Controllers/LoyaltyController.php',
         'App\\Http\\Controllers\\OperationDaysController' => __DIR__ . '/../..' . '/app/Http/Controllers/OperationDaysController.php',
         'App\\Http\\Controllers\\OrdersController' => __DIR__ . '/../..' . '/app/Http/Controllers/OrdersController.php',
         'App\\Http\\Controllers\\PersonalNotepadController' => __DIR__ . '/../..' . '/app/Http/Controllers/PersonalNotepadController.php',
@@ -710,9 +711,12 @@ class ComposerStaticInitd15a394c36e5cac1cf52ce891676e4c6
         'App\\Models\\DriverFulfilledStatus' => __DIR__ . '/../..' . '/app/Models/DriverFulfilledStatus.php',
         'App\\Models\\Fulfillment' => __DIR__ . '/../..' . '/app/Models/Fulfillment.php',
         'App\\Models\\Kitchen' => __DIR__ . '/../..' . '/app/Models/Kitchen.php',
+        'App\\Models\\LocationCleanedStatus' => __DIR__ . '/../..' . '/app/Models/LocationCleanedStatus.php',
         'App\\Models\\LocationProductsTable' => __DIR__ . '/../..' . '/app/Models/LocationProductsTable.php',
         'App\\Models\\LocationRevenue' => __DIR__ . '/../..' . '/app/Models/LocationRevenue.php',
         'App\\Models\\Locations' => __DIR__ . '/../..' . '/app/Models/Locations.php',
+        'App\\Models\\LoyaltyMember' => __DIR__ . '/../..' . '/app/Models/LoyaltyMember.php',
+        'App\\Models\\LoyaltyTransaction' => __DIR__ . '/../..' . '/app/Models/LoyaltyTransaction.php',
         'App\\Models\\Metafields' => __DIR__ . '/../..' . '/app/Models/Metafields.php',
         'App\\Models\\OperationDays' => __DIR__ . '/../..' . '/app/Models/OperationDays.php',
         'App\\Models\\Orders' => __DIR__ . '/../..' . '/app/Models/Orders.php',
@@ -4404,7 +4408,7 @@ class ComposerStaticInitd15a394c36e5cac1cf52ce891676e4c6
         'Osiset\\ShopifyApp\\Objects\\Enums\\ChargeStatus' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/ChargeStatus.php',
         'Osiset\\ShopifyApp\\Objects\\Enums\\ChargeType' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/ChargeType.php',
         'Osiset\\ShopifyApp\\Objects\\Enums\\DataSource' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/DataSource.php',
-        'Osiset\\ShopifyApp\\Objects\\Enums\\FrontendEngine' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/FrontendEngine.php',
+        'Osiset\\ShopifyApp\\Objects\\Enums\\FrontendType' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/FrontendType.php',
         'Osiset\\ShopifyApp\\Objects\\Enums\\PlanInterval' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/PlanInterval.php',
         'Osiset\\ShopifyApp\\Objects\\Enums\\PlanType' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/PlanType.php',
         'Osiset\\ShopifyApp\\Objects\\Enums\\SessionTokenSource' => __DIR__ . '/..' . '/kyon147/laravel-shopify/src/Objects/Enums/SessionTokenSource.php',

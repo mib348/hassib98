@@ -3,7 +3,7 @@
         'name' => 'laravel/laravel',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '8dec5b4d2ffacb123e004f6368fc5c7ac730a7e2',
+        'reference' => '3edd08939a5377819b48bd0198607ff480b2f72f',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -461,9 +461,9 @@
             ),
         ),
         'kyon147/laravel-shopify' => array(
-            'pretty_version' => 'v21.2.0',
-            'version' => '21.2.0.0',
-            'reference' => 'c9eb7dfadb3d5e1c1e96b7d383de94b325854e7e',
+            'pretty_version' => 'v24.0.0',
+            'version' => '24.0.0.0',
+            'reference' => '42e7e2c1667ffa3ffa57f5112e340afffd0b26e3',
             'type' => 'library',
             'install_path' => __DIR__ . '/../kyon147/laravel-shopify',
             'aliases' => array(),
@@ -481,7 +481,7 @@
         'laravel/laravel' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '8dec5b4d2ffacb123e004f6368fc5c7ac730a7e2',
+            'reference' => '3edd08939a5377819b48bd0198607ff480b2f72f',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -919,8 +919,8 @@
         'psr/log-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.0|2.0|3.0',
-                1 => '3.0.0',
+                0 => '3.0.0',
+                1 => '1.0|2.0|3.0',
             ),
         ),
         'psr/simple-cache' => array(
