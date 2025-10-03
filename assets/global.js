@@ -111,7 +111,31 @@ document.addEventListener('DOMContentLoaded', function () {
     const isSameDayPreorder = effectiveImmediate === "N" && !!effectiveDate && effectiveDate === getFormattedDate();
     let shouldPreventCheckout = false;
 
+    // First, get the cart to check if it contains only snacks_and_drinks items
+    let cartHasOnlySnacks = false;
     if (isSameDayPreorder) {
+      $.ajax({
+        type: "GET",
+        url: window.Shopify.routes.root + "cart.js",
+        async: false,
+        dataType: "json",
+        success: function (cartData) {
+          // Check if all items are snacks_and_drinks
+          if (cartData.items.length > 0) {
+            cartHasOnlySnacks = cartData.items.every(function(item) {
+              return item.properties.snacks_and_drinks === "Y";
+            });
+            console.log('[Cart Manager] Cart contains only snacks:', cartHasOnlySnacks);
+          }
+        },
+        error: function (xhr, status, error) {
+          console.error('[Cart Manager] Failed to fetch cart for snacks check:', error);
+        }
+      });
+    }
+
+    // Only check time expiration if cart has non-snacks items
+    if (isSameDayPreorder && !cartHasOnlySnacks) {
       $.ajax({
         url: `https://dev.sushi.catering/getLocations/${effectiveLocation}`,
         type: "GET",
@@ -149,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
           // if (additionalInventoryEnabled && additionalInventoryEndTime) {
           //   const [addHours, addMinutes] = additionalInventoryEndTime.split(':').map(Number);
           //   cutoffTimeInMinutes = addHours * 60 + addMinutes;
-          // } else 
+          // } else
           if (window.samedayPreorderEndTime) {
             const [coHours, coMinutes] = window.samedayPreorderEndTime.split(':').map(Number);
             cutoffTimeInMinutes = coHours * 60 + coMinutes;
@@ -178,6 +202,8 @@ document.addEventListener('DOMContentLoaded', function () {
           console.error('[Cart Manager] Failed to get locations:', error);
         }
       });
+    } else if (isSameDayPreorder && cartHasOnlySnacks) {
+      console.log('[Cart Manager] Cart contains only snacks, skipping client-side time check');
     }
     if (shouldPreventCheckout) {
       return;
@@ -193,7 +219,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const isPreorder = (sessionStorage.getItem("immediate_inventory") || "N") === "N";
         const isToday = cart.items.length > 0 && cart.items[0].properties.date === getFormattedDate();
 
-        if (isPreorder && isToday) {
+        // Check if cart contains any non-snacks items
+        const hasNonSnacksItems = cart.items.some(function(item) {
+          return item.properties.snacks_and_drinks !== "Y";
+        });
+
+        // Only check time expiration if cart has non-snacks items
+        if (isPreorder && isToday && hasNonSnacksItems) {
           $.ajax({
             type: "POST",
             url: "https://dev.sushi.catering/api/checkOrderInventory",
@@ -228,6 +260,8 @@ document.addEventListener('DOMContentLoaded', function () {
               timeExpired = true;
             }
           });
+        } else if (isPreorder && isToday && !hasNonSnacksItems) {
+          console.log('[Cart Manager] Cart contains only snacks and drinks, skipping time expiration check');
         }
 
         if (timeExpired) {
@@ -254,6 +288,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         $.each(cart.items, function (index, item) {
           dates.push(item.properties.date);
+
+          // Skip all quantity validation for snacks_and_drinks items - they have unlimited inventory
+          const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
+          if (isSnacksAndDrinks) {
+            console.log('[Cart Manager] Snacks and drinks item, skipping quantity check:', item.product_title);
+            return; // Skip to next item
+          }
 
           let stored_qty = parseInt(item.properties.max_quantity, 10);
           if (sessionStorage.getItem("location") === "Delivery") {
@@ -317,7 +358,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         $.each(cart.items, function (index, item) {
           const itemLocation = item.properties.location;
+          const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
           locations.push(itemLocation);
+
+          // Skip location validation for snacks and drinks items
+          if (isSnacksAndDrinks) {
+            console.log('[Cart Manager] Snacks and drinks item, skipping location check:', item.product_title);
+            return; // Continue to next item
+          }
 
           // Check if item location matches current session location
           if (itemLocation && currentLocation && itemLocation !== currentLocation) {
@@ -340,10 +388,18 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
 
-        // Additional check: Ensure all items have the same location among themselves
-        const allSameLocation = locations.length > 0 && locations.every(location => location === locations[0]);
+        // Additional check: Ensure all non-snacks items have the same location among themselves
+        const nonSnacksLocations = [];
+        $.each(cart.items, function (index, item) {
+          const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
+          if (!isSnacksAndDrinks && item.properties.location) {
+            nonSnacksLocations.push(item.properties.location);
+          }
+        });
+
+        const allSameLocation = nonSnacksLocations.length === 0 || nonSnacksLocations.every(location => location === nonSnacksLocations[0]);
         if (!allSameLocation) {
-          console.log('[Cart Manager] Mixed location items in cart:', locations);
+          console.log('[Cart Manager] Mixed location items in cart (excluding snacks):', nonSnacksLocations);
           alert('Ihr Warenkorb enthält Artikel von verschiedenen Standorten. Bitte entfernen Sie Artikel von anderen Standorten oder wählen Sie einen einheitlichen Standort.');
           return;
         }
@@ -382,23 +438,37 @@ document.addEventListener('DOMContentLoaded', function () {
         // If NOT Delivery, then proceed to the final stock check
         console.log('[Cart Manager] All initial validations passed, proceeding to final stock check for non-delivery order.');
 
+        // Filter out snacks_and_drinks items - they don't need inventory validation
+        const nonSnacksItems = cart.items.filter(function(item) {
+          return item.properties.snacks_and_drinks !== "Y";
+        });
+
+        console.log('[Cart Manager] Stock check - total items:', cart.items.length, 'non-snacks items:', nonSnacksItems.length);
+
+        // If cart contains only snacks items, skip stock check and proceed to checkout
+        if (nonSnacksItems.length === 0) {
+          console.log('[Cart Manager] Cart contains only snacks and drinks, skipping stock check, proceeding to checkout');
+          window.location.href = "/checkout";
+          return;
+        }
+
+        // Check inventory only for non-snacks items
         $.ajax({
           type: "POST",
           url: "https://dev.sushi.catering/api/checkCartProductsQty", // URL from new code
           async: false,
           cache: false,
           data: {
-            items: JSON.stringify(cart.items)
+            items: JSON.stringify(nonSnacksItems) // Send only non-snacks items for validation
           },
           dataType: "json",
           success: function (productsResponse) {
             let allProductsAvailable = true;
             let firstStockErrorElement = null;
-            const cartItems = cart.items; // For comparison
 
             for (let i = 0; i < productsResponse.length; i++) {
               const productStatus = productsResponse[i];
-              const currentCartItem = cartItems[i]; // Assuming alignment by index as per original new code
+              const currentCartItem = nonSnacksItems[i]; // Use filtered array for comparison
 
               // Ensure currentCartItem exists to prevent errors if arrays misalign
               if (!currentCartItem || currentCartItem.variant_id != productStatus.variant_id) {
@@ -406,7 +476,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Potentially handle this more gracefully, e.g., by trying to find by variant_id
                 // For now, following the assumption of aligned arrays from the new code.
                 // If variant_id is reliably present in cart.items[i], we could find:
-                // const currentCartItem = cartItems.find(ci => ci.variant_id == productStatus.variant_id);
+                // const currentCartItem = nonSnacksItems.find(ci => ci.variant_id == productStatus.variant_id);
               }
 
 
@@ -764,41 +834,51 @@ if (window.jQuery) {
 
           let items = response.items;
 
-          $.ajax({
-            type: "POST",
-            url: "https://dev.sushi.catering/api/checkOrderInventory",
-            async: false,
-            cache: false,
-            data: {
-              items: JSON.stringify(response.items)
-            },
-            dataType: "json",
-            success: function (response) {
-              //window.location.href = "/checkout";
-              if (response.sameday_preorder_time_expired == 1) {
-                alert('Du kannst nur noch eine Sofortbestellung tätigen.');
-                sessionStorage.clear();
-                $(".location_bar").remove();
-
-                $.ajax({
-                  type: "POST",
-                  url: window.Shopify.routes.root + "cart/clear.js",
-                  async: false,
-                  dataType: "json",
-                  success: function (response) {
-                    window.location.href = "/pages/bestellen";
-                  },
-                  error: function (xhr, status, error) {
-                    alert("Cart clear error:");
-                    console.log("Cart clear error:", error);
-                  },
-                });
-              }
-            },
-            error: function () {
-              console.log('Cart Check order Inventory api error');
-            }
+          // Check if cart contains any non-snacks items
+          const hasNonSnacksItems = items.some(function(item) {
+            return item.properties.snacks_and_drinks !== "Y";
           });
+
+          // Only check time expiration if cart has non-snacks items
+          if (hasNonSnacksItems) {
+            $.ajax({
+              type: "POST",
+              url: "https://dev.sushi.catering/api/checkOrderInventory",
+              async: false,
+              cache: false,
+              data: {
+                items: JSON.stringify(response.items)
+              },
+              dataType: "json",
+              success: function (response) {
+                //window.location.href = "/checkout";
+                if (response.sameday_preorder_time_expired == 1) {
+                  alert('Du kannst nur noch eine Sofortbestellung tätigen.');
+                  sessionStorage.clear();
+                  $(".location_bar").remove();
+
+                  $.ajax({
+                    type: "POST",
+                    url: window.Shopify.routes.root + "cart/clear.js",
+                    async: false,
+                    dataType: "json",
+                    success: function (response) {
+                      window.location.href = "/pages/bestellen";
+                    },
+                    error: function (xhr, status, error) {
+                      alert("Cart clear error:");
+                      console.log("Cart clear error:", error);
+                    },
+                  });
+                }
+              },
+              error: function () {
+                console.log('Cart Check order Inventory api error');
+              }
+            });
+          } else {
+            console.log('[Cart Manager] Cart contains only snacks and drinks on /cart page, skipping time expiration check');
+          }
         },
         error: function () {
         }
