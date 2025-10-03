@@ -6,6 +6,24 @@
 @endsection
 
 @section('content')
+{{-- AppBridge v4 App Nav - Global Navigation Menu --}}
+@include('partials.app_nav')
+
+{{-- AppBridge v4 Title Bar using s-page web component --}}
+<s-page heading="Operations">
+    {{-- Primary action button - navigates to Location Order Overview --}}
+    <s-button slot="primary-action" onclick="navigateToPage('/orders')">Location Order Overview</s-button>
+
+    {{-- Secondary action buttons for navigation --}}
+    <s-button slot="secondary-actions" onclick="navigateToPage('/stores')">Stores</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/location_products')">Location Products</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_revenue')">Locations Revenue</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_text')">Location Settings</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/kitchen/ADMIN?menu=1')">Kitchen</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/drivers/ADMIN?menu=1')">Drivers</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button>
+</s-page>
+
 <div class="container-fluid p-2">
     {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
@@ -52,64 +70,7 @@
 
 @section('scripts')
     @parent
-
-
-    <script>
-        // Assuming 'app' is already initialized and available
-        // var actions = window['app-bridge'].actions;
-        var Button = actions.Button;
-        var TitleBar = actions.TitleBar;
-        var Redirect = actions.Redirect; // Ensure Redirect is defined
-
-        // // Create a button for 'Products'
-        // var productsButton = Button.create(app, { label: 'Products' });
-        // productsButton.subscribe(Button.Action.CLICK, function() {
-        //     var redirect = Redirect.create(app);
-        //     redirect.dispatch(Redirect.Action.APP, '/products');
-        //     // Add your logic for when the 'Products' button is clicked
-        // });
-
-        // Create a button for 'Orders'
-        var ordersButton = Button.create(app, { label: 'Location Order Overview' });
-        ordersButton.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/orders');
-            // Add your logic for when the 'Orders' button is clicked
-        });
-
-        // Create a button for 'Location Products'
-        var location_products = Button.create(app, { label: 'Location Products' });
-        location_products.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/location_products');
-            // Add your logic for when the 'Operation' button is clicked
-        });
-
-        // Create a button for 'Locations Revenue'
-        var locations_revenue = Button.create(app, { label: 'Locations Revenue' });
-        locations_revenue.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-
-        // Create a button for 'Locations Text'
-        var locations_text = Button.create(app, { label: 'Location Time' });
-        locations_text.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/locations_text');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-
-        // Update the title bar with the new buttons
-        var titleBar = TitleBar.create(app, {
-            title: 'Operation Days',
-            buttons: {
-                primary: ordersButton,
-                secondary: [location_products, locations_revenue, locations_text]
-            },
-        });
-    </script>
+    @include('partials.app_navigation')
 
     <script type="text/javascript">
     	$(function(){

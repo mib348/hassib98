@@ -32,6 +32,23 @@
 @endsection
 
 @section('content')
+{{-- AppBridge v4 App Nav - Global Navigation Menu --}}
+@include('partials.app_nav')
+
+{{-- AppBridge v4 Title Bar using s-page web component --}}
+<s-page heading="Locations Revenue">
+    {{-- Primary action button - navigates to Location Order Overview --}}
+    <s-button slot="primary-action" onclick="navigateToPage('/orders')">Location Order Overview</s-button>
+
+    {{-- Secondary action buttons for navigation --}}
+    <s-button slot="secondary-actions" onclick="navigateToPage('/stores')">Stores</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/location_products')">Location Products</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_text')">Location Settings</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/kitchen/ADMIN?menu=1')">Kitchen</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/drivers/ADMIN?menu=1')">Drivers</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button>
+</s-page>
+
 <div class="container-fluid p-2">
     {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
@@ -144,6 +161,7 @@
 
 @section('scripts')
     @parent
+    @include('partials.app_navigation')
 
     <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js"></script>
@@ -151,98 +169,6 @@
     <script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
-
-
-    <script>
-        // Assuming 'app' is already initialized and available
-        // var actions = window['app-bridge'].actions;
-        var Button = actions.Button;
-        var TitleBar = actions.TitleBar;
-        var Redirect = actions.Redirect; // Ensure Redirect is defined
-
-        // // Create a button for 'Products'
-        // var productsButton = Button.create(app, { label: 'Products' });
-        // productsButton.subscribe(Button.Action.CLICK, function() {
-        //     var redirect = Redirect.create(app);
-        //     redirect.dispatch(Redirect.Action.APP, '/products');
-        //     // Add your logic for when the 'Products' button is clicked
-        // });
-
-        // Create a button for 'Orders'
-        var ordersButton = Button.create(app, { label: 'Location Order Overview' });
-        ordersButton.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/orders');
-            // Add your logic for when the 'Orders' button is clicked
-        });
-
-        // // Create a button for 'Operation'
-        // var operationdays = Button.create(app, { label: 'Operation Days' });
-        // operationdays.subscribe(Button.Action.CLICK, function() {
-        //     var redirect = Redirect.create(app);
-        //     redirect.dispatch(Redirect.Action.APP, '/operationdays');
-        //     // Add your logic for when the 'Operation' button is clicked
-        // });
-
-
-        // Create a button for 'Location Products'
-        var location_products = Button.create(app, { label: 'Location Products' });
-        location_products.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/location_products');
-            // Add your logic for when the 'Operation' button is clicked
-        });
-
-        // Create a button for 'Locations Text'
-        var locations_text = Button.create(app, { label: 'Location Settings' });
-        locations_text.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/locations_text');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-
-
-        // Create a button for 'Home Delivery Overview'
-        var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
-        homedeliveryButton.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/home_delivery');
-            // Add your logic for when the 'Orders' button is clicked
-        });
-
-        // Create a button for 'Store'
-        var stores = Button.create(app, { label: 'Stores' });
-        stores.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/stores');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-        
-        // Create a button for 'Kitchen'
-        var kitchen = Button.create(app, { label: 'Kitchen' });
-        kitchen.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN?menu=1');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-
-        // Create a button for 'Drivers'
-        var drivers = Button.create(app, { label: 'Drivers' });
-        drivers.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/drivers/ADMIN?menu=1');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-
-        // Update the title bar with the new buttons
-        var titleBar = TitleBar.create(app, {
-            title: 'Locations Revenue',
-            buttons: {
-                primary: ordersButton,
-                secondary: [stores, location_products, locations_text, kitchen, drivers, homedeliveryButton]
-            },
-        });
-    </script>
 
     <script type="text/javascript">
     	$(function(){

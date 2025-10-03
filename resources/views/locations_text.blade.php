@@ -11,6 +11,23 @@
 @endsection
 
 @section('content')
+{{-- AppBridge v4 App Nav - Global Navigation Menu --}}
+@include('partials.app_nav')
+
+{{-- AppBridge v4 Title Bar using s-page web component --}}
+<s-page heading="Location Settings">
+    {{-- Primary action button - navigates to Location Order Overview --}}
+    <s-button slot="primary-action" onclick="navigateToPage('/orders')">Location Order Overview</s-button>
+
+    {{-- Secondary action buttons for navigation --}}
+    <s-button slot="secondary-actions" onclick="navigateToPage('/stores')">Stores</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/location_products')">Location Products</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_revenue')">Locations Revenue</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/kitchen/ADMIN?menu=1')">Kitchen</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/drivers/ADMIN?menu=1')">Drivers</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button>
+</s-page>
+
 <div class="container-fluid p-2">
     {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
@@ -248,74 +265,9 @@
 
 @section('scripts')
     @parent
+    @include('partials.app_navigation')
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/js/bootstrap-timepicker.min.js"></script>
-
-    <script>
-        // Shopify App Bridge configuration for header buttons
-        var actions = window['app-bridge'].actions;
-        var Button = actions.Button;
-        var TitleBar = actions.TitleBar;
-        var Redirect = actions.Redirect;
-
-        // Create header buttons for navigation
-        var ordersButton = Button.create(app, { label: 'Location Order Overview' });
-        ordersButton.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/orders');
-        });
-
-        var location_products = Button.create(app, { label: 'Location Products' });
-        location_products.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/location_products');
-        });
-
-        var locations_revenue = Button.create(app, { label: 'Locations Revenue' });
-        locations_revenue.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/locations_revenue');
-        });
-
-
-        var homedeliveryButton = Button.create(app, { label: 'Home Delivery Overview' });
-        homedeliveryButton.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/home_delivery');
-        });
-
-        // Create a button for 'Store'
-        var stores = Button.create(app, { label: 'Stores' });
-        stores.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/stores');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-        
-        // Create a button for 'Kitchen'
-        var kitchen = Button.create(app, { label: 'Kitchen' });
-        kitchen.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/kitchen/ADMIN?menu=1');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-
-        // Create a button for 'Drivers'
-        var drivers = Button.create(app, { label: 'Drivers' });
-        drivers.subscribe(Button.Action.CLICK, function() {
-            var redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, '/drivers/ADMIN?menu=1');
-            // Add your logic for when the 'Locations Revenue' button is clicked
-        });
-
-        // Update the title bar with buttons
-        var titleBar = TitleBar.create(app, {
-            title: 'Location Settings',
-            buttons: {
-                primary: ordersButton,
-                secondary: [stores, location_products, locations_revenue, kitchen, drivers, homedeliveryButton]
-            },
-        });
-    </script>
 
     <script type="text/javascript">
     	$(function(){
