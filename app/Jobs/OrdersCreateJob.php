@@ -18,6 +18,8 @@ use stdClass;
 use \MailchimpMarketing\ApiClient;
 use \MailchimpTransactional\ApiClient as Transactional;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use App\Models\LoyaltyMember;
+use App\Models\LoyaltyTransaction;
 
 class OrdersCreateJob implements ShouldQueue
 {
@@ -109,6 +111,8 @@ class OrdersCreateJob implements ShouldQueue
                 }
             }
 
+            $this->processLoyaltyPoints($orderData);
+
 
 			return response()->json(['message' => 'Webhook received successfully'], 200);
         } catch (\Throwable $th) {
@@ -134,6 +138,16 @@ class OrdersCreateJob implements ShouldQueue
         //skip inventory handling for Orders of Location: Delivery
         if($lineItem['properties'][1]['value'] == "Delivery"){
             return true;
+        }
+
+        // Skip inventory handling for snacks and drinks items (snacks_and_drinks = Y)
+        // This check iterates through all line item properties to find if snacks_and_drinks is set to Y
+        // If found, we return early to avoid updating metafield inventory quantities
+        foreach ($lineItem['properties'] as $property) {
+            if (isset($property['name']) && $property['name'] == 'snacks_and_drinks' &&
+                isset($property['value']) && $property['value'] == 'Y') {
+                return true;
+            }
         }
 
         // Define the metafield details
@@ -480,6 +494,271 @@ class OrdersCreateJob implements ShouldQueue
         Log::error('Orders Created Job failed: '. json_encode($exception));
         throw new Exception("Orders Created Job failed: " . json_encode($exception), 1);
     }
+
+    /**
+     * Process loyalty points for the order.
+     * This method integrates loyalty program functionality into the existing order webhook processing.
+     * It awards points, tracks item purchases, updates customer tiers, and syncs with Shopify metafields.
+     *
+     * @param array $orderData The decoded order data from Shopify webhook
+     */
+    private function processLoyaltyPoints($orderData)
+    {
+        try {
+            // Extract customer information from order data
+            $customerEmail = $orderData['email'] ?? null;
+            $customerId = $orderData['customer']['id'] ?? null;
+
+            if (!$customerEmail || !$customerId) {
+                Log::info('No customer info available for loyalty processing', [
+                    'order_id' => $orderData['id'] ?? 'unknown'
+                ]);
+                return;
+            }
+
+            // Find or create loyalty member
+            $member = LoyaltyMember::firstOrCreate(
+                ['email' => $customerEmail],
+                [
+                    'shopify_customer_id' => $customerId,
+                    'status' => 'active'
+                ]
+            );
+
+            // Update member's Shopify customer ID if it was missing
+            if (!$member->shopify_customer_id && $customerId) {
+                $member->shopify_customer_id = $customerId;
+                $member->save();
+            }
+
+            // Count eligible items in the order (excluding delivery/service items)
+            $itemCount = 0;
+            $orderTotal = 0;
+
+            foreach ($orderData['line_items'] as $item) {
+                $itemTitle = strtolower($item['title']);
+                $itemSku = strtolower($item['sku'] ?? '');
+
+                // Skip delivery, shipping, or service items from loyalty calculations
+                // Adjust these conditions based on your product naming conventions
+                if (!$this->isEligibleForLoyalty($itemTitle, $itemSku)) {
+                    continue;
+                }
+
+                $itemCount += $item['quantity'];
+                $orderTotal += floatval($item['price']) * $item['quantity'];
+            }
+
+            if ($itemCount === 0) {
+                Log::info('No eligible items for loyalty program in order', [
+                    'order_id' => $orderData['id']
+                ]);
+                return;
+            }
+
+            // Update purchase count for "buy 4 get 1 free" logic
+            $member->addPurchasedItems($itemCount);
+
+            // Award points based on order value (1 point per euro spent on eligible items)
+            $pointsToAward = floor($orderTotal);
+
+            if ($pointsToAward > 0) {
+                $member->awardPoints(
+                    $pointsToAward,
+                    "Points earned from order {$orderData['name']}",
+                    $orderData['id']
+                );
+            }
+
+            $shop = Auth::user();
+            if(!isset($shop) || !$shop)
+                $shop = User::find(env('db_shop_id', 1));
+
+            // Update Shopify customer metafields for checkout extension access
+            $this->updateCustomerLoyaltyMetafields($member, $customerId, $shop);
+
+            Log::info('Loyalty processing completed successfully', [
+                'member_id' => $member->id,
+                'order_id' => $orderData['id'],
+                'items_counted' => $itemCount,
+                'points_awarded' => $pointsToAward,
+                'new_points_balance' => $member->points_balance,
+                'new_items_count' => $member->items_purchased_count,
+                'tier' => $member->tier
+            ]);
+
+        } catch (\Exception $e) {
+            // Log error but don't fail the entire job
+            Log::error('Loyalty processing error in OrdersCreateJob', [
+                'error' => $e->getMessage(),
+                'order_id' => $orderData['id'] ?? 'unknown',
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Optionally, you could send an alert to administrators here
+            // or queue a separate job to retry loyalty processing
+        }
+    }
+
+    /**
+     * Determine if an item is eligible for loyalty program benefits.
+     * This method checks item titles and SKUs to exclude delivery, shipping, and service items.
+     *
+     * @param string $itemTitle The item title in lowercase
+     * @param string $itemSku The item SKU in lowercase
+     * @return bool True if item is eligible for loyalty program
+     */
+    private function isEligibleForLoyalty(string $itemTitle, string $itemSku): bool
+    {
+        // Define exclusion patterns for items that shouldn't count toward loyalty
+        $exclusionPatterns = [
+            // Delivery and shipping
+            'delivery',
+            'lieferung',
+            'versand',
+            'shipping',
+            'transport',
+
+            // Service items
+            'service',
+            'fee',
+            'gebühr',
+            'discount',
+            'rabatt',
+            'tip',
+            'trinkgeld',
+
+            // Gift cards and store credit
+            'gift card',
+            'geschenkkarte',
+            'store credit',
+            'gutschein',
+
+            // Add more patterns as needed based on your product catalog
+        ];
+
+        // Check if item title or SKU matches any exclusion pattern
+        foreach ($exclusionPatterns as $pattern) {
+            if (str_contains($itemTitle, $pattern) || str_contains($itemSku, $pattern)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Update customer loyalty metafields in Shopify.
+     * This ensures that checkout UI extensions can access current loyalty status.
+     *
+     * @param LoyaltyMember $member The loyalty member to update
+     * @param string $customerId Shopify customer ID
+     */
+    private function updateCustomerLoyaltyMetafields(LoyaltyMember $member, string $customerId, $shop)
+    {
+        try {
+            // Get the current shop context (already available in your existing OrdersCreateJob)
+            if (!$shop) {
+                Log::warning('No shop context available for loyalty metafield update');
+                return;
+            }
+
+            // Calculate current free items eligibility
+            $freeItemsAvailable = $member->calculateFreeItemsAvailable();
+
+            // Prepare GraphQL mutation to update customer metafields
+            $mutation = '
+              mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+                  metafieldsSet(metafields: $metafields) {
+                      metafields {
+                          id
+                          namespace
+                          key
+                          value
+                      }
+                      userErrors {
+                          field
+                          message
+                      }
+                  }
+              }
+          ';  
+
+          $variables = [
+            'metafields' => [
+                [
+                    'ownerId' => "gid://shopify/Customer/{$customerId}",
+                    'namespace' => 'custom',
+                    'key' => 'loyalty_status',
+                    'value' => $member->status,
+                    'type' => 'single_line_text_field'
+                ],
+                [
+                    'ownerId' => "gid://shopify/Customer/{$customerId}",
+                    'namespace' => 'custom',
+                    'key' => 'loyalty_points',
+                    'value' => (string)$member->points_balance,
+                    'type' => 'number_integer'
+                ],
+                [
+                    'ownerId' => "gid://shopify/Customer/{$customerId}",
+                    'namespace' => 'custom',
+                    'key' => 'loyalty_free_items',
+                    'value' => (string)$freeItemsAvailable,
+                    'type' => 'number_integer'
+                ],
+                [
+                    'ownerId' => "gid://shopify/Customer/{$customerId}",
+                    'namespace' => 'custom',
+                    'key' => 'loyalty_tier',
+                    'value' => $member->tier,
+                    'type' => 'single_line_text_field'
+                ],
+                [
+                    'ownerId' => "gid://shopify/Customer/{$customerId}",
+                    'namespace' => 'custom',
+                    'key' => 'loyalty_items_purchased',
+                    'value' => (string)$member->items_purchased_count,
+                    'type' => 'number_integer'
+                ],
+                [
+                    'ownerId' => "gid://shopify/Customer/{$customerId}",
+                    'namespace' => 'custom',
+                    'key' => 'loyalty_lifetime_points',
+                    'value' => (string)$member->lifetime_points,
+                    'type' => 'number_integer'
+                ]
+            ]
+        ];
+
+            // Execute the GraphQL mutation using your existing shop API
+            $response = $shop->api()->graph($mutation, $variables);
+
+            // Check for errors in the response
+            if (!empty($response['data']['metafieldsSet']['userErrors'])) {
+                Log::error('Customer loyalty metafield update errors:', [
+                    'member_id' => $member->id,
+                    'customer_id' => $customerId,
+                    'errors' => $response['data']['metafieldsSet']['userErrors']
+                ]);
+            } else {
+                Log::info('Customer loyalty metafields updated successfully', [
+                    'member_id' => $member->id,
+                    'customer_id' => $customerId,
+                    'free_items_available' => $freeItemsAvailable,
+                    'response' => $response['data']['metafieldsSet']['metafields'] ?? null
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update customer loyalty metafields: ' . $e->getMessage(), [
+                'member_id' => $member->id,
+                'customer_id' => $customerId,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
 
 }
 
