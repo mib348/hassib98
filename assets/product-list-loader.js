@@ -60,11 +60,19 @@
     // Mark container as being processed
     container.classList.add('ajax_fetched');
 
+    /* ---------- Extract URL parameters ---------- */
     var qs = window.location.search || '';
     var url = window.location.pathname + '?section_id=dynamic-location-inventory';
     if (qs && qs.length > 1) { url += '&' + qs.slice(1); }
+    // Add timestamp cache buster to force fresh section load
+    url += '&_t=' + Date.now();
+
+    /* ---------- Extract snacks_and_drinks parameter for special handling ---------- */
+    var urlParams = new URLSearchParams(window.location.search);
+    var snacksAndDrinks = urlParams.get('snacks_and_drinks') || '';
 
     console.log('[PF Loader] Fetching:', url);
+    console.log('[PF Loader] snacks_and_drinks parameter:', snacksAndDrinks);
 
     // Product list has visibility:hidden by default in PageFly section
     console.log('[PF Loader] Product list is hidden by default via CSS');
@@ -251,6 +259,12 @@
           // Prepare form data
           var formData = new FormData(form);
           formData.set('id', variantId);
+
+          // Ensure snacks_and_drinks parameter is included in cart item properties
+          if (snacksAndDrinks) {
+            formData.set('properties[snacks_and_drinks]', snacksAndDrinks);
+            console.log('[PF Loader] Added snacks_and_drinks to form data:', snacksAndDrinks);
+          }
 
           // Submit to cart
           fetch('/cart/add.js', {

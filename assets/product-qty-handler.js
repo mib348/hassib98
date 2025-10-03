@@ -18,6 +18,10 @@
     // Check if product is sold out (max = 0 or disabled input)
     var isSoldOut = max <= 0;
 
+    // Check if snacks_and_drinks parameter is Y (should hide quantity controls)
+    var urlParams = new URLSearchParams(window.location.search);
+    var snacksAndDrinks = urlParams.get('snacks_and_drinks') === 'Y';
+
     // clamp value inside bounds
     if(val < min){ val = min; }
     if(val > max){ val = max; }
@@ -32,7 +36,7 @@
     if($btn.length){
       var shouldDisable = isSoldOut || val > max;
       $btn.prop('disabled', shouldDisable);
-      
+
       // Update button text and class for sold out products
       if(isSoldOut) {
         $btn.addClass('sold-out-btn');
@@ -50,8 +54,8 @@
       }
     }
 
-    // Hide quantity controls if sold out
-    if(isSoldOut) {
+    // Hide quantity controls if sold out OR if snacks_and_drinks=Y
+    if(isSoldOut || snacksAndDrinks) {
       $wrap.hide();
     } else {
       $wrap.show();
