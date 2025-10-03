@@ -1386,8 +1386,8 @@ class ShopifyController extends Controller
     }
 
     public function getLocationsList(Request $request) {
-        $arrLocations = Locations::where('is_active', 'Y')
-        ->whereNotIn('name', ['Delivery', 'Default Menu', 'Additional Inventory'])
+        $arrLocations = Locations::whereNotIn('name', ['Delivery', 'Default Menu', 'Additional Inventory'])
+        // ->where('is_active', 'Y')
         ->orderBy('name', 'asc')
         ->get();
         
