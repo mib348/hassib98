@@ -97,6 +97,7 @@ class LocationsTextController extends Controller
         $arrLocation->immediate_inventory_quantity_check_time = $request->input('immediate_inventory_quantity_check_time');
         $arrLocation->location_order = $request->input('location_order');
         $arrLocation->location_public_private = $request->has('location_public_private') ? 'PUBLIC' : 'PRIVATE';
+        $arrLocation->snacks_and_drinks = $request->has('snacks_and_drinks') ? 'Y' : 'N';
         return $arrLocation->save();
     }
 
@@ -455,7 +456,8 @@ class LocationsTextController extends Controller
                 'immediate_inventory_order_quantity_limit' => $arrLocation['immediate_inventory_order_quantity_limit'],
                 'immediate_inventory_quantity_check_time' => $arrLocation['immediate_inventory_quantity_check_time'],
                 'location_order' => $arrLocation['location_order'],
-                'location_public_private' => $arrLocation['location_public_private']
+                'location_public_private' => $arrLocation['location_public_private'],
+                'snacks_and_drinks' => $arrLocation['snacks_and_drinks']
             ]);
         } else {
             return response()->json([]);

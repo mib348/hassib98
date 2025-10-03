@@ -143,6 +143,32 @@
                 </div>
             </form>
 
+            <br>
+            <!-- Snacks and Drinks Inventory Table -->
+            <!-- This section manages inventory for snacks and drinks products which are tracked separately -->
+            <!-- Data is stored in custom.snacks_and_drinks metafield in Shopify -->
+            <h5 class="float-start">Snacks & Drinks Inventory</h5>
+            <button type="button" class="float-start ms-3 btn btn-primary btn-sm save-all-days_btn float-right" data-inventory-type="snacks_and_drinks">
+                Save All
+                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="snacks_and_drinks"></div>
+            </button>
+            <button type="button" class="float-start ms-3 btn btn-info btn-sm import_default_menu_btn float-right text-white" data-inventory-type="snacks_and_drinks">
+                Import Default Menu
+                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="snacks_and_drinks"></div>
+            </button>
+            <br class="clearfix">
+            <br class="clearfix">
+            <form id="location_products_form_snacks_and_drinks">
+                <input type="hidden" name="inventory_type" value="snacks_and_drinks">
+                <div class="table-responsive preorder_table">
+                    <div class="table-wrapper">
+                        <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full" data-inventory-type="snacks_and_drinks">
+                            @include('partials.location_products_table', ['inventoryType' => 'snacks_and_drinks', 'arrProducts' => $arrProducts])
+                        </table>
+                    </div>
+                </div>
+            </form>
+
 
             <br>
             @php
@@ -606,24 +632,31 @@
                     data: {
                         "_token": "{{ csrf_token() }}",
                         "strFilterLocation": location,
-                        "inventory_type": "both" // Request data for both inventory types
+                        "inventory_type": "all" // Request data for all three inventory types
                     },
                     cache:false,
                     dataType:"json",
                     success:function(response){
-                        // Clear existing selections in both tables
+                        // Clear existing selections in all three tables
+                        // Reset product selections to empty and quantities to default value of 8
                         $(`table[data-inventory-type="immediate"] select.nProductId`).val('');
                         $(`table[data-inventory-type="immediate"] select.nQuantity`).val(8);
                         $(`table[data-inventory-type="preorder"] select.nProductId`).val('');
                         $(`table[data-inventory-type="preorder"] select.nQuantity`).val(8);
+                        $(`table[data-inventory-type="snacks_and_drinks"] select.nProductId`).val('');
+                        $(`table[data-inventory-type="snacks_and_drinks"] select.nQuantity`).val(8);
 
-                        // Process data for both inventory types
+                        // Process data for all three inventory types
+                        // Each inventory type has its own metafield in Shopify
                         if (response.data) {
                             if (response.data.immediate) {
                                 populateTable(response.data.immediate, 'immediate');
                             }
                             if (response.data.preorder) {
                                 populateTable(response.data.preorder, 'preorder');
+                            }
+                            if (response.data.snacks_and_drinks) {
+                                populateTable(response.data.snacks_and_drinks, 'snacks_and_drinks');
                             }
                         }
                     },
@@ -650,8 +683,9 @@
                     const $row = $(`table[data-inventory-type="${inventoryType}"] tr.${day}`);
                     const $currentButtonTd = $row.find('td.action-column');
 
-                    // For 'preorder' inventory type, dynamically add cells if needed
-                    if (inventoryType === 'preorder') {
+                    // For 'preorder' and 'snacks_and_drinks' inventory types, dynamically add cells if needed
+                    // These inventory types allow unlimited products per day unlike 'immediate' which is limited to 4
+                    if (inventoryType === 'preorder' || inventoryType === 'snacks_and_drinks') {
                         let currentProductCells = $row.find('td.product-cell').length;
                         const productCount = dayData.length;
 
@@ -700,8 +734,8 @@
                     });
                 }
 
-                // For 'preorder' inventory type, update headers
-                if (inventoryType === 'preorder') {
+                // For 'preorder' and 'snacks_and_drinks' inventory types, update headers to reflect dynamic product columns
+                if (inventoryType === 'preorder' || inventoryType === 'snacks_and_drinks') {
                     updateHeaders($(`table[data-inventory-type="${inventoryType}"]`));
                 }
             }

@@ -168,6 +168,16 @@
                     </div>
                 </div>
                 <br>
+                <div class="row">
+                    <div class="col-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Y" id="snacks_and_drinks" name="snacks_and_drinks">
+                            <label class="form-check-label" for="snacks_and_drinks">
+                                Snacks & Drinks
+                            </label>
+                        </div>
+                    </div>
+                </div>
                 <div class="row location_order_portion">
                     <div class="col-12">
                         <label class="label fw-bold font-bold" for="location_order">Order</label>
@@ -321,6 +331,7 @@
                     $(".location_order_portion").hide();
                     $(".checkout_note_portion").hide();
                     $(".location_public_private_portion").hide();
+                    $(".snacks_and_drinks_portion").hide();
                 }
                 else if($(this).val() == "Delivery"){
                     $("#save_btn").show();
@@ -332,6 +343,7 @@
                     $(".location_order_portion").hide();
                     $(".checkout_note_portion").show();
                     $(".location_public_private_portion").hide();
+                    $(".snacks_and_drinks_portion").hide();
                 }
                 else{
                     $("#save_btn").show();
@@ -343,6 +355,7 @@
                     $(".location_order_portion").show();
                     $(".checkout_note_portion").hide();
                     $(".location_public_private_portion").show();
+                    $(".snacks_and_drinks_portion").show();
                 }
 
                 LoadList();
@@ -561,6 +574,7 @@
                         }
 
                         $("#location_public_private").prop('checked', data.location_public_private === 'PUBLIC');
+                        $("#snacks_and_drinks").prop('checked', data.snacks_and_drinks === 'Y');
                     }
                     else{
                         $("#address").val('');
@@ -581,6 +595,7 @@
                         $(".immediate_inventory_48h_portion").hide();
                         $("#immediate_inventory_quantity_check_time").val('--:--');
                         $("#location_public_private").prop('checked', false);
+                        $("#snacks_and_drinks").prop('checked', false);
                     }
                 },
                 error: function (request, status, error) {

@@ -49,7 +49,17 @@ class LocationProductsTableController extends Controller
         $inventoryType = $request->input('inventory_type', 'immediate');
 
         // Determine metafield key based on inventory_type
-        $metafieldKey = ($inventoryType === 'preorder') ? 'preorder_inventory' : 'json';
+        // Maps each inventory type to its corresponding Shopify metafield key
+        // - 'preorder' uses 'preorder_inventory' metafield
+        // - 'snacks_and_drinks' uses 'snacks_and_drinks' metafield
+        // - 'immediate' (default) uses 'json' metafield
+        if ($inventoryType === 'preorder') {
+            $metafieldKey = 'preorder_inventory';
+        } elseif ($inventoryType === 'snacks_and_drinks') {
+            $metafieldKey = 'snacks_and_drinks';
+        } else {
+            $metafieldKey = 'json';
+        }
 
         // Collect all product IDs to update
         $productIds = [];
@@ -507,7 +517,9 @@ class LocationProductsTableController extends Controller
         $days = DB::table('location_products_tables')
             ->where('product_id', $productId)
 			->whereNotNull('day')
-            ->whereIn('inventory_type', ['immediate', 'preorder'])
+            // Include all three inventory types when fetching available days
+            // This ensures the 'available_on' metafield reflects product availability across all inventory types
+            ->whereIn('inventory_type', ['immediate', 'preorder', 'snacks_and_drinks'])
             ->distinct()
             ->pluck('day')
             ->toArray();
@@ -548,15 +560,16 @@ class LocationProductsTableController extends Controller
     }
 
     /**
-     * Get location products as JSON for both inventory types.
+     * Get location products as JSON for all inventory types or a specific type.
+     * Supports fetching immediate, preorder, and snacks_and_drinks inventory data.
      */
     public function getLocationsProductsJSON(Request $request)
     {
         $location = $request->input('strFilterLocation');
         $inventoryType = $request->input('inventory_type', 'immediate');
 
-        if ($inventoryType == 'both') {
-            // Fetch data for both inventory types
+        if ($inventoryType == 'both' || $inventoryType == 'all') {
+            // Fetch data for all three inventory types
             $immediateProducts = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
                 ->where('products.status', 'active')
                 ->where('location_products_tables.location', $location)
@@ -569,10 +582,17 @@ class LocationProductsTableController extends Controller
                 ->where('inventory_type', 'preorder')
                 ->get();
 
+            $snacksAndDrinksProducts = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
+                ->where('products.status', 'active')
+                ->where('location_products_tables.location', $location)
+                ->where('inventory_type', 'snacks_and_drinks')
+                ->get();
+
             return response()->json([
                 'data' => [
                     'immediate' => $immediateProducts,
                     'preorder' => $preorderProducts,
+                    'snacks_and_drinks' => $snacksAndDrinksProducts,
                 ]
             ]);
         } else {
