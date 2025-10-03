@@ -6,6 +6,52 @@
   window.__PF_DYNAMIC_LOADER__ = true;
   console.log('[PF Loader] initializing');
 
+  /* ---------- Global cache management utilities ---------- */
+  // Expose cache-clearing utilities globally for debugging
+  window.PF_CACHE_UTILS = {
+    // Clear all session storage cache keys
+    clearSessionCache: function() {
+      try {
+        sessionStorage.removeItem('pf_cache_counter');
+        console.log('[PF Cache] Session cache cleared');
+        return true;
+      } catch (e) {
+        console.error('[PF Cache] Failed to clear session cache:', e);
+        return false;
+      }
+    },
+
+    // Clear browser cache via cache API if available
+    clearBrowserCache: function() {
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          names.forEach(function(name) {
+            caches.delete(name);
+            console.log('[PF Cache] Deleted cache:', name);
+          });
+        });
+        console.log('[PF Cache] Browser cache cleared');
+        return true;
+      } else {
+        console.warn('[PF Cache] Cache API not available');
+        return false;
+      }
+    },
+
+    // Full cache reset (session + browser + reload)
+    hardReset: function() {
+      this.clearSessionCache();
+      this.clearBrowserCache();
+      console.log('[PF Cache] Performing hard reset - reloading page...');
+      setTimeout(function() {
+        window.location.reload(true); // Force reload from server
+      }, 100);
+    }
+  };
+
+  console.log('[PF Loader] Cache utilities exposed as window.PF_CACHE_UTILS');
+  console.log('[PF Loader] Available methods: clearSessionCache(), clearBrowserCache(), hardReset()');
+
   function initializeLoader() {
     var container = document.querySelector('[data-pf-type="ProductList2"]');
     if (!container) {
@@ -64,8 +110,29 @@
     var qs = window.location.search || '';
     var url = window.location.pathname + '?section_id=dynamic-location-inventory';
     if (qs && qs.length > 1) { url += '&' + qs.slice(1); }
-    // Add timestamp cache buster to force fresh section load
-    url += '&_t=' + Date.now();
+
+    /* ---------- Robust cache busting strategy ---------- */
+    // Combine multiple entropy sources to ensure unique requests:
+    // 1. Timestamp - prevents time-based caching
+    // 2. Random - prevents accidental duplicates in same millisecond
+    // 3. Session counter - tracks refreshes within same session
+
+    // Get or initialize session cache counter
+    var sessionKey = 'pf_cache_counter';
+    var counter = sessionStorage.getItem(sessionKey) || '0';
+    counter = (parseInt(counter, 10) + 1).toString();
+    sessionStorage.setItem(sessionKey, counter);
+
+    // Build comprehensive cache buster
+    var timestamp = Date.now();
+    var random = Math.random().toString(36).substring(2, 11); // 9 random chars
+    var cacheBuster = timestamp + '_' + random + '_' + counter;
+
+    // Apply cache buster to URL
+    url += '&_cache=' + cacheBuster;
+
+    // Add no-cache directive hint (some CDNs respect this)
+    url += '&nocache=1';
 
     /* ---------- Extract snacks_and_drinks parameter for special handling ---------- */
     var urlParams = new URLSearchParams(window.location.search);
@@ -73,14 +140,38 @@
 
     console.log('[PF Loader] Fetching:', url);
     console.log('[PF Loader] snacks_and_drinks parameter:', snacksAndDrinks);
+    console.log('[PF Loader] Cache buster:', cacheBuster);
 
     // Product list has visibility:hidden by default in PageFly section
     console.log('[PF Loader] Product list is hidden by default via CSS');
 
-    fetch(url)
+    // Fetch with explicit no-cache headers to prevent browser/CDN caching
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      cache: 'no-store' // Force browser to never use cached response
+    })
       .then(function (r) { return r.text(); })
       .then(function (html) {
         console.log('[PF Loader] HTML fetched, length', html.length);
+
+        // Log cache version from server response for debugging
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        var cacheVersionAttr = tempDiv.querySelector('[data-cache-version]');
+        if (cacheVersionAttr) {
+          var serverCacheVersion = cacheVersionAttr.getAttribute('data-cache-version');
+          var serverRenderTime = cacheVersionAttr.getAttribute('data-render-time');
+          console.log('[PF Loader] Server cache version:', serverCacheVersion);
+          console.log('[PF Loader] Server render time:', serverRenderTime);
+          console.log('[PF Loader] Requested at:', timestamp);
+        } else {
+          console.warn('[PF Loader] No cache version found in server response - may indicate caching issue');
+        }
 
         var tmp = document.createElement('div');
         tmp.innerHTML = html;
