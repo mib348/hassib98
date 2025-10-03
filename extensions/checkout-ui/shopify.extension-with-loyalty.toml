@@ -1,0 +1,114 @@
+# Learn more about configuring your checkout UI extension:
+# https://shopify.dev/api/checkout-extensions/checkout/configuration
+
+# The version of APIs your extension will receive. Learn more:
+# https://shopify.dev/docs/api/usage/versioning
+api_version = "2025-04"
+
+# Top-level capabilities (should apply to all extensions unless overridden)
+[capabilities]
+api_access = true
+network_access = true
+
+[[extensions]]
+name = "checkout-ui-thank-you"
+handle = "checkout-ui-thank-you"
+type = "ui_extension"
+# Explicitly define capabilities for the thank-you extension
+[extensions.capabilities]
+api_access = true
+network_access = true
+
+[[extensions.targeting]]
+module = "./src/index.js"
+target = "purchase.thank-you.block.render"
+export = "thankYouExtension"
+
+[[extensions]]
+name = "checkout-ui-order-status"
+handle = "checkout-ui-order-status"
+type = "ui_extension"
+# Explicitly define capabilities for the order-status extension
+[extensions.capabilities]
+api_access = true
+network_access = true
+
+[[extensions.targeting]]
+module = "./src/index.js"
+target = "customer-account.order-status.block.render"
+export = "orderStatusExtension"
+
+# Loyalty Program Metafields Configuration
+# These metafields are automatically loaded and made available to the extensions
+# for displaying customer loyalty status and eligibility information
+
+# Customer loyalty program status (active/inactive)
+[[extensions.metafields]]
+namespace = "loyalty"
+key = "status"
+
+# Customer's current loyalty points balance
+[[extensions.metafields]]
+namespace = "loyalty"
+key = "points"
+
+# Number of free items customer is currently eligible for
+[[extensions.metafields]]
+namespace = "loyalty"
+key = "free_items"
+
+# Customer's loyalty tier (bronze/silver/gold)
+[[extensions.metafields]]
+namespace = "loyalty"
+key = "tier"
+
+# Total number of items customer has purchased (for buy-4-get-1-free calculation)
+[[extensions.metafields]]
+namespace = "loyalty"
+key = "items_purchased"
+
+# Customer's lifetime loyalty points earned
+[[extensions.metafields]]
+namespace = "loyalty"
+key = "lifetime_points"
+
+# Optional: Additional metafields for future enhancements
+# Uncomment and configure these if needed for your loyalty program
+
+# [[extensions.metafields]]
+# namespace = "loyalty"
+# key = "member_since"
+
+# [[extensions.metafields]]
+# namespace = "loyalty"
+# key = "last_redemption"
+
+# [[extensions.metafields]]
+# namespace = "loyalty"
+# key = "referral_code"
+
+# Defines settings that will be collected from merchants installing
+# your extension. Learn more:
+# https://shopify.dev/docs/api/checkout-ui-extensions/unstable/configuration#settings-definition
+
+# Optional: Loyalty Program Settings
+# These can be configured by merchants when installing the extension
+
+# [extensions.settings]
+# [[extensions.settings.fields]]
+# key = "loyalty_enabled"
+# type = "boolean"
+# name = "Enable Loyalty Program Display"
+# description = "Show loyalty program status on checkout pages"
+
+# [[extensions.settings.fields]]
+# key = "loyalty_api_endpoint"
+# type = "single_line_text_field"
+# name = "Loyalty API Endpoint"
+# description = "URL endpoint for loyalty status API (leave empty to use default)"
+
+# [[extensions.settings.fields]]
+# key = "free_item_threshold"
+# type = "number_integer"
+# name = "Free Item Threshold"
+# description = "Number of items required to earn a free item (default: 4)"
