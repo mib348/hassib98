@@ -7,16 +7,19 @@ application_url = "https://dev.sushi.catering/"
 embedded = true
 
 [build]
-include_config_on_deploy = true
 
 [webhooks]
-api_version = "2024-01"
+api_version = "2025-10"
 
 [auth]
 redirect_urls = [
   "https://dev.sushi.catering/authenticate",
   "https://laravelshopifypartnerapp.test/authenticate"
 ]
+
+[access_scopes]
+# Use these scopes to grant required access for your app
+scopes = "read_products,write_products,read_themes,write_themes,read_order_edits,write_order_edits,read_shipping,write_shipping,read_returns,write_returns,read_script_tags,write_script_tags,read_orders,write_orders,read_metaobjects,write_metaobjects,read_metaobject_definitions,write_metaobject_definitions,read_markets,write_markets,read_locations,read_inventory,write_inventory,read_files,write_files,read_customers,write_customers,read_content,write_content,read_checkouts,write_checkouts,read_discounts,write_discounts"
 
 [pos]
 embedded = false
