@@ -10,7 +10,7 @@ return [
     |
     */
 
-    'debug' => (bool) env('SHOPIFY_DEBUG', true),
+    'debug' => (bool) env('SHOPIFY_DEBUG', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -25,6 +25,18 @@ return [
 
     'manual_migrations' => (bool) env('SHOPIFY_MANUAL_MIGRATIONS', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sub Domain
+    |--------------------------------------------------------------------------
+    |
+    | This is the subdomain where Shopify will be accessible from. If the
+    | setting is null, Shopify will reside under the same domain as the
+    | application. Otherwise, this value will be used as the subdomain.
+    |
+    */
+
+    'domain' => env('SHOPIFY_DOMAIN'),
     /*
     |--------------------------------------------------------------------------
     | Manual routes
@@ -127,26 +139,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | AppBridge Mode
-    |--------------------------------------------------------------------------
-    |
-    | AppBridge (embedded apps) are enabled by default. Set to false to use legacy
-    | mode and host the app inside your own container.
-    |
-    */
-
-    'appbridge_enabled' => (bool) env('SHOPIFY_APPBRIDGE_ENABLED', true),
-
-    // Use semver range to link to a major or minor version number.
-    // Leaving empty will use the latest version - not recommended in production.
-    'appbridge_version' => env('SHOPIFY_APPBRIDGE_VERSION', 'latest'),
-
-    // Set a new CDN URL if you want to host the AppBridge JS yourself or unpkg goes down.
-    // DO NOT include a trailing slash.
-    'appbridge_cdn_url' => env('SHOPIFY_APPBRIDGE_CDN_URL', 'https://unpkg.com'),
-
-    /*
-    |--------------------------------------------------------------------------
     | Shopify App Name
     |--------------------------------------------------------------------------
     |
@@ -154,7 +146,7 @@ return [
     |
     */
 
-    'app_name' => env('SHOPIFY_APP_NAME', 'Sushi Catering'),
+    'app_name' => env('SHOPIFY_APP_NAME', 'Dev.Sushi.Catering App'),
 
     /*
     |--------------------------------------------------------------------------
@@ -168,7 +160,7 @@ return [
     |
     */
 
-    'api_version' => env('SHOPIFY_API_VERSION', '2024-10'),
+    'api_version' => env('SHOPIFY_API_VERSION', '2025-10'),
 
     /*
     |--------------------------------------------------------------------------
@@ -179,7 +171,7 @@ return [
     |
     */
 
-    'api_key' => env('SHOPIFY_API_KEY', '0a68988e122bb83cff6e33a584d15f11'),
+    'api_key' => env('SHOPIFY_API_KEY', '5f7e03bd03e092b7fa86eef4e66b202d'),
 
     /*
     |--------------------------------------------------------------------------
@@ -190,7 +182,7 @@ return [
     |
     */
 
-    'api_secret' => env('SHOPIFY_API_SECRET', '977b90b93cc144eb43fb7c17a2fda6ca'),
+    'api_secret' => env('SHOPIFY_API_SECRET', 'c96a0c6ead843cbacd48db91f14ce632'),
 
     /*
     |--------------------------------------------------------------------------
@@ -201,7 +193,7 @@ return [
     |
     */
 
-    'api_scopes' => env('SHOPIFY_API_SCOPES', 'read_products,write_products,read_themes,write_themes,read_order_edits,write_order_edits,read_shipping,write_shipping,read_returns,write_returns,read_script_tags,write_script_tags,read_orders,write_orders,read_metaobjects,write_metaobjects,read_metaobject_definitions,write_metaobject_definitions,read_markets,write_markets,read_locations,read_inventory,write_inventory,read_files,write_files,read_customers,write_customers,read_content,write_content,read_checkouts,write_checkouts'),
+    'api_scopes' => env('SHOPIFY_API_SCOPES', 'read_products,write_products,read_themes,write_themes,read_order_edits,write_order_edits,read_shipping,write_shipping,read_returns,write_returns,read_script_tags,write_script_tags,read_orders,write_orders,read_metaobjects,write_metaobjects,read_metaobject_definitions,write_metaobject_definitions,read_markets,write_markets,read_locations,read_inventory,write_inventory,read_files,write_files,read_customers,write_customers,read_content,write_content,read_checkouts,write_checkouts,read_discounts,write_discounts'),
 
     /*
     |--------------------------------------------------------------------------
@@ -346,6 +338,18 @@ return [
     | Register listeners to the events
     |--------------------------------------------------------------------------
     |
+    | In Laravel version 11 and later, event listeners located in the `App\Listeners`
+    | directory are automatically registered by default. Therefore, manual registration
+    | in this configuration file is unnecessary.
+    |
+    | If you register the listeners manually again here, the listener will be called twice.
+    |
+    | If you plan to store your listeners in a different directory like `App\Shopify\Listeners`
+    | or within multiple directories, then you should register them here.
+    |
+    | If you are using Laravel version 10 or earlier, then corresponding listeners
+    | must be registered here.
+    |
     */
 
     'listen' => [
@@ -381,22 +385,6 @@ return [
     */
 
     'webhooks' => [
-        /*
-            [
-                'topic' => env('SHOPIFY_WEBHOOK_1_TOPIC', 'ORDERS_CREATE'),
-                'address' => env('SHOPIFY_WEBHOOK_1_ADDRESS', 'https://some-app.com/webhook/orders-create')
-            ], [
-                'topic' => env('SHOPIFY_WEBHOOK_2_TOPIC', 'APP_PURCHASES_ONE_TIME_UPDATE'),
-                'address' => env('SHOPIFY_WEBHOOK_2_ADDRESS', 'https://some-app.com/webhook/purchase'),
-            ]
-            // In certain situations you may wish to map the webhook to a specific class
-            // To do this, change the array to an associative array with a 'class' key
-            'orders-create' => [
-                'topic' => env('SHOPIFY_WEBHOOK_3_TOPIC', 'ORDERS_PAID'),
-                'address' => env('SHOPIFY_WEBHOOK_3_ADDRESS', 'https://some-app.com/webhook/orders-create'),
-                'class' => \App\Shopify\Actions\ExampleAppJob::class
-            ],
-        */
         [
             'topic' => env('SHOPIFY_WEBHOOK_1_TOPIC', 'ORDERS_CREATE'),
             'address' => env('SHOPIFY_WEBHOOK_1_ADDRESS', 'https://some-app.com/webhook/orders-create')
@@ -408,12 +396,23 @@ return [
         [
             'topic' => env('SHOPIFY_WEBHOOK_3_TOPIC', 'REFUNDS_CREATE'),
             'address' => env('SHOPIFY_WEBHOOK_3_ADDRESS', 'https://(your-domain).com/webhook/refunds-create')
-        ],
-        [
-            'topic' => env('SHOPIFY_WEBHOOK_4_TOPIC', 'ORDERS_UPDATED'),
-            'address' => env('SHOPIFY_WEBHOOK_4_ADDRESS', 'https://(your-domain).com/webhook/orders-update')
         ]
-    ],
+        /*
+            [
+                'topic' => env('SHOPIFY_WEBHOOK_1_TOPIC', 'ORDERS_CREATE'),
+                'address' => env('SHOPIFY_WEBHOOK_1_ADDRESS', 'https://example.com/webhook/orders-create')
+            ], [
+                'topic' => env('SHOPIFY_WEBHOOK_2_TOPIC', 'APP_PURCHASES_ONE_TIME_UPDATE'),
+                'address' => env('SHOPIFY_WEBHOOK_2_ADDRESS', 'https://example.com/webhook/purchase'),
+            ]
+            // In certain situations you may wish to map the webhook to a specific class
+            // To do this, change the array to an associative array with a 'class' key
+            'orders-create' => [
+                'topic' => env('SHOPIFY_WEBHOOK_3_TOPIC', 'ORDERS_PAID'),
+                'address' => env('SHOPIFY_WEBHOOK_3_ADDRESS', 'https://example.com/webhook/orders-create'),
+                'class' => \App\Shopify\Actions\ExampleAppJob::class
+            ],
+        */],
 
     /*
     |--------------------------------------------------------------------------
@@ -427,13 +426,12 @@ return [
     'scripttags' => [
         /*
             [
-                'src' => env('SHOPIFY_SCRIPTTAG_1_SRC', 'https://some-app.com/some-controller/js-method-response'),
+                'src' => env('SHOPIFY_SCRIPTTAG_1_SRC', 'https://example.com/some-controller/js-method-response'),
                 'event' => env('SHOPIFY_SCRIPTTAG_1_EVENT', 'onload'),
                 'display_scope' => env('SHOPIFY_SCRIPTTAG_1_DISPLAY_SCOPE', 'online_store')
             ],
             ...
-        */
-    ],
+        */],
 
     /*
     |--------------------------------------------------------------------------
@@ -452,17 +450,16 @@ return [
      * @see
      */
     'after_authenticate_job' => [
+        [
+            'job' => \App\Jobs\AfterAuthenticateJob::class,
+            'inline' => true,
+        ]
         /*
             [
                 'job' => env('AFTER_AUTHENTICATE_JOB'), // example: \App\Jobs\AfterAuthorizeJob::class
                 'inline' => env('AFTER_AUTHENTICATE_JOB_INLINE', false) // False = dispatch job for later, true = dispatch immediately
             ],
-        */
-        'after_authenticate_job' => [
-            'job' => \App\Jobs\AfterAuthenticateJob::class,
-            'inline' => true,
-        ],
-    ],
+        */],
 
     /*
     |--------------------------------------------------------------------------
@@ -479,7 +476,21 @@ return [
         'scripttags' => env('SCRIPTTAGS_JOB_QUEUE', null),
         'after_authenticate' => env('AFTER_AUTHENTICATE_JOB_QUEUE', null),
     ],
+    /*
+    |--------------------------------------------------------------------------
+    | Job Connections
+    |--------------------------------------------------------------------------
+    |
+    | This option is for setting a specific job connection for webhooks, scripttags
+    | and after_authenticate_job.
+    |
+    */
 
+    'job_connections' => [
+        'webhooks' => env('WEBHOOKS_JOB_CONNECTION', null),
+        'scripttags' => env('SCRIPTTAGS_JOB_CONNECTION', null),
+        'after_authenticate' => env('AFTER_AUTHENTICATE_JOB_CONNECTION', null),
+    ],
     /*
     |--------------------------------------------------------------------------
     | Config API Callback
@@ -496,18 +507,6 @@ return [
     */
 
     'config_api_callback' => null,
-
-    /*
-    |--------------------------------------------------------------------------
-    | Enable Turbolinks or Hotwire Turbo
-    |--------------------------------------------------------------------------
-    |
-    | If you use Turbolinks/Turbo and Livewire, turn on this setting to get
-    | the token assigned automatically.
-    |
-    */
-
-    'turbo_enabled' => (bool) env('SHOPIFY_TURBO_ENABLED', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -570,8 +569,8 @@ return [
         /*
          * Cache duration
          */
-        'cache_duration' => '12',
-         /*
+        'cache_duration' => 12,
+        /*
          * At which levels of theme support the use of "theme app extension" is not available
          * and script tags will be installed.
          * Available levels: FULL, PARTIAL, UNSUPPORTED.
@@ -594,15 +593,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Frontend engine used
+    | Frontend type used
     |--------------------------------------------------------------------------
     |
-    | Available engines: "BLADE", "VUE", or "REACT".
-    | For example, if you use React, you do not need to be redirected to a separate page to get the JWT token.
-    | No changes are made for Vue.js and Blade.
+    | Available types: "SPA" (single-page application), "MPA" (multiple-page application).
+    | For example, if you use SPA, you do not need to be redirected to a separate page to get the JWT token.
     |
     */
-    'frontend_engine' => env('SHOPIFY_FRONTEND_ENGINE', 'BLADE'),
+    'frontend_type' => env('SHOPIFY_FRONTEND_TYPE', 'MPA'),
 
     'iframe_ancestors' => '',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Forbidden middleware groups
+    |--------------------------------------------------------------------------
+    |
+    | Routes prohibited from being opened in the browser.
+    |
+    */
+    'forbidden_web_middleware_groups' => [
+        'api',
+    ]
 ];
