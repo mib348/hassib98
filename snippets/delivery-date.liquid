@@ -6,14 +6,14 @@
       z-index: 1000; /* Adjust z-index as needed */
     }
     .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
-    
+
     /* Loading states for buttons */
     .btn-loading {
       opacity: 0.6;
       pointer-events: none;
       position: relative;
     }
-    
+
     .btn-loading::after {
       content: '';
       position: absolute;
@@ -27,10 +27,143 @@
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-    
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+
+    /* Ultra-thin responsive buttons container */
+    .delivery-buttons-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    /* Ultra-thin responsive buttons */
+    .preorderbtn,
+    .todayorderbtn,
+    .snacks_and_drinks_btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 10px;
+      font-size: 14px;
+      line-height: 1.1;
+      min-height: 32px;
+      font-weight: 500;
+      transition: all 0.15s ease-out;
+      white-space: nowrap;
+      text-decoration: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    /* Improved mobile responsiveness */
+    @media (max-width: 768px) {
+      .delivery-buttons-container {
+        gap: 6px;
+        justify-content: center;
+      }
+
+      .preorderbtn,
+      .todayorderbtn,
+      .snacks_and_drinks_btn {
+        padding: 4px 8px;
+        font-size: 13px;
+        min-height: 30px;
+        flex: 0 0 auto;
+        min-width: 80px;
+        margin: 0;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .delivery-buttons-container {
+        gap: 4px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .preorderbtn,
+      .todayorderbtn,
+      .snacks_and_drinks_btn {
+        padding: 6px 10px;
+        font-size: 14px;
+        min-height: 36px;
+        width: 100%;
+        max-width: 200px;
+        margin: 0 auto 2px auto;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .preorderbtn,
+      .todayorderbtn,
+      .snacks_and_drinks_btn {
+        padding: 5px 8px;
+        font-size: 13px;
+        min-height: 32px;
+        letter-spacing: -0.01em;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .preorderbtn,
+      .todayorderbtn,
+      .snacks_and_drinks_btn {
+        padding: 4px 6px;
+        font-size: 12px;
+        min-height: 28px;
+        letter-spacing: -0.02em;
+      }
+    }
+
+    /* Enhanced touch targets for mobile */
+    @media (hover: none) and (pointer: coarse) {
+      .preorderbtn,
+      .todayorderbtn,
+      .snacks_and_drinks_btn {
+        min-height: 44px;
+        padding: 8px 12px;
+      }
+
+      @media (max-width: 576px) {
+        .preorderbtn,
+        .todayorderbtn,
+        .snacks_and_drinks_btn {
+          min-height: 48px;
+          padding: 10px 14px;
+        }
+      }
+    }
+
+    /* Button states */
+    .preorderbtn:hover,
+    .todayorderbtn:hover,
+    .snacks_and_drinks_btn:hover {
+      transform: translateY(-1px);
+      transition: all 0.1s ease-out;
+    }
+
+    .preorderbtn:active,
+    .todayorderbtn:active,
+    .snacks_and_drinks_btn:active {
+      transform: translateY(0);
+      transition: all 0.05s ease-out;
+    }
+
+    /* Focus states for accessibility */
+    .preorderbtn:focus,
+    .todayorderbtn:focus,
+    .snacks_and_drinks_btn:focus {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
     }
   </style>
   
