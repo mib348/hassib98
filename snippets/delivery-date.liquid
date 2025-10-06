@@ -47,6 +47,10 @@
     justify-content: flex-start;
   }
 
+  .__pf.__pf_GlDVGOc7 .pf-23_, .__pf.__pf_GlDVGOc7 .pf-27_{
+    margin-left: 5px !important;
+  }
+
   /*
     Delivery buttons base styling ----------------------------------------------
     Provide consistent sizing/spacing so the user instantly recognises all three
@@ -100,26 +104,27 @@
     Mobile stack ----------------------------------------------------------------
     When screens get narrow we stack the buttons so the user never needs to
     horizontally scroll. The centred layout keeps the call-to-action easy to
-    discover for returning users.
+    discover for returning users. Vertical spacing matches horizontal gap for
+    visual consistency when buttons wrap to new lines.
   */
   @media (max-width: 576px) {
     .delivery-buttons-container {
-      gap: 4px;
+      gap: 6px;
       flex-direction: column;
       align-items: stretch;
     }
 
-    .preorderbtn,
-    .todayorderbtn,
-    .snacks_and_drinks_btn {
-      padding: 6px 10px;
-      font-size: 14px;
-      min-height: 36px;
-      width: 100%;
-      max-width: 200px;
-      margin: 0 auto 2px auto;
-      justify-content: center;
-    }
+     .preorderbtn,
+     .todayorderbtn,
+     .snacks_and_drinks_btn {
+       padding: 6px 10px;
+       font-size: 14px;
+       {% comment %} min-height: 36px; {% endcomment %}
+       width: 100%;
+       max-width: 200px;
+       margin: 5px auto 0 auto !important;
+       justify-content: center;
+     }
   }
 
   /*
@@ -133,7 +138,8 @@
     .snacks_and_drinks_btn {
       padding: 5px 8px;
       font-size: 13px;
-      min-height: 32px;
+      {% comment %} min-height: 32px; {% endcomment %}
+      margin-top: 5px !important;
       letter-spacing: -0.01em;
     }
   }
@@ -144,7 +150,8 @@
     .snacks_and_drinks_btn {
       padding: 4px 6px;
       font-size: 12px;
-      min-height: 28px;
+      {% comment %} min-height: 28px; {% endcomment %}
+      margin-top: 5px !important;
       letter-spacing: -0.02em;
     }
   }
@@ -158,18 +165,20 @@
     .preorderbtn,
     .todayorderbtn,
     .snacks_and_drinks_btn {
-      min-height: 44px;
+      {% comment %} min-height: 44px; {% endcomment %}
       padding: 8px 12px;
+      margin-top: 5px !important;
     }
 
-    @media (max-width: 576px) {
-      .preorderbtn,
-      .todayorderbtn,
-      .snacks_and_drinks_btn {
-        min-height: 48px;
-        padding: 10px 14px;
-      }
-    }
+     @media (max-width: 576px) {
+       .preorderbtn,
+       .todayorderbtn,
+       .snacks_and_drinks_btn {
+         {% comment %} min-height: 48px; {% endcomment %}
+         padding: 10px 14px;
+         margin-top: 5px !important;
+       }
+     }
   }
 </style>
 
@@ -211,10 +220,37 @@
     if (buttonPreOrder) buttonPreOrder.classList.add('btn-loading');
     if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('btn-loading');
     
+    // Sync badge counter height with buttons on small devices
+    syncBadgeCounterHeight();
+    
     // Process location and setup functionality
     processLocationAndSetup();
     
     window.deliveryDateState.isInitialized = true;
+  }
+
+  // Sync badge counter height with buttons on small devices
+  function syncBadgeCounterHeight() {
+    const badgeCounter = document.getElementById('badge-counter');
+    if (!badgeCounter) return;
+    
+    // Only apply on small devices (576px and below)
+    if (window.innerWidth <= 576) {
+      const button = document.querySelector('.preorderbtn, .todayorderbtn, .snacks_and_drinks_btn');
+      if (button) {
+        const computedStyle = window.getComputedStyle(button);
+        const buttonPadding = computedStyle.padding;
+        const buttonMinHeight = computedStyle.minHeight;
+        
+        // Apply same padding and min-height to badge counter
+        badgeCounter.style.padding = buttonPadding;
+        badgeCounter.style.minHeight = buttonMinHeight;
+        badgeCounter.style.boxSizing = 'border-box';
+        badgeCounter.style.display = 'inline-flex';
+        badgeCounter.style.alignItems = 'center';
+        badgeCounter.style.justifyContent = 'center';
+      }
+    }
   }
 
   // Process location and setup all functionality
@@ -241,6 +277,9 @@
         setupLocationData(data);
         setupButtonHandlers();
         removeLoadingStates();
+        
+        // Re-sync badge counter height after buttons are shown
+        syncBadgeCounterHeight();
       },
       error: function(request, status, error) {
         console.error('Error fetching location time:', error);
@@ -728,6 +767,13 @@
           removeLoadingStates();
         }
       }, 10000);
+    }
+  });
+
+  // Handle window resize to re-sync badge counter height
+  window.addEventListener('resize', function() {
+    if (window.deliveryDateState.isInitialized) {
+      syncBadgeCounterHeight();
     }
   });
 </script>
