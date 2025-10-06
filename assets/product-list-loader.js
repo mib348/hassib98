@@ -148,6 +148,8 @@
 
     // Apply cache buster to URL
     url += '&_cache=' + cacheBuster;
+    // Also add a v param which Shopify often respects for section renders
+    url += '&v=' + encodeURIComponent(cacheBuster);
 
     // Add no-cache directive hint (some CDNs respect this)
     url += '&nocache=1';
@@ -169,7 +171,8 @@
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'X-Requested-With': 'XMLHttpRequest'
       },
       cache: 'no-store' // Force browser to never use cached response
     })

@@ -802,6 +802,17 @@ if (window.jQuery) {
 
           let items = response.items;
 
+          // Check if cart contains only snacks_and_drinks items
+          const hasNonSnacksItems = items.some(function (item) {
+            return item.properties.snacks_and_drinks !== "Y";
+          });
+
+          // Only check time expiration if cart has non-snacks items
+          if (!hasNonSnacksItems) {
+            console.log('[Cart Manager] Cart page: Cart contains only snacks and drinks, skipping time expiration check');
+            return;
+          }
+
           $.ajax({
             type: "POST",
             url: "https://app.sushi.catering/api/checkOrderInventory",
