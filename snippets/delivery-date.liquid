@@ -32,6 +32,145 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
+
+  /*
+    Delivery controls container -------------------------------------------------
+    Keep all delivery action buttons (today, preorder, snacks & drinks) tidy and
+    readable by aligning them side by side, collapsing gracefully when space is
+    tight so every option remains reachable on any screen width.
+  */
+  .delivery-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  /*
+    Delivery buttons base styling ----------------------------------------------
+    Provide consistent sizing/spacing so the user instantly recognises all three
+    actions. Inline-flex keeps icons/text centred while the compact padding makes
+    the buttons feel lightweight without reducing the tap target below guidelines.
+  */
+  .preorderbtn,
+  .todayorderbtn,
+  .snacks_and_drinks_btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 10px;
+    font-size: 14px;
+    line-height: 1.1;
+    min-height: 32px;
+    font-weight: 500;
+    transition: all 0.15s ease-out;
+    white-space: nowrap;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  /*
+    Tablet behaviour ------------------------------------------------------------
+    Tighten spacing slightly and ensure each button keeps a predictable width so
+    the row stays visually balanced when content wraps on mid-sized devices.
+  */
+  @media (max-width: 768px) {
+    .delivery-buttons-container {
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .preorderbtn,
+    .todayorderbtn,
+    .snacks_and_drinks_btn {
+      padding: 4px 8px;
+      font-size: 13px;
+      min-height: 30px;
+      flex: 0 0 auto;
+      min-width: 80px;
+      margin: 0;
+    }
+  }
+
+  /*
+    Mobile stack ----------------------------------------------------------------
+    When screens get narrow we stack the buttons so the user never needs to
+    horizontally scroll. The centred layout keeps the call-to-action easy to
+    discover for returning users.
+  */
+  @media (max-width: 576px) {
+    .delivery-buttons-container {
+      gap: 4px;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .preorderbtn,
+    .todayorderbtn,
+    .snacks_and_drinks_btn {
+      padding: 6px 10px;
+      font-size: 14px;
+      min-height: 36px;
+      width: 100%;
+      max-width: 200px;
+      margin: 0 auto 2px auto;
+      justify-content: center;
+    }
+  }
+
+  /*
+    Very small device refinement ------------------------------------------------
+    Slightly reduce padding/letter spacing so long translated labels still fit
+    cleanly without wrapping awkwardly on exceptionally narrow phones.
+  */
+  @media (max-width: 480px) {
+    .preorderbtn,
+    .todayorderbtn,
+    .snacks_and_drinks_btn {
+      padding: 5px 8px;
+      font-size: 13px;
+      min-height: 32px;
+      letter-spacing: -0.01em;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .preorderbtn,
+    .todayorderbtn,
+    .snacks_and_drinks_btn {
+      padding: 4px 6px;
+      font-size: 12px;
+      min-height: 28px;
+      letter-spacing: -0.02em;
+    }
+  }
+
+  /*
+    Touch optimisation ----------------------------------------------------------
+    Give tablet/phone users a larger hit area so the buttons remain comfortable
+    to tap, even when the browser hides hover styles by default.
+  */
+  @media (hover: none) and (pointer: coarse) {
+    .preorderbtn,
+    .todayorderbtn,
+    .snacks_and_drinks_btn {
+      min-height: 44px;
+      padding: 8px 12px;
+    }
+
+    @media (max-width: 576px) {
+      .preorderbtn,
+      .todayorderbtn,
+      .snacks_and_drinks_btn {
+        min-height: 48px;
+        padding: 10px 14px;
+      }
+    }
+  }
 </style>
 
 {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
@@ -65,10 +204,12 @@
     
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
     const buttonPreOrder = document.querySelector('.preorderbtn');
+    const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
     
     // Add loading state to buttons initially
     if (buttonTodayOrder) buttonTodayOrder.classList.add('btn-loading');
     if (buttonPreOrder) buttonPreOrder.classList.add('btn-loading');
+    if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('btn-loading');
     
     // Process location and setup functionality
     processLocationAndSetup();
@@ -121,6 +262,16 @@
     sessionStorage.setItem("no_station", data.no_station);
     sessionStorage.setItem("b_additional_inventory", data.additional_inventory);
     sessionStorage.setItem("immediate_inventory", data.immediate_inventory);
+    const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+
+    if(data.snacks_and_drinks != "Y"){
+      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
+      $('.snacks_and_drinks_btn').css('display', 'none');
+    }
+    else{
+      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('show-button');
+      $('.snacks_and_drinks_btn').css('display', 'inline-flex');
+    }
 
     if(data.driver_fulfillment_time){
       $(".status-delivery-today span").html(data.driver_fulfillment_time).css("color", "limegreen");
@@ -166,6 +317,7 @@
     if (data.is_active === 'Y') {
       const buttonTodayOrder = document.querySelector('.todayorderbtn');
       const buttonPreOrder = document.querySelector('.preorderbtn');
+      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
       
       buttonPreOrder.classList.add('show-button');
 
@@ -214,8 +366,10 @@
       $('#badge-counter').css('display', 'none');
       const buttonTodayOrder = document.querySelector('.todayorderbtn');
       const buttonPreOrder = document.querySelector('.preorderbtn');
+      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
       if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
       if (buttonPreOrder) buttonPreOrder.classList.remove('show-button');
+      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
     }
   }
 
@@ -223,9 +377,11 @@
   function removeLoadingStates() {
     const buttonTodayOrder = document.querySelector('.todayorderbtn');
     const buttonPreOrder = document.querySelector('.preorderbtn');
-    
+    const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+
     if (buttonTodayOrder) buttonTodayOrder.classList.remove('btn-loading');
     if (buttonPreOrder) buttonPreOrder.classList.remove('btn-loading');
+    if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('btn-loading');
   }
 
   // Setup button click handlers
@@ -298,6 +454,34 @@
           console.log('set selected date error: today', error);
         }
       });
+    });
+
+    $(".snacks_and_drinks_btn").click(function(e){
+      e.preventDefault();
+
+      var newUrl = $(".snacks_and_drinks_btn").attr("href");
+
+      const formatter = new Intl.DateTimeFormat([], {
+        timeZone: 'Europe/Berlin',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(new Date());
+      let dateObj = {};
+      parts.forEach(({ type, value }) => {
+        dateObj[type] = value;
+      });
+      var today = `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
+
+      sessionStorage.setItem("snacks_and_drinks", "Y");
+      sessionStorage.setItem("immediate_inventory", "N");
+      sessionStorage.setItem("no_station", "N");
+      sessionStorage.setItem("additional_inventory", "N");
+      sessionStorage.setItem("additional_inventory_time", "N");
+
+      window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
     });
 
     $(".preorderbtn").click(function(e){
