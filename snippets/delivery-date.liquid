@@ -34,6 +34,15 @@
   }
 
   /*
+    Badge counter mobile display fix -----------------------------------------
+    Ensure the badge counter properly hides on mobile when display: none is applied
+    by overriding any conflicting inline styles that might be set by syncBadgeCounterHeight()
+  */
+  #badge-counter[style*="display: none"] {
+    display: none !important;
+  }
+
+  /*
     Delivery controls container -------------------------------------------------
     Keep all delivery action buttons (today, preorder, snacks & drinks) tidy and
     readable by aligning them side by side, collapsing gracefully when space is
@@ -243,10 +252,10 @@
         const buttonMinHeight = computedStyle.minHeight;
         
         // Apply same padding and min-height to badge counter
+        // Note: Do not set display property here as it interferes with toggleButton() visibility control
         badgeCounter.style.padding = buttonPadding;
         badgeCounter.style.minHeight = buttonMinHeight;
         badgeCounter.style.boxSizing = 'border-box';
-        badgeCounter.style.display = 'inline-flex';
         badgeCounter.style.alignItems = 'center';
         badgeCounter.style.justifyContent = 'center';
       }
@@ -477,6 +486,7 @@
   
       sessionStorage.setItem("date", today);
       sessionStorage.setItem("immediate_inventory", "Y");
+      sessionStorage.setItem("snacks_and_drinks", "N");
   
       $.ajax({
         url: "https://app.sushi.catering/updateSelectedDate/" + today,
@@ -486,7 +496,7 @@
         async: true, // Changed from false to true
         dataType: "json",
         success: function(data) {
-          window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+          window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
         },
         error: function(request, status, error) {
           alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
@@ -609,6 +619,7 @@
           }
 
           sessionStorage.setItem("immediate_inventory", "N");
+          sessionStorage.setItem("snacks_and_drinks", "N");
         
           var newUrl = $(".preorderbtn").attr("href");
   
@@ -620,7 +631,7 @@
             async: true, // Changed from false to true
             dataType: "json",
             success: function(data) {
-              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
             },
             error: function(request, status, error) {
               alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
