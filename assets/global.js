@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function () {
         success: function (cartData) {
           // Check if all items are snacks_and_drinks
           if (cartData.items.length > 0) {
-            cartHasOnlySnacks = cartData.items.every(function(item) {
+            cartHasOnlySnacks = cartData.items.every(function (item) {
               return item.properties.snacks_and_drinks === "Y";
             });
             console.log('[Cart Manager] Cart contains only snacks:', cartHasOnlySnacks);
@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const isToday = cart.items.length > 0 && cart.items[0].properties.date === getFormattedDate();
 
         // Check if cart contains any non-snacks items
-        const hasNonSnacksItems = cart.items.some(function(item) {
+        const hasNonSnacksItems = cart.items.some(function (item) {
           return item.properties.snacks_and_drinks !== "Y";
         });
 
@@ -439,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('[Cart Manager] All initial validations passed, proceeding to final stock check for non-delivery order.');
 
         // Filter out snacks_and_drinks items - they don't need inventory validation
-        const nonSnacksItems = cart.items.filter(function(item) {
+        const nonSnacksItems = cart.items.filter(function (item) {
           return item.properties.snacks_and_drinks !== "Y";
         });
 
@@ -835,7 +835,7 @@ if (window.jQuery) {
           let items = response.items;
 
           // Check if cart contains any non-snacks items
-          const hasNonSnacksItems = items.some(function(item) {
+          const hasNonSnacksItems = items.some(function (item) {
             return item.properties.snacks_and_drinks !== "Y";
           });
 

@@ -33,7 +33,21 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Ultra-thin responsive buttons container */
+    /*
+      Badge counter mobile display fix -----------------------------------------
+      Ensure the badge counter properly hides on mobile when display: none is applied
+      by overriding any conflicting inline styles that might be set by syncBadgeCounterHeight()
+    */
+    #badge-counter[style*="display: none"] {
+      display: none !important;
+    }
+
+    /*
+      Delivery controls container -------------------------------------------------
+      Keep all delivery action buttons (today, preorder, snacks & drinks) tidy and
+      readable by aligning them side by side, collapsing gracefully when space is
+      tight so every option remains reachable on any screen width.
+    */
     .delivery-buttons-container {
       display: flex;
       flex-wrap: wrap;
@@ -42,11 +56,20 @@
       justify-content: flex-start;
     }
 
-    /* Ultra-thin responsive buttons */
+    .__pf.__pf_GlDVGOc7 .pf-23_, .__pf.__pf_GlDVGOc7 .pf-27_{
+      margin-left: 5px !important;
+    }
+
+    /*
+      Delivery buttons base styling ----------------------------------------------
+      Provide consistent sizing/spacing so the user instantly recognises all three
+      actions. Inline-flex keeps icons/text centred while the compact padding makes
+      the buttons feel lightweight without reducing the tap target below guidelines.
+    */
     .preorderbtn,
     .todayorderbtn,
     .snacks_and_drinks_btn {
-      display: inline-flex;
+      display: none;
       align-items: center;
       justify-content: center;
       padding: 5px 10px;
@@ -63,7 +86,11 @@
       position: relative;
     }
 
-    /* Improved mobile responsiveness */
+    /*
+      Tablet behaviour ------------------------------------------------------------
+      Tighten spacing slightly and ensure each button keeps a predictable width so
+      the row stays visually balanced when content wraps on mid-sized devices.
+    */
     @media (max-width: 768px) {
       .delivery-buttons-container {
         gap: 6px;
@@ -82,33 +109,46 @@
       }
     }
 
+    /*
+      Mobile stack ----------------------------------------------------------------
+      When screens get narrow we stack the buttons so the user never needs to
+      horizontally scroll. The centred layout keeps the call-to-action easy to
+      discover for returning users. Vertical spacing matches horizontal gap for
+      visual consistency when buttons wrap to new lines.
+    */
     @media (max-width: 576px) {
       .delivery-buttons-container {
-        gap: 4px;
+        gap: 6px;
         flex-direction: column;
         align-items: stretch;
       }
 
-      .preorderbtn,
-      .todayorderbtn,
-      .snacks_and_drinks_btn {
-        padding: 6px 10px;
-        font-size: 14px;
-        min-height: 36px;
-        width: 100%;
-        max-width: 200px;
-        margin: 0 auto 2px auto;
-        justify-content: center;
-      }
+       .preorderbtn,
+       .todayorderbtn,
+       .snacks_and_drinks_btn {
+         padding: 6px 10px;
+         font-size: 14px;
+         {% comment %} min-height: 36px; {% endcomment %}
+         width: 100%;
+         max-width: 200px;
+         margin: 5px auto 0 auto !important;
+         justify-content: center;
+       }
     }
 
+    /*
+      Very small device refinement ------------------------------------------------
+      Slightly reduce padding/letter spacing so long translated labels still fit
+      cleanly without wrapping awkwardly on exceptionally narrow phones.
+    */
     @media (max-width: 480px) {
       .preorderbtn,
       .todayorderbtn,
       .snacks_and_drinks_btn {
         padding: 5px 8px;
         font-size: 13px;
-        min-height: 32px;
+        {% comment %} min-height: 32px; {% endcomment %}
+        margin-top: 5px !important;
         letter-spacing: -0.01em;
       }
     }
@@ -119,28 +159,35 @@
       .snacks_and_drinks_btn {
         padding: 4px 6px;
         font-size: 12px;
-        min-height: 28px;
+        {% comment %} min-height: 28px; {% endcomment %}
+        margin-top: 5px !important;
         letter-spacing: -0.02em;
       }
     }
 
-    /* Enhanced touch targets for mobile */
+    /*
+      Touch optimisation ----------------------------------------------------------
+      Give tablet/phone users a larger hit area so the buttons remain comfortable
+      to tap, even when the browser hides hover styles by default.
+    */
     @media (hover: none) and (pointer: coarse) {
       .preorderbtn,
       .todayorderbtn,
       .snacks_and_drinks_btn {
-        min-height: 44px;
+        {% comment %} min-height: 44px; {% endcomment %}
         padding: 8px 12px;
+        margin-top: 5px !important;
       }
 
-      @media (max-width: 576px) {
-        .preorderbtn,
-        .todayorderbtn,
-        .snacks_and_drinks_btn {
-          min-height: 48px;
-          padding: 10px 14px;
-        }
-      }
+       @media (max-width: 576px) {
+         .preorderbtn,
+         .todayorderbtn,
+         .snacks_and_drinks_btn {
+           {% comment %} min-height: 48px; {% endcomment %}
+           padding: 10px 14px;
+           margin-top: 5px !important;
+         }
+       }
     }
 
     /* Button states */
@@ -212,21 +259,51 @@
 
       const buttonTodayOrder = document.querySelector('.todayorderbtn');
       const buttonPreOrder = document.querySelector('.preorderbtn');
+      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
 
       console.log('[Delivery Date] Buttons found:', {
         todayOrderBtn: !!buttonTodayOrder,
-        preOrderBtn: !!buttonPreOrder
+        preOrderBtn: !!buttonPreOrder,
+        snacksAndDrinksBtn: !!buttonSnacksAndDrinks
       });
 
       // Add loading state to buttons initially
       if (buttonTodayOrder) buttonTodayOrder.classList.add('btn-loading');
       if (buttonPreOrder) buttonPreOrder.classList.add('btn-loading');
+      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('btn-loading');
+
+      // Sync badge counter height with buttons on small devices
+      syncBadgeCounterHeight();
 
       // Process location and setup functionality
       processLocationAndSetup();
 
       window.deliveryDateState.isInitialized = true;
       console.log('[Delivery Date] Initialization complete');
+    }
+
+    // Sync badge counter height with buttons on small devices
+    function syncBadgeCounterHeight() {
+      const badgeCounter = document.getElementById('badge-counter');
+      if (!badgeCounter) return;
+      
+      // Only apply on small devices (576px and below)
+      if (window.innerWidth <= 576) {
+        const button = document.querySelector('.preorderbtn, .todayorderbtn, .snacks_and_drinks_btn');
+        if (button) {
+          const computedStyle = window.getComputedStyle(button);
+          const buttonPadding = computedStyle.padding;
+          const buttonMinHeight = computedStyle.minHeight;
+          
+          // Apply same padding and min-height to badge counter
+          // Note: Do not set display property here as it interferes with toggleButton() visibility control
+          badgeCounter.style.padding = buttonPadding;
+          badgeCounter.style.minHeight = buttonMinHeight;
+          badgeCounter.style.boxSizing = 'border-box';
+          badgeCounter.style.alignItems = 'center';
+          badgeCounter.style.justifyContent = 'center';
+        }
+      }
     }
 
     function toggleBadgeCounter(data, location, currentTimeInMinutes, nQty){
@@ -392,6 +469,9 @@
           setupLocationData(data);
           setupButtonHandlers();
           removeLoadingStates();
+          
+          // Re-sync badge counter height after buttons are shown
+          syncBadgeCounterHeight();
         },
         error: function(request, status, error) {
           console.error('[Delivery Date] Error fetching location data:', {
@@ -498,6 +578,11 @@
         const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
         if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
         $('.snacks_and_drinks_btn').css('display', 'none');
+      }
+      else{
+        const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+        if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('show-button');
+        $('.snacks_and_drinks_btn').css('display', 'inline-flex');
       }
 
       // Handle location_toggle state
@@ -677,10 +762,12 @@
 
         sessionStorage.setItem("date", today);
         sessionStorage.setItem("immediate_inventory", "Y");
+        sessionStorage.setItem("snacks_and_drinks", "N");
 
         console.log('[Delivery Date] SessionStorage set for today order:', {
           date: today,
-          immediate_inventory: "Y"
+          immediate_inventory: "Y",
+          snacks_and_drinks: "N"
         });
 
         const updateDateUrl = "https://dev.sushi.catering/updateSelectedDate/" + today;
@@ -694,7 +781,7 @@
           async: true, // Changed from false to true
           dataType: "json",
           success: function(data) {
-            const redirectUrl = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&uuid=" + localStorage.getItem("uuid") + "&strYStockOnlyCheck=" + window.deliveryDateState.strYStockOnlyCheck + "&nocache=" + randomNum;
+            const redirectUrl = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&strYStockOnlyCheck=" + window.deliveryDateState.strYStockOnlyCheck + "&nocache=" + randomNum;
             console.log('[Delivery Date] Redirecting to:', redirectUrl);
             window.location.href = redirectUrl;
           },
@@ -843,6 +930,7 @@
             }
 
             sessionStorage.setItem("immediate_inventory", "N");
+            sessionStorage.setItem("snacks_and_drinks", "N");
 
             var newUrl = $(".preorderbtn").attr("href");
 
@@ -857,7 +945,7 @@
               async: true, // Changed from false to true
               dataType: "json",
               success: function(data) {
-                const redirectUrl = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+                const redirectUrl = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
                 console.log('[Delivery Date] Redirecting to preorder:', redirectUrl);
                 window.location.href = redirectUrl;
               },
@@ -1014,6 +1102,13 @@
             removeLoadingStates();
           }
         }, 10000);
+      }
+    });
+
+    // Handle window resize to re-sync badge counter height
+    window.addEventListener('resize', function() {
+      if (window.deliveryDateState.isInitialized) {
+        syncBadgeCounterHeight();
       }
     });
   </script>
