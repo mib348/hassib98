@@ -160,7 +160,7 @@
                 </div>
             </form>
 
-            <br>
+            {{-- <br>
             <!-- Snacks and Drinks Inventory Table -->
             <!-- This section manages inventory for snacks and drinks products which are tracked separately -->
             <!-- Data is stored in custom.snacks_and_drinks metafield in Shopify -->
@@ -184,7 +184,7 @@
                         </table>
                     </div>
                 </div>
-            </form>
+            </form> --}}
 
 
             <br>

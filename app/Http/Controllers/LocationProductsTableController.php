@@ -25,12 +25,50 @@ class LocationProductsTableController extends Controller
         }
         $api = $shop->api(); // Get the API instance for the shop.
 
-        // Fetch products from Shopify API
-        $productsResponse = $api->rest('GET', '/admin/products.json', ['status' => 'active']);
-        $arrProducts = $productsResponse['body']['products'] ?? [];
+        // Fetch products from Shopify API using GraphQL
+        // Query retrieves active products with their ID, title, and status
+        // Using GraphQL provides more efficient data fetching compared to REST
+        $graphqlQuery = <<<'GRAPHQL'
+        {
+            products(first: 250, query: "status:active") {
+                edges {
+                    node {
+                        id
+                        legacyResourceId
+                        title
+                        status
+                    }
+                }
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
+            }
+        }
+        GRAPHQL;
+
+        $productsResponse = $api->graph($graphqlQuery);
+        
+        // Transform GraphQL response to match REST API format for backward compatibility
+        // Extracts product data from GraphQL edges structure and converts to simple array
+        $arrProducts = [];
+        if (isset($productsResponse['body']['data']['products']['edges'])) {
+            foreach ($productsResponse['body']['data']['products']['edges'] as $edge) {
+                $node = $edge['node'];
+                $arrProducts[] = [
+                    'id' => $node['legacyResourceId'],
+                    'title' => $node['title'],
+                    'status' => strtolower($node['status'])
+                ];
+            }
+        }
 
         $arrLocations = Locations::orderBy('name', 'asc')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_PRODUCTS')->first();
+
+        // echo json_encode($arrProducts);exit;
+// dd($arrProducts, $arrLocations);
+
         return view('location_products', [
             'arrProducts' => $arrProducts,
             'arrLocations' => $arrLocations,
@@ -149,19 +187,26 @@ class LocationProductsTableController extends Controller
                             $existingValue = $currentMetafield['value'] ?? '[]';
                             $existingData = json_decode($existingValue, true) ?? [];
 
-                            // Remove the location from the metafield data
-                            $cleanedData = array_filter($existingData, function ($value) use ($location) {
-                                [$entryLocation] = explode(':', $value);
-                                return $entryLocation !== $location;
-                            });
+                            // Ensure $existingData is an array before filtering
+                            if (is_array($existingData)) {
+                                // Remove the location from the metafield data
+                                $cleanedData = array_filter($existingData, function ($value) use ($location) {
+                                    // Ensure $value is a string before exploding
+                                    if (is_string($value)) {
+                                        [$entryLocation] = explode(':', $value);
+                                        return $entryLocation !== $location;
+                                    }
+                                    return false;
+                                });
 
-                            $metafieldMutations[] = [
-                                'ownerId' => "gid://shopify/Product/" . $removedProductId,
-                                'namespace' => 'custom',
-                                'key' => $metafieldKey,
-                                'value' => json_encode(array_values($cleanedData)),
-                                'type' => 'json',
-                            ];
+                                $metafieldMutations[] = [
+                                    'ownerId' => "gid://shopify/Product/" . $removedProductId,
+                                    'namespace' => 'custom',
+                                    'key' => $metafieldKey,
+                                    'value' => json_encode(array_values($cleanedData)),
+                                    'type' => 'json',
+                                ];
+                            }
                         }
                     }
                 }
