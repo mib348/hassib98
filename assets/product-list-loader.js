@@ -124,10 +124,42 @@
     // Mark container as being processed
     container.classList.add('ajax_fetched');
 
-    /* ---------- Extract URL parameters ---------- */
-    var qs = window.location.search || '';
+    /* ---------- Extract and merge parameters (URL > sessionStorage > uuid from localStorage) ---------- */
+    var requiredKeys = [
+      'location',
+      'date',
+      'immediate_inventory',
+      'no_station',
+      'additional_inventory',
+      'additional_inventory_time',
+      'snacks_and_drinks',
+      'uuid'
+    ];
+
+    var currentParams = new URLSearchParams(window.location.search || '');
+
+    // Merge missing params from sessionStorage (and uuid from localStorage)
+    requiredKeys.forEach(function (key) {
+      if (!currentParams.has(key)) {
+        var value = null;
+        if (key === 'uuid') {
+          try { value = localStorage.getItem('uuid'); } catch (e) { value = null; }
+        } else {
+          try { value = sessionStorage.getItem(key === 'additional_inventory' ? 'b_additional_inventory' : key); } catch (e) { value = null; }
+        }
+        if (value != null && value !== '') {
+          if (key === 'additional_inventory' && !currentParams.has('additional_inventory')) {
+            currentParams.set('additional_inventory', value);
+          } else {
+            currentParams.set(key, value);
+          }
+        }
+      }
+    });
+
     var url = window.location.pathname + '?section_id=dynamic-location-inventory';
-    if (qs && qs.length > 1) { url += '&' + qs.slice(1); }
+    var qsMerged = currentParams.toString();
+    if (qsMerged) { url += '&' + qsMerged; }
 
     /* ---------- Robust cache busting strategy ---------- */
     // Combine multiple entropy sources to ensure unique requests:
@@ -155,8 +187,8 @@
     url += '&nocache=1';
 
     /* ---------- Extract snacks_and_drinks parameter for special handling ---------- */
-    var urlParams = new URLSearchParams(window.location.search);
-    var snacksAndDrinks = urlParams.get('snacks_and_drinks') || '';
+    var urlParams = currentParams; // use merged params above
+    var snacksAndDrinks = urlParams.get('snacks_and_drinks') || (function () { try { return sessionStorage.getItem('snacks_and_drinks') || ''; } catch (e) { return ''; } })();
 
     console.log('[PF Loader] Fetching:', url);
     console.log('[PF Loader] snacks_and_drinks parameter:', snacksAndDrinks);
