@@ -1002,8 +1002,12 @@ if (window.jQuery) {
   $(document).on("click", "#next_button", function (e) {
     e.preventDefault();
     var href = $(this).attr("href");
-    sessionStorage.setItem("location", localStorage.getItem("location"));
-    location.replace(href + "?location=" + localStorage.getItem("location"));
+    var selectedLocation = sessionStorage.getItem("location") || localStorage.getItem("location") || "";
+    if (selectedLocation) {
+      location.replace(href + "?location=" + selectedLocation);
+    } else {
+      location.replace(href);
+    }
   });
 
   $(document).on("click", "#home_delivery_btn", function (e) {
