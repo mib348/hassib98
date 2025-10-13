@@ -22,6 +22,75 @@ function getQueryParams() {
 // Disable clicks until the page is fully loaded (bestellen page only)
 if (window.location && window.location.pathname === "/pages/bestellen") {
   (function () {
+    // Add CSS for spinner and disabled state
+    const style = document.createElement('style');
+    style.textContent = `
+      .next-button-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .bestellen-disabled {
+        opacity: 0.6;
+        pointer-events: none;
+        cursor: not-allowed;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Function to add spinner to next button and disable dropdowns
+    const addLoadingState = function () {
+      const nextButton = document.querySelector('#next_button');
+      if (nextButton && !nextButton.querySelector('.next-button-spinner')) {
+        const spinner = document.createElement('span');
+        spinner.className = 'next-button-spinner';
+        nextButton.insertBefore(spinner, nextButton.firstChild);
+        nextButton.disabled = true;
+        nextButton.style.opacity = '0.6';
+        nextButton.style.cursor = 'not-allowed';
+      }
+
+      // Disable all dropdowns/selects
+      const dropdowns = document.querySelectorAll('#stationDropdown, .dropdown-menu, .dropdown-toggle');
+      dropdowns.forEach(function (dropdown) {
+        dropdown.classList.add('bestellen-disabled');
+        if (dropdown.tagName === 'SELECT') {
+          dropdown.disabled = true;
+        }
+      });
+    };
+
+    // Function to remove spinner from next button and enable dropdowns
+    const removeLoadingState = function () {
+      const nextButton = document.querySelector('#next_button');
+      if (nextButton) {
+        const spinner = nextButton.querySelector('.next-button-spinner');
+        if (spinner) {
+          spinner.remove();
+        }
+        nextButton.disabled = false;
+        nextButton.style.opacity = '';
+        nextButton.style.cursor = '';
+      }
+
+      // Enable all dropdowns/selects
+      const dropdowns = document.querySelectorAll('#stationDropdown, .dropdown-menu, .dropdown-toggle');
+      dropdowns.forEach(function (dropdown) {
+        dropdown.classList.remove('bestellen-disabled');
+        if (dropdown.tagName === 'SELECT') {
+          dropdown.disabled = false;
+        }
+      });
+    };
+
     // Use a capturing listener so we intercept as early as possible
     const __bestellenPreventClick__ = function (e) {
       if (!window.__bestellenPageFullyLoaded) {
@@ -29,10 +98,15 @@ if (window.location && window.location.pathname === "/pages/bestellen") {
         e.preventDefault();
       }
     };
+
+    // Add loading state immediately
+    addLoadingState();
+
     document.addEventListener("click", __bestellenPreventClick__, true);
     window.addEventListener("load", function () {
       window.__bestellenPageFullyLoaded = true;
       document.removeEventListener("click", __bestellenPreventClick__, true);
+      removeLoadingState();
     });
   })();
 }
