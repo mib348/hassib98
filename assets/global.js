@@ -19,6 +19,102 @@ function getQueryParams() {
   return new URLSearchParams(window.location.search);
 }
 
+// Disable clicks until the page is fully loaded (bestellen page only)
+if (window.location && window.location.pathname === "/pages/bestellen") {
+  (function () {
+    // Add spinner animation CSS
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .next-button-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+      }
+      .bestellen-disabled {
+        opacity: 0.6;
+        pointer-events: none;
+        cursor: not-allowed;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Function to add spinner to next button and disable dropdowns
+    const addLoadingState = function () {
+      const nextButton = document.querySelector('#next_button');
+      if (nextButton && !nextButton.querySelector('.next-button-spinner')) {
+        const spinner = document.createElement('span');
+        spinner.className = 'next-button-spinner';
+        nextButton.insertBefore(spinner, nextButton.firstChild);
+        nextButton.disabled = true;
+        nextButton.style.opacity = '0.6';
+        nextButton.style.cursor = 'not-allowed';
+      }
+
+      // Disable all dropdowns/selects
+      const dropdowns = document.querySelectorAll('select, .station');
+      dropdowns.forEach(function (dropdown) {
+        dropdown.classList.add('bestellen-disabled');
+        if (dropdown.tagName === 'SELECT') {
+          dropdown.disabled = true;
+        }
+      });
+    };
+
+    // Function to remove spinner from next button and enable dropdowns
+    const removeLoadingState = function () {
+      const nextButton = document.querySelector('#next_button');
+      if (nextButton) {
+        const spinner = nextButton.querySelector('.next-button-spinner');
+        if (spinner) {
+          spinner.remove();
+        }
+        nextButton.disabled = false;
+        nextButton.style.opacity = '';
+        nextButton.style.cursor = '';
+      }
+
+      // Enable all dropdowns/selects
+      const dropdowns = document.querySelectorAll('select, .station');
+      dropdowns.forEach(function (dropdown) {
+        dropdown.classList.remove('bestellen-disabled');
+        if (dropdown.tagName === 'SELECT') {
+          dropdown.disabled = false;
+        }
+      });
+    };
+
+    // Try to add loading state immediately, then retry after DOM is ready
+    addLoadingState();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', addLoadingState);
+    }
+
+    // Use a capturing listener so we intercept as early as possible
+    const __bestellenPreventClick__ = function (e) {
+      if (!window.__bestellenPageFullyLoaded) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("click", __bestellenPreventClick__, true);
+    window.addEventListener("load", function () {
+      window.__bestellenPageFullyLoaded = true;
+      document.removeEventListener("click", __bestellenPreventClick__, true);
+      // Remove loading state
+      removeLoadingState();
+    });
+  })();
+}
+
 // if (localStorage.getItem("location") != null && sessionStorage.getItem("location") == null) {
 //   sessionStorage.setItem("location", localStorage.getItem("location"));
 // }
@@ -971,7 +1067,11 @@ if (window.jQuery) {
   $(document).on("click", "#next_button", function (e) {
     e.preventDefault();
     var href = $(this).attr("href");
-    var selectedLocation = sessionStorage.getItem("location") || localStorage.getItem("location") || "";
+    // Ensure precedence: URL > sessionStorage > localStorage (bestellen page only)
+    var qpForNext = getQueryParams();
+    var selectedLocation = (window.location.pathname === "/pages/bestellen" && qpForNext.has("location"))
+      ? qpForNext.get("location")
+      : (sessionStorage.getItem("location") || localStorage.getItem("location") || "");
     if (selectedLocation) {
       location.replace(href + "?location=" + selectedLocation);
     } else {
