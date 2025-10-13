@@ -19,6 +19,24 @@ function getQueryParams() {
   return new URLSearchParams(window.location.search);
 }
 
+// Disable clicks until the page is fully loaded (bestellen page only)
+if (window.location && window.location.pathname === "/pages/bestellen") {
+  (function () {
+    // Use a capturing listener so we intercept as early as possible
+    const __bestellenPreventClick__ = function (e) {
+      if (!window.__bestellenPageFullyLoaded) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("click", __bestellenPreventClick__, true);
+    window.addEventListener("load", function () {
+      window.__bestellenPageFullyLoaded = true;
+      document.removeEventListener("click", __bestellenPreventClick__, true);
+    });
+  })();
+}
+
 // if (localStorage.getItem("location") != null && sessionStorage.getItem("location") == null) {
 //   sessionStorage.setItem("location", localStorage.getItem("location"));
 // }
@@ -1002,7 +1020,11 @@ if (window.jQuery) {
   $(document).on("click", "#next_button", function (e) {
     e.preventDefault();
     var href = $(this).attr("href");
-    var selectedLocation = sessionStorage.getItem("location") || localStorage.getItem("location") || "";
+    // Ensure precedence: URL > sessionStorage > localStorage (bestellen page only)
+    var qpForNext = getQueryParams();
+    var selectedLocation = (window.location.pathname === "/pages/bestellen" && qpForNext.has("location"))
+      ? qpForNext.get("location")
+      : (sessionStorage.getItem("location") || localStorage.getItem("location") || "");
     if (selectedLocation) {
       location.replace(href + "?location=" + selectedLocation);
     } else {
