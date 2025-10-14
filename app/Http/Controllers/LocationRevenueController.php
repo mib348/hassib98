@@ -280,6 +280,13 @@ class LocationRevenueController extends Controller
 
 
 
+            // Sort all order arrays by order number (value) for sequential display in detail rows
+            asort($arr_no_status, SORT_NUMERIC);
+            asort($arr_cancelled, SORT_NUMERIC);
+            asort($arr_refunded, SORT_NUMERIC);
+            asort($arr_preorders, SORT_NUMERIC);
+            asort($arr_immediate_inventory_items_sold, SORT_NUMERIC);
+
             // Main data row only - no detail rows sent to DataTables
             $html .= "<tr>";
             $html .= "<td style='width: 11%;' class='location-data'>" . $arrLocation->name . "</td>";
