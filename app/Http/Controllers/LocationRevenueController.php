@@ -102,9 +102,15 @@ class LocationRevenueController extends Controller
         $no_status = 0;
         $cancelled = 0;
         $refunded = 0;
+        $nTotalPreorders = 0;
+        $nTotalImmediateInventory = 0;
+        $nTotalImmediateInventoryItemsSold = 0;
         $arr_no_status = [];
         $arr_cancelled = [];
         $arr_refunded = [];
+        $arr_preorders = [];
+        $arr_immediate_inventory = [];
+        $arr_immediate_inventory_items_sold = [];
 
         // $locations_revenue = LocationRevenue::where('location', $request->input('strFilterLocation'))
         //                                     ->where('date', $request->input('strFilterDate'))
@@ -169,9 +175,15 @@ class LocationRevenueController extends Controller
             $no_status = 0;
             $cancelled = 0;
             $refunded = 0;
+            $nTotalPreorders = 0;
+            $nTotalImmediateInventory = 0;
+            $nTotalImmediateInventoryItemsSold = 0;
             $arr_no_status = [];
             $arr_cancelled = [];
             $arr_refunded = [];
+            $arr_preorders = [];
+            $arr_immediate_inventory = [];
+            $arr_immediate_inventory_items_sold = [];
 
             // Batch fetch all immediate inventory data to avoid N+1 queries
             // Using shared method from ShopifyController and formatting for orders view
@@ -181,7 +193,8 @@ class LocationRevenueController extends Controller
                 $arrImmediateInventory = $batchedImmediateInventory[$date][$arrLocation->name];
                 foreach ($arrImmediateInventory as $product_name => $quantity) {
                     if ($date <= Carbon::now('Europe/Berlin')->format('Y-m-d')) {
-                        $nTotalItemsCreated += $quantity;
+                        // $nTotalItemsCreated += $quantity;
+                        $nTotalImmediateInventory += $quantity;
                     }
                 }
             }
@@ -229,7 +242,17 @@ class LocationRevenueController extends Controller
                 if (empty($order->cancel_reason) && empty($order->cancelled_at)) {
                     if (isset($arrLineItems)) {
                         foreach ($arrLineItems as $key => $arrLineItem) {
-                            $nTotalItemsSold += (int) $arrLineItem['quantity'];
+                            // $nTotalItemsSold += (int) $arrLineItem['quantity'];
+                            if (! empty($arrLineItem['properties'])) {
+                                if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
+                                    $nTotalImmediateInventoryItemsSold += (int) $arrLineItem['quantity'];
+                                    $arr_immediate_inventory_items_sold[$order->order_id] = $order->number;
+                                }
+                                else {
+                                    $nTotalPreorders += (int) $arrLineItem['quantity'];
+                                    $arr_preorders[$order->order_id] = $order->number;
+                                }
+                            } 
                         }
                     }
                 } else {
@@ -237,20 +260,21 @@ class LocationRevenueController extends Controller
                     $cancelled++;
                 }
 
-                //items created
-                if (isset($arrLineItems)) {
-                    foreach ($arrLineItems as $key => $arrLineItem) {
-                        //items created - counting preorder items
-                        if (! empty($arrLineItem['properties'])) {
-                            if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
-                                //skip if immediate inventory because it's being counted separately below
-                                continue;
-                            }
-                        }
+                // //items created
+                // if (isset($arrLineItems)) {
+                //     foreach ($arrLineItems as $key => $arrLineItem) {
+                //         //items created - counting preorder items
+                //         if (! empty($arrLineItem['properties'])) {
+                //             if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
+                //                 //skip if immediate inventory because it's being counted separately below
+                //                 continue;
+                //             }
+                //         }
 
-                        $nTotalItemsCreated += $arrLineItem['quantity'];
-                    }
-                }
+                //         // $nTotalItemsCreated += $arrLineItem['quantity'];
+                //         $nTotalPreorders += $arrLineItem['quantity'];
+                //     }
+                // }
             }
 
 
@@ -265,8 +289,12 @@ class LocationRevenueController extends Controller
             $html .= "<td style='width: 11%; text-align:right;' class='no-status-data'>" . $no_status . "</td>";
             $html .= "<td style='width: 11%; text-align:right;' class='cancelled-data'>" . $cancelled . "</td>";
             $html .= "<td style='width: 11%; text-align:right;' class='refunded-data'>" . $refunded . "</td>";
-            $html .= "<td style='width: 11%; text-align:right;' class='items-sold-data'>" . $nTotalItemsSold . "</td>";
-            $html .= "<td style='width: 11%; text-align:right; position: relative;' class='items-created-data' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . count($orders) . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "'>" . $nTotalItemsCreated . "</td>";
+            // $html .= "<td style='width: 11%; text-align:right;' class='items-sold-data'>" . $nTotalItemsSold . "</td>";
+            // $html .= "<td style='width: 11%; text-align:right; position: relative;' class='items-created-data' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . count($orders) . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "'>" . $nTotalItemsCreated . "</td>";
+            $html .= "<td style='width: 11%; text-align:right;' class='preorders-data' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "'>" . $nTotalPreorders . "</td>";
+            $html .= "<td style='width: 11%; text-align:right;' class='immediate-inventory-data'>" . $nTotalImmediateInventory . "</td>";
+            // Last cell holds all data attributes needed for detail rows display
+            $html .= "<td style='width: 11%; text-align:right;' class='immediate-inventory-items-sold-data' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . count($orders) . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "' data-immediate-inventory='" . $nTotalImmediateInventory . "' data-immediate-inventory-items-sold='" . addslashes(implode(', ', $arr_immediate_inventory_items_sold)) . "'>" . $nTotalImmediateInventoryItemsSold . "</td>";
             $html .= "</tr>";
             // }
         }

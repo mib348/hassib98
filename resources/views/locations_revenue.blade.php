@@ -4,23 +4,25 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css" />
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css" />
 <style>
-    /* Right align numeric columns in the table */
+    /* Right align numeric columns in the table (columns 4-10) */
     .js-dataTable-full th:nth-child(4),
     .js-dataTable-full th:nth-child(5),
     .js-dataTable-full th:nth-child(6),
     .js-dataTable-full th:nth-child(7),
     .js-dataTable-full th:nth-child(8),
     .js-dataTable-full th:nth-child(9),
+    .js-dataTable-full th:nth-child(10),
     .js-dataTable-full td:nth-child(4),
     .js-dataTable-full td:nth-child(5),
     .js-dataTable-full td:nth-child(6),
     .js-dataTable-full td:nth-child(7),
     .js-dataTable-full td:nth-child(8),
-    .js-dataTable-full td:nth-child(9) {
+    .js-dataTable-full td:nth-child(9),
+    .js-dataTable-full td:nth-child(10) {
         text-align: right !important;
     }
-    
-    
+
+
     /* Ensure detail rows maintain their styling */
     .detail-row td {
         text-align: left !important;
@@ -113,8 +115,9 @@
                             <th style="width:11%;">No Status</th>
                             <th style="width:11%;">Cancelled</th>
                             <th style="width:11%;">Refunded</th>
-                            <th style="width:11%;">Items Sold</th>
-                            <th style="width:11%;">Items Created</th>
+                            <th style="width:11%;">Items Sold Preorders</th>
+                            <th style="width:11%;">Items Created Immediate Inventory</th>
+                            <th style="width:11%;">Items Sold Immediate Inventory</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -122,6 +125,7 @@
                     <tfoot>
                         <tr id="grand-total-row" style="display: none;">
                             <th colspan="3" style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;">Grand Total</th>
+                            <th style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;"></th>
                             <th style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;"></th>
                             <th style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;"></th>
                             <th style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;"></th>
@@ -314,7 +318,8 @@
                 var totalCancelled = 0;
                 var totalRefunded = 0;
                 var totalItemsSold = 0;
-                var totalItemsCreated = 0;
+                var totalImmediateInventory = 0;
+                var totalImmediateInventoryItemsSold = 0;
                 var totalOrders = 0;
                 
                 if (showFooter) {
@@ -336,13 +341,17 @@
                     $('.refunded-data').each(function() {
                         totalRefunded += parseInt($(this).text()) || 0;
                     });
-                    
-                    $('.items-sold-data').each(function() {
+
+                    $('.preorders-data').each(function() {
                         totalItemsSold += parseInt($(this).text()) || 0;
                     });
-                    
-                    $('.items-created-data').each(function() {
-                        totalItemsCreated += parseInt($(this).text()) || 0;
+
+                    $('.immediate-inventory-data').each(function() {
+                        totalImmediateInventory += parseInt($(this).text()) || 0;
+                    });
+
+                    $('.immediate-inventory-items-sold-data').each(function() {
+                        totalImmediateInventoryItemsSold += parseInt($(this).text()) || 0;
                         totalOrders += parseInt($(this).data('total-orders')) || 0;
                     });
                 }
@@ -393,8 +402,9 @@
                 printContent += '<th class="text-right">No Status</th>';
                 printContent += '<th class="text-right">Cancelled</th>';
                 printContent += '<th class="text-right">Refunded</th>';
-                printContent += '<th class="text-right">Items Sold</th>';
-                printContent += '<th class="text-right">Items Created</th>';
+                printContent += '<th class="text-right">Items Sold Preorders</th>';
+                printContent += '<th class="text-right">Items Created Immediate Inventory</th>';
+                printContent += '<th class="text-right">Items Sold Immediate Inventory</th>';
                 printContent += '</tr></thead>';
                 
                 // Add table body
@@ -404,10 +414,10 @@
                 $('#locations_revenue_form tbody tr').each(function() {
                     var $row = $(this);
                     var isDetailRow = $row.hasClass('detail-row');
-                    
+
                     if (isDetailRow) {
                         printContent += '<tr class="detail-row">';
-                        printContent += '<td colspan="9">';
+                        printContent += '<td colspan="10">';
                         printContent += $row.find('td').html();
                         printContent += '</td></tr>';
                     } else {
@@ -420,8 +430,8 @@
                             if (index === 1) {
                                 cellClass = 'text-center';
                             }
-                            // Right-align numeric columns (indices 3-8)
-                            else if (index >= 3 && index <= 8) {
+                            // Right-align numeric columns (indices 3-9 for all 10 columns)
+                            else if (index >= 3 && index <= 9) {
                                 cellClass = 'text-right';
                             }
                             
@@ -443,7 +453,8 @@
                     printContent += '<th class="text-right">' + totalCancelled.toLocaleString('de-DE') + '</th>';
                     printContent += '<th class="text-right">' + totalRefunded.toLocaleString('de-DE') + '</th>';
                     printContent += '<th class="text-right">' + totalItemsSold.toLocaleString('de-DE') + '</th>';
-                    printContent += '<th class="text-right">' + totalItemsCreated.toLocaleString('de-DE') + '</th>';
+                    printContent += '<th class="text-right">' + totalImmediateInventory.toLocaleString('de-DE') + '</th>';
+                    printContent += '<th class="text-right">' + totalImmediateInventoryItemsSold.toLocaleString('de-DE') + '</th>';
                     printContent += '</tr>';
                     printContent += '</tfoot>';
                 }
@@ -515,27 +526,33 @@
         function addDetailRows() {
             // Remove any existing detail rows first
             $('#locations_revenue_form tbody tr.detail-row').remove();
-            
+
             // For each main row, add a detail row after it
+            // Data attributes are now stored in the immediate-inventory-items-sold-data cell
             $('#locations_revenue_form tbody tr:not(.detail-row)').each(function() {
-                var itemsCreatedCell = $(this).find('.items-created-data');
-                
-                if (itemsCreatedCell.length > 0) {
-                    var location = itemsCreatedCell.data('location');
-                    var startDate = itemsCreatedCell.data('start-date');
-                    var endDate = itemsCreatedCell.data('end-date');
-                    var store = itemsCreatedCell.data('store');
-                    var totalOrders = itemsCreatedCell.data('total-orders');
-                    var noStatusOrders = itemsCreatedCell.data('no-status-orders');
-                    var cancelledOrders = itemsCreatedCell.data('cancelled-orders');
-                    var refundedOrders = itemsCreatedCell.data('refunded-orders');
-                    
+                var dataCell = $(this).find('.immediate-inventory-items-sold-data');
+
+                if (dataCell.length > 0) {
+                    var location = dataCell.data('location');
+                    var startDate = dataCell.data('start-date');
+                    var endDate = dataCell.data('end-date');
+                    var store = dataCell.data('store');
+                    var totalOrders = dataCell.data('total-orders');
+                    var noStatusOrders = dataCell.data('no-status-orders');
+                    var cancelledOrders = dataCell.data('cancelled-orders');
+                    var refundedOrders = dataCell.data('refunded-orders');
+                    var preorders = dataCell.data('preorders');
+                    var immediateInventory = dataCell.data('immediate-inventory');
+                    var immediateInventoryItemsSold = dataCell.data('immediate-inventory-items-sold');
+
                     var detailHtml = '<tr class="detail-row">' +
-                        '<td colspan="9" style="background-color: #f9f9f9; padding: 15px; border-top: 0;">' +
+                        '<td colspan="10" style="background-color: #f9f9f9; padding: 15px; border-top: 0;">' +
                         '<div><strong>Total Orders:</strong> ' + totalOrders + '</div>' +
                         '<div><strong>Orders (No Status):</strong> ' + noStatusOrders + '</div>' +
                         '<div><strong>Orders (Cancelled):</strong> ' + cancelledOrders + '</div>' +
                         '<div><strong>Orders (Refunded):</strong> ' + refundedOrders + '</div>' +
+                        '<div><strong>Orders (Preorders):</strong> ' + preorders + '</div>' +
+                        '<div><strong>Orders (Immediate Inventory):</strong> ' + immediateInventoryItemsSold + '</div>' +
                         '</td>' +
                         '</tr>';
                     
@@ -575,17 +592,22 @@
             });
 
             var totalItemsSold = 0;
-            $('.items-sold-data').each(function() {
+            $('.preorders-data').each(function() {
                 totalItemsSold += parseInt($(this).text()) || 0;
             });
 
-            var totalItemsCreated = 0;
-            $('.items-created-data').each(function() {
-                totalItemsCreated += parseInt($(this).text()) || 0;
+            var totalImmediateInventory = 0;
+            $('.immediate-inventory-data').each(function() {
+                totalImmediateInventory += parseInt($(this).text()) || 0;
+            });
+
+            var totalImmediateInventoryItemsSold = 0;
+            $('.immediate-inventory-items-sold-data').each(function() {
+                totalImmediateInventoryItemsSold += parseInt($(this).text()) || 0;
             });
 
             var totalOrders = 0;
-            $('.items-created-data').each(function() {
+            $('.immediate-inventory-items-sold-data').each(function() {
                 totalOrders += parseInt($(this).data('total-orders')) || 0;
             });
 
@@ -595,7 +617,8 @@
             $footerRow.find('th').eq(3).html(totalCancelled.toLocaleString('de-DE'));
             $footerRow.find('th').eq(4).html(totalRefunded.toLocaleString('de-DE'));
             $footerRow.find('th').eq(5).html(totalItemsSold.toLocaleString('de-DE'));
-            $footerRow.find('th').eq(6).html(totalItemsCreated.toLocaleString('de-DE'));
+            $footerRow.find('th').eq(6).html(totalImmediateInventory.toLocaleString('de-DE'));
+            $footerRow.find('th').eq(7).html(totalImmediateInventoryItemsSold.toLocaleString('de-DE'));
 
             $footerRow.show();
         }
