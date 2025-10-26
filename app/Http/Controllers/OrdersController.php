@@ -143,8 +143,13 @@ class OrdersController extends Controller
             $html .= '<tr>';
             $html .= '<td>'.$date.' '.Carbon::parse($date, 'Europe/Berlin')->format('l').'</td>';
 
-            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = $arr_no_status = $arr_cancelled = $arr_refunded = $arr_items = $item_quantities = $final_items_created = [];
-            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = $items_created = 0;
+            $arr_totalOrders = $arr_fulfilled = $arr_took_zero = $arr_took_less = $arr_wrong_item = [];
+            $arr_no_status = $arr_cancelled = $arr_refunded = $arr_items = [];
+            $item_quantities = $final_items_created = [];
+            // Track preorder and immediate-inventory item quantities per order so the modal can surface human-friendly details.
+            $preorderItemsSoldByOrder = [];
+            $immediateInventoryItemsSoldByOrder = [];
+            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = $items_created = $items_sold_preorders = $items_created_immediate_inventory = $items_sold_immediate_inventory = 0;
 
             // Track locations with images for this date (and potentially filtered location)
             $locationImages = [];
@@ -224,12 +229,36 @@ class OrdersController extends Controller
                         foreach ($arrLineItems as $key => $arrLineItem) {
                             $productId = $arrLineItem['product_id'];
                             $title = $arrLineItem['title'];
+                            $quantity = (int) ($arrLineItem['quantity'] ?? 0);
+                            $isImmediateInventoryItem = $this->isImmediateInventoryLineItem($arrLineItem);
+
+                            if ($isImmediateInventoryItem) {
+                                $items_sold_immediate_inventory += $quantity;
+                                if (! isset($immediateInventoryItemsSoldByOrder[$order->order_id])) {
+                                    // Store order number and running total so the modal can highlight how many immediate items each order carried.
+                                    $immediateInventoryItemsSoldByOrder[$order->order_id] = [
+                                        'number' => $order->number,
+                                        'quantity' => 0,
+                                    ];
+                                }
+                                $immediateInventoryItemsSoldByOrder[$order->order_id]['quantity'] += $quantity;
+                            } else {
+                                $items_sold_preorders += $quantity;
+                                if (! isset($preorderItemsSoldByOrder[$order->order_id])) {
+                                    // Same structure as above but dedicated to preorder items so we can keep the datasets separate.
+                                    $preorderItemsSoldByOrder[$order->order_id] = [
+                                        'number' => $order->number,
+                                        'quantity' => 0,
+                                    ];
+                                }
+                                $preorderItemsSoldByOrder[$order->order_id]['quantity'] += $quantity;
+                            }
 
                             //total items
                             $arr_items[] = [
                                 'product_id' => $productId,
                                 'order_number' => $order->number,
-                                'quantity' => $arrLineItem['quantity'],
+                                'quantity' => $quantity,
                                 'location' => ($arrLineItem['properties'][1]['value'] ?? null),
                                 'date' => ($arrLineItem['properties'][2]['value'] ?? null),
                                 'title' => $title,
@@ -244,11 +273,9 @@ class OrdersController extends Controller
                         $title = $arrLineItem['title'];
 
                         //items created - counting preorder items
-                        if (! empty($arrLineItem['properties'])) {
-                            if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
-                                //skip if immediate inventory because it's being counted separately below
-                                continue;
-                            }
+                        if ($this->isImmediateInventoryLineItem($arrLineItem)) {
+                            // Skip immediate inventory items here because the dedicated column handles them with batched data below.
+                            continue;
                         }
                         // Initialize product data if not already set
                         if (! isset($final_items_created['preorder_inventory'][$productId])) {
@@ -335,17 +362,35 @@ class OrdersController extends Controller
                 }
             }
 
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='Total' data-orders='".json_encode($arr_totalOrders)."'>".$totalOrders.'</a></td>';
+            // Calculate the numeric total for the "Items Created Immediate Inventory" column based on the aggregated payload prepared above.
+            if (! empty($final_items_created['immediate_inventory'])) {
+                foreach ($final_items_created['immediate_inventory'] as $immediateInventoryItem) {
+                    $items_created_immediate_inventory += (int) ($immediateInventoryItem['quantity'] ?? 0);
+                }
+            }
+
+            // Build lightweight modal payloads that surface order numbers alongside item counts for the new preorder/immediate columns.
+            $preorderOrdersForModal = $this->formatOrderQuantitiesForModal($preorderItemsSoldByOrder);
+            $immediateOrdersForModal = $this->formatOrderQuantitiesForModal($immediateInventoryItemsSoldByOrder);
+            $immediateInventoryModalPayload = [
+                'immediate_inventory' => $final_items_created['immediate_inventory'] ?? [],
+                'preorder_inventory' => [],
+            ];
+
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Total' data-orders='".json_encode($arr_totalOrders)."'>".$totalOrders.'</a></td>';
             // $html .= "<td><a class='text-decoration-none order_counter' data-type='Fulfilled' data-orders='" . json_encode($arr_fulfilled) . "'>" . $fulfilled . "</a></td>";
             // $html .= "<td><a class='text-decoration-none order_counter' data-type='Took-Zero' data-orders='" . json_encode($arr_took_zero) . "'>" . $took_zero . "</a></td>";
             // $html .= "<td><a class='text-decoration-none order_counter' data-type='Took-Less' data-orders='" . json_encode($arr_took_less) . "'>" . $took_less . "</a></td>";
             // $html .= "<td><a class='text-decoration-none order_counter' data-type='Wrong-Item' data-orders='" . json_encode($arr_wrong_item) . "'>" . $wrong_item . "</a></td>";
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='No Status' data-orders='".json_encode($arr_no_status)."'>".$no_status.'</a></td>';
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='Cancelled' data-orders='".json_encode($arr_cancelled)."'>".$cancelled.'</a></td>';
-            $html .= "<td><a class='text-decoration-none order_counter' data-type='Refunded' data-orders='".json_encode($arr_refunded)."'>".$refunded.'</a></td>';
-            $html .= "<td><a class='text-decoration-none items_counter' data-type='Items Sold' data-items='".htmlspecialchars(json_encode($final_items), ENT_QUOTES, 'UTF-8')."'>".$items.'</a></td>';
-            $html .= "<td><a class='text-decoration-none items_created_counter' data-type='Items Created' data-items-created='".htmlspecialchars(json_encode($final_items_created), ENT_QUOTES, 'UTF-8')."'>".$items_created.'</a></td>';
-            $html .= "<td><a class='text-decoration-none view_images' data-type='View' data-images='".htmlspecialchars(json_encode($locationImages), ENT_QUOTES, 'UTF-8')."'><i class='fa-solid fa-eye'></i></a></td>";
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='No Status' data-orders='".json_encode($arr_no_status)."'>".$no_status.'</a></td>';
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Cancelled' data-orders='".json_encode($arr_cancelled)."'>".$cancelled.'</a></td>';
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Refunded' data-orders='".json_encode($arr_refunded)."'>".$refunded.'</a></td>';
+            // $html .= "<td><a class='text-decoration-none items_counter' data-type='Items Sold' data-items='".htmlspecialchars(json_encode($final_items), ENT_QUOTES, 'UTF-8')."'>".$items.'</a></td>';
+            // $html .= "<td><a class='text-decoration-none items_created_counter' data-type='Items Created' data-items-created='".htmlspecialchars(json_encode($final_items_created), ENT_QUOTES, 'UTF-8')."'>".$items_created.'</a></td>';
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Items Sold Preorders' data-orders='".json_encode($preorderOrdersForModal)."'>".$items_sold_preorders.'</a></td>';
+            $html .= "<td class='text-end'><a class='text-decoration-none items_created_counter' data-type='Items Created Immediate Inventory' data-items-created='".htmlspecialchars(json_encode($immediateInventoryModalPayload), ENT_QUOTES, 'UTF-8')."'>".$items_created_immediate_inventory.'</a></td>';
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Items Sold Immediate Inventory' data-orders='".json_encode($immediateOrdersForModal)."'>".$items_sold_immediate_inventory.'</a></td>';
+            $html .= "<td class='text-center'><a class='text-decoration-none view_images' data-type='View' data-images='".htmlspecialchars(json_encode($locationImages), ENT_QUOTES, 'UTF-8')."'><i class='fa-solid fa-eye'></i></a></td>";
             $html .= '</tr>';
         }
 
@@ -474,5 +519,63 @@ class OrdersController extends Controller
         }
 
         return $batchedData;
+    }
+
+    /**
+     * Determine whether a given Shopify line item belongs to the immediate inventory bucket.
+     * The properties array occasionally shifts index positions, so we scan by key instead of relying on hard-coded offsets.
+     *
+     * @param array $lineItem Raw line item payload decoded from the orders.line_items column
+     * @return bool True when the item carries the immediate inventory flag
+     */
+    private function isImmediateInventoryLineItem(array $lineItem): bool
+    {
+        if (empty($lineItem['properties']) || ! is_array($lineItem['properties'])) {
+            return false;
+        }
+
+        foreach ($lineItem['properties'] as $property) {
+            $name = $property['name'] ?? null;
+            $value = $property['value'] ?? null;
+
+            if ($name === 'immediate_inventory') {
+                return $value === 'Y';
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Convert the collected order summary arrays into a compact structure for the modal.
+     * We present "order number (n items)" labels so the UI mirrors the Locations Revenue breakdown.
+     *
+     * @param array $ordersPerCategory Map of order_id => ['number' => int|string, 'quantity' => int]
+     * @return array order_id keyed array with friendly string labels used by the front-end modal
+     */
+    private function formatOrderQuantitiesForModal(array $ordersPerCategory): array
+    {
+        if (empty($ordersPerCategory)) {
+            return [];
+        }
+
+        uasort($ordersPerCategory, function ($first, $second) {
+            return ($first['number'] ?? 0) <=> ($second['number'] ?? 0);
+        });
+
+        $formatted = [];
+        foreach ($ordersPerCategory as $orderId => $payload) {
+            $orderNumber = (string) ($payload['number'] ?? '');
+            $quantity = (int) ($payload['quantity'] ?? 0);
+            $label = $orderNumber;
+
+            if ($quantity > 0) {
+                $label .= ' (' . $quantity . ' item' . ($quantity === 1 ? '' : 's') . ')';
+            }
+
+            $formatted[$orderId] = $label;
+        }
+
+        return $formatted;
     }
 }

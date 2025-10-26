@@ -147,20 +147,21 @@
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
                         <tr>
-                            <th>
+                            <th style="width:3.33%;">
                                 Date
                             </th>
-                            <th>Orders</th>
+                            <th style="width:1%; text-align: right;">Orders</th>
                             {{-- <th>Fulfilled</th>
                             <th>Took-Zero</th>
                             <th>Took-Less</th>
                             <th>Wrong-Item</th> --}}
-                            <th>No Status</th>
-                            <th>Cancelled</th>
-                            <th>Refunded</th>
-                            <th>Items Sold</th>
-                            <th>Items Created</th>
-                            <th>Driver<br>Images</th>
+                            <th style="width:1%; text-align: right;">No Status</th>
+                            <th style="width:1%; text-align: right;">Cancelled</th>
+                            <th style="width:1%; text-align: right;">Refunded</th>
+                            <th style="width:1%; text-align: right;">Items Sold Preorders</th>
+                            <th style="width:1%; text-align: right;">Items Created Immediate Inventory</th>
+                            <th style="width:1%; text-align: right;">Items Sold Immediate Inventory</th>
+                            <th style="width:1%; text-align: center;">Driver<br>Images</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -296,16 +297,32 @@
                     $("#order_type").html($(this).attr('data-type'));
                     const arrayOrders = JSON.parse(arrOrders);
                     console.log(arrayOrders);
-                    var html = '<h6>Immediate Inventory</h6><ul>';
-                    $.each(arrayOrders['immediate_inventory'], function(key, value) {
-                        html += '<li><a href="https://admin.shopify.com/store/dc9ef9/products/' + key + '" target="_blank">' + value.title + '</a></li>';
-                    });
-                    html += '</ul>';
-                    html += '<h6>PreOrder Inventory</h6><ul>';
-                    $.each(arrayOrders['preorder_inventory'], function(key, value) {
-                        html += '<li><a href="https://admin.shopify.com/store/dc9ef9/products/' + key + '" target="_blank">' + value.title + '</a></li>';
-                    });
-                    html += '</ul>';
+                    // The payload now powers three dedicated columns, so we check which bucket(s) carry data before rendering user-facing lists.
+                    var hasImmediateInventory = arrayOrders.hasOwnProperty('immediate_inventory') && Object.keys(arrayOrders['immediate_inventory']).length > 0;
+                    var hasPreorderInventory = arrayOrders.hasOwnProperty('preorder_inventory') && Object.keys(arrayOrders['preorder_inventory']).length > 0;
+                    var html = '';
+
+                    if (hasImmediateInventory) {
+                        html += '<h6>Immediate Inventory</h6><ul>';
+                        $.each(arrayOrders['immediate_inventory'], function(key, value) {
+                            html += '<li><a href="https://admin.shopify.com/store/dc9ef9/products/' + key + '" target="_blank">' + value.title + '</a></li>';
+                        });
+                        html += '</ul>';
+                    }
+
+                    if (hasPreorderInventory) {
+                        html += '<h6>PreOrder Inventory</h6><ul>';
+                        $.each(arrayOrders['preorder_inventory'], function(key, value) {
+                            html += '<li><a href="https://admin.shopify.com/store/dc9ef9/products/' + key + '" target="_blank">' + value.title + '</a></li>';
+                        });
+                        html += '</ul>';
+                    }
+
+                    if (!hasImmediateInventory && !hasPreorderInventory) {
+                        // Display a friendly fallback when both buckets are empty so the modal is still informative.
+                        html = '<p class="mb-0">No inventory items found for this selection.</p>';
+                    }
+
                     $("#orders_list").html(html); // display the sorted list
                     $("#orders_list_modal").modal('show');
                 });
