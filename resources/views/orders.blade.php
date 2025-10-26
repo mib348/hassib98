@@ -158,6 +158,7 @@
                             <th style="width:1%; text-align: right;">No Status</th>
                             <th style="width:1%; text-align: right;">Cancelled</th>
                             <th style="width:1%; text-align: right;">Refunded</th>
+                            <th style="width:1%; text-align: right;">Items Sold</th>
                             <th style="width:1%; text-align: right;">Items Sold Preorders</th>
                             <th style="width:1%; text-align: right;">Items Created Immediate Inventory</th>
                             <th style="width:1%; text-align: right;">Items Sold Immediate Inventory</th>

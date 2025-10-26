@@ -385,7 +385,7 @@ class OrdersController extends Controller
             $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='No Status' data-orders='".json_encode($arr_no_status)."'>".$no_status.'</a></td>';
             $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Cancelled' data-orders='".json_encode($arr_cancelled)."'>".$cancelled.'</a></td>';
             $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Refunded' data-orders='".json_encode($arr_refunded)."'>".$refunded.'</a></td>';
-            // $html .= "<td><a class='text-decoration-none items_counter' data-type='Items Sold' data-items='".htmlspecialchars(json_encode($final_items), ENT_QUOTES, 'UTF-8')."'>".$items.'</a></td>';
+            $html .= "<td class='text-end'><a class='text-decoration-none items_counter' data-type='Items Sold' data-items='".htmlspecialchars(json_encode($final_items), ENT_QUOTES, 'UTF-8')."'>".$items.'</a></td>';
             // $html .= "<td><a class='text-decoration-none items_created_counter' data-type='Items Created' data-items-created='".htmlspecialchars(json_encode($final_items_created), ENT_QUOTES, 'UTF-8')."'>".$items_created.'</a></td>';
             $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Items Sold Preorders' data-orders='".json_encode($preorderOrdersForModal)."'>".$items_sold_preorders.'</a></td>';
             $html .= "<td class='text-end'><a class='text-decoration-none items_created_counter' data-type='Items Created Immediate Inventory' data-items-created='".htmlspecialchars(json_encode($immediateInventoryModalPayload), ENT_QUOTES, 'UTF-8')."'>".$items_created_immediate_inventory.'</a></td>';
