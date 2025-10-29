@@ -43,6 +43,11 @@
                 @for ($j = 0; $j <= 8; $j++)
                 <option value="{{ $j }}" {{ $j == 8 ? 'selected' : '' }}>{{ $j }}</option>
                 @endfor
+                @if($inventoryType == "preorder")
+                    {{-- For preorder inventory type, add an additional option for unlimited quantity (999) --}}
+                    {{-- This allows setting a very high quantity that represents unlimited/settable quantity --}}
+                    <option value="999">999</option>
+                @endif
             </select>
 
             @if($inventoryType == "preorder")
