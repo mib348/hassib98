@@ -289,69 +289,297 @@
             <h5>PreOrders & Immediate Inventory</h5>
         </div>
     </div>
-    <div class="row">
-        <div class="col-12">
-            <div id="accordion" class="accordion">
-                @foreach($arrData as $location => $arrProducts)
-                    <div class="accordion-item">
-                        <div class="accordion-header" id="heading{{ $loop->index }}">
-                            <h5 class="mb-0 ">
-                                @php
-                                    $bgCleaned = $arrProducts['is_cleaned'] ? '' : '<div class="spinner-grow text-danger" role="status">  <span class="visually-hidden">Loading...</span></div>';
-                                    $bgColor = $arrProducts['is_fulfilled'] ? 'bg-success-subtle' : 'bg-light';
-                                @endphp
-                                <button class="accordion-button {{ $bgColor }}  d-flex justify-content-center align-items-center text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="false" aria-controls="collapse{{ $loop->index }}">
-                                    {!! $bgCleaned !!}   &nbsp; {{ ($loop->index + 1) . ". " . $location }}  &nbsp; <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span> &nbsp; <span class="text-white">{{ $arrProducts['location_data']['driver_fulfillment_time'] }}</span>
-                                </button>
-                            </h5>
-                        </div>
 
-                        <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
-                            <div class="accordion-body">
-                                <p>{!! $arrProducts['location_data']['address'] !!}</p>
+    {{-- Check if this is ADMIN view with store grouping --}}
+    @if(isset($isAdminView) && $isAdminView && !empty($storesData))
+        {{-- Loop through each store and display its locations grouped together --}}
+        @foreach($storesData as $storeIndex => $storeGroup)
+            <div class="row mt-4">
+                <div class="col-12">
+                    {{-- Store heading with distinctive styling --}}
+                    <h5 class="pb-2 mb-3">
+                        🏪 {{ $storeGroup['store']->name }}
+                    </h5>
+                </div>
+            </div>
 
-                                <div class="d-grid gap-2 col-12 mx-auto">
-                                    <div class="col-auto">
-                                        <button
-                                            type="button"
-                                            class="btn btn-primary open-google-maps"
-                                            data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
-                                            data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
-                                            data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
-                                            <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
+            <div class="row">
+                <div class="col-12">
+                    {{-- Accordion for this specific store's locations --}}
+                    {{-- Use unique accordion ID per store to prevent conflicts --}}
+                    <div id="accordion-store-{{ $storeIndex }}" class="accordion mb-4">
+                        @foreach($storeGroup['locations'] as $locationObj)
+                            @php
+                                $location = $locationObj->name;
+                                // Check if this location exists in our processed data
+                                if (!isset($arrData[$location])) {
+                                    continue; // Skip if location has no data
+                                }
+                                $arrProducts = $arrData[$location];
+                                // Generate a unique index combining store and location
+                                $uniqueIndex = $storeIndex . '-' . $loop->index;
+                            @endphp
+
+                            <div class="accordion-item">
+                                <div class="accordion-header" id="heading{{ $uniqueIndex }}">
+                                    <h5 class="mb-0 ">
+                                        @php
+                                            $bgCleaned = $arrProducts['is_cleaned'] ? '' : '<div class="spinner-grow text-danger" role="status">  <span class="visually-hidden">Loading...</span></div>';
+                                            $bgColor = $arrProducts['is_fulfilled'] ? 'bg-success-subtle' : 'bg-light';
+                                        @endphp
+                                        <button class="accordion-button {{ $bgColor }}  d-flex justify-content-center align-items-center text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $uniqueIndex }}" aria-expanded="false" aria-controls="collapse{{ $uniqueIndex }}">
+                                            {!! $bgCleaned !!}   &nbsp; {{ ($loop->index + 1) . ". " . $location }}  &nbsp; <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span> &nbsp; <span class="text-white">{{ $arrProducts['location_data']['driver_fulfillment_time'] }}</span>
                                         </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }}"
-                                            data-location="{{ $location }}">
-                                            <i class="fa-solid fa-truck-fast"></i> {{ $arrProducts['is_fulfilled'] ? 'Fulfilled' : 'Fulfill' }}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }}"
-                                            data-location="{{ $location }}">
-                                            <i class="fa-solid fa-broom"></i> {{ $arrProducts['is_cleaned'] ? 'Cleaned ' . $arrProducts['cleaning_time'] : 'Clean' }}
-                                        </button>
+                                    </h5>
+                                </div>
+
+                                <div id="collapse{{ $uniqueIndex }}" class="accordion-collapse collapse" aria-labelledby="heading{{ $uniqueIndex }}" data-bs-parent="#accordion-store-{{ $storeIndex }}">
+                                    <div class="accordion-body">
+                                        <p>{!! $arrProducts['location_data']['address'] !!}</p>
+
+                                        <div class="d-grid gap-2 col-12 mx-auto">
+                                            <div class="col-auto">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-primary open-google-maps"
+                                                    data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
+                                                    data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
+                                                    data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
+                                                    <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }}"
+                                                    data-location="{{ $location }}">
+                                                    <i class="fa-solid fa-truck-fast"></i> {{ $arrProducts['is_fulfilled'] ? 'Fulfilled' : 'Fulfill' }}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }}"
+                                                    data-location="{{ $location }}">
+                                                    <i class="fa-solid fa-broom"></i> {{ $arrProducts['is_cleaned'] ? 'Cleaned ' . $arrProducts['cleaning_time'] : 'Clean' }}
+                                                </button>
+                                            </div>
+
+                                            <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
+                                                <div id="map{{ $uniqueIndex }}" style="height: 100%; width: 100%; text-align:center;">
+                                                    <div class="spinner-border spinner-border-sm text-danger loading-spinner" role="status">
+                                                        <span class="visually-hidden">Loading...</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <br>
+
+                                        <h6>IMMEDIATE INVENTORY</h6>
+                                        <div class="row">
+                                            @php
+                                                $productCount = 0;
+                                            @endphp
+                                            @if(!empty($arrProducts))
+                                                @foreach($arrProducts['immediate_inventory_slot']['products'] as $productName => $quantity)
+                                                    @if($productCount < 4)
+                                                        <div class="col-12 col-sm-6">
+                                                            <div class="row">
+                                                                <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
+                                                                        {{ $quantity }}
+                                                                </div>
+                                                                <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
+                                                                        {{ $productName }}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        @php
+                                                            $productCount++;
+                                                        @endphp
+                                                    @else
+                                                        @break
+                                                    @endif
+                                                @endforeach
+                                            @endif
+
+                                            @for($i = $productCount; $i < 4; $i++)
+                                            <div class="col-12 col-sm-6">
+                                                <div class="row">
+                                                    <div class="col-4">
+                                                        &nbsp;
+                                                    </div>
+                                                    <div class="col-8">
+                                                        &nbsp;
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endfor
+                                        </div>
+
+
+                                        <h6>PREORDER</h6>
+                                        <div class="row">
+                                            @php
+                                                $productCount = 0;
+                                            @endphp
+                                            @if(!empty($arrProducts))
+                                                @foreach($arrProducts['preorder_slot']['products'] as $productName => $quantity)
+                                                    <div class="col-12 col-sm-6">
+                                                        <div class="row">
+                                                            <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
+                                                                    {{ $quantity }}
+                                                            </div>
+                                                            <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
+                                                                    {{ $productName }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    @php
+                                                        $productCount++;
+                                                    @endphp
+                                                @endforeach
+                                            @endif
+
+                                            @for($i = $productCount; $i < 4; $i++)
+                                            <div class="col-12 col-sm-6">
+                                                <div class="row">
+                                                    <div class="col-4">
+                                                        &nbsp;
+                                                    </div>
+                                                    <div class="col-8">
+                                                        &nbsp;
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endfor
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
+                                            <div class="col-12 col-sm-6 col-lg-3">
+                                                <h6>FULFILLMENT ATTACHED PHOTO</h6>
+                                                <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                            </div>
+                                            @endif
+
+                                            @if(isset($arrProducts['is_cleaned']) && $arrProducts['is_cleaned'] && isset($arrProducts['cleaned_image']))
+                                                <div class="col-12 col-sm-6 col-lg-3">
+                                                    <h6>CLEANING ATTACHED PHOTO</h6>
+                                                    <img src="{{ $arrProducts['cleaned_image'] }}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                                </div>
+                                            @endif
+                                        </div>
+
                                     </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    @else
+        {{-- Original flat accordion view for non-ADMIN or when store grouping is not available --}}
+        <div class="row">
+            <div class="col-12">
+                <div id="accordion" class="accordion">
+                    @foreach($arrData as $location => $arrProducts)
+                        <div class="accordion-item">
+                            <div class="accordion-header" id="heading{{ $loop->index }}">
+                                <h5 class="mb-0 ">
+                                    @php
+                                        $bgCleaned = $arrProducts['is_cleaned'] ? '' : '<div class="spinner-grow text-danger" role="status">  <span class="visually-hidden">Loading...</span></div>';
+                                        $bgColor = $arrProducts['is_fulfilled'] ? 'bg-success-subtle' : 'bg-light';
+                                    @endphp
+                                    <button class="accordion-button {{ $bgColor }}  d-flex justify-content-center align-items-center text-center fw-bold" data-bs-toggle="collapse" data-bs-target="#collapse{{ $loop->index }}" aria-expanded="false" aria-controls="collapse{{ $loop->index }}">
+                                        {!! $bgCleaned !!}   &nbsp; {{ ($loop->index + 1) . ". " . $location }}  &nbsp; <span class="badge bg-primary">{{ $arrTotalOrders[$location]['total_orders_count'] }}</span> &nbsp; <span class="text-white">{{ $arrProducts['location_data']['driver_fulfillment_time'] }}</span>
+                                    </button>
+                                </h5>
+                            </div>
 
-                                    <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
-                                        <div id="map{{ $loop->index }}" style="height: 100%; width: 100%; text-align:center;">
-                                            <div class="spinner-border spinner-border-sm text-danger loading-spinner" role="status">
-                                                <span class="visually-hidden">Loading...</span>
+                            <div id="collapse{{ $loop->index }}" class="accordion-collapse collapse" aria-labelledby="heading{{ $loop->index }}" data-bs-parent="#accordion">
+                                <div class="accordion-body">
+                                    <p>{!! $arrProducts['location_data']['address'] !!}</p>
+
+                                    <div class="d-grid gap-2 col-12 mx-auto">
+                                        <div class="col-auto">
+                                            <button
+                                                type="button"
+                                                class="btn btn-primary open-google-maps"
+                                                data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
+                                                data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
+                                                data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
+                                                <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }}"
+                                                data-location="{{ $location }}">
+                                                <i class="fa-solid fa-truck-fast"></i> {{ $arrProducts['is_fulfilled'] ? 'Fulfilled' : 'Fulfill' }}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }}"
+                                                data-location="{{ $location }}">
+                                                <i class="fa-solid fa-broom"></i> {{ $arrProducts['is_cleaned'] ? 'Cleaned ' . $arrProducts['cleaning_time'] : 'Clean' }}
+                                            </button>
+                                        </div>
+
+                                        <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
+                                            <div id="map{{ $loop->index }}" style="height: 100%; width: 100%; text-align:center;">
+                                                <div class="spinner-border spinner-border-sm text-danger loading-spinner" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                <br>
+                                    <br>
 
-                                <h6>IMMEDIATE INVENTORY</h6>
-                                <div class="row">
-                                    @php
-                                        $productCount = 0;
-                                    @endphp
-                                    @if(!empty($arrProducts))
-                                        @foreach($arrProducts['immediate_inventory_slot']['products'] as $productName => $quantity)
-                                            @if($productCount < 4)
+                                    <h6>IMMEDIATE INVENTORY</h6>
+                                    <div class="row">
+                                        @php
+                                            $productCount = 0;
+                                        @endphp
+                                        @if(!empty($arrProducts))
+                                            @foreach($arrProducts['immediate_inventory_slot']['products'] as $productName => $quantity)
+                                                @if($productCount < 4)
+                                                    <div class="col-12 col-sm-6">
+                                                        <div class="row">
+                                                            <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
+                                                                    {{ $quantity }}
+                                                            </div>
+                                                            <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
+                                                                    {{ $productName }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    @php
+                                                        $productCount++;
+                                                    @endphp
+                                                @else
+                                                    @break
+                                                @endif
+                                            @endforeach
+                                        @endif
+
+                                        @for($i = $productCount; $i < 4; $i++)
+                                        <div class="col-12 col-sm-6">
+                                            <div class="row">
+                                                <div class="col-4">
+                                                    &nbsp;
+                                                </div>
+                                                <div class="col-8">
+                                                    &nbsp;
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endfor
+                                    </div>
+
+
+                                    <h6>PREORDER</h6>
+                                    <div class="row">
+                                        @php
+                                            $productCount = 0;
+                                        @endphp
+                                        @if(!empty($arrProducts))
+                                            @foreach($arrProducts['preorder_slot']['products'] as $productName => $quantity)
                                                 <div class="col-12 col-sm-6">
                                                     <div class="row">
                                                         <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
@@ -365,87 +593,47 @@
                                                 @php
                                                     $productCount++;
                                                 @endphp
-                                            @else
-                                                @break
-                                            @endif
-                                        @endforeach
-                                    @endif
+                                            @endforeach
+                                        @endif
 
-                                    @for($i = $productCount; $i < 4; $i++)
-                                    <div class="col-12 col-sm-6">
-                                        <div class="row">
-                                            <div class="col-4">
-                                                &nbsp;
-                                            </div>
-                                            <div class="col-8">
-                                                &nbsp;
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @endfor
-                                </div>
-
-
-                                <h6>PREORDER</h6>
-                                <div class="row">
-                                    @php
-                                        $productCount = 0;
-                                    @endphp
-                                    @if(!empty($arrProducts))
-                                        @foreach($arrProducts['preorder_slot']['products'] as $productName => $quantity)
-                                            <div class="col-12 col-sm-6">
-                                                <div class="row">
-                                                    <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
-                                                            {{ $quantity }}
-                                                    </div>
-                                                    <div class="col-8 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-product">
-                                                            {{ $productName }}
-                                                    </div>
+                                        @for($i = $productCount; $i < 4; $i++)
+                                        <div class="col-12 col-sm-6">
+                                            <div class="row">
+                                                <div class="col-4">
+                                                    &nbsp;
+                                                </div>
+                                                <div class="col-8">
+                                                    &nbsp;
                                                 </div>
                                             </div>
-                                            @php
-                                                $productCount++;
-                                            @endphp
-                                        @endforeach
-                                    @endif
-
-                                    @for($i = $productCount; $i < 4; $i++)
-                                    <div class="col-12 col-sm-6">
-                                        <div class="row">
-                                            <div class="col-4">
-                                                &nbsp;
-                                            </div>
-                                            <div class="col-8">
-                                                &nbsp;
-                                            </div>
                                         </div>
+                                        @endfor
                                     </div>
-                                    @endfor
-                                </div>
 
-                                <div class="row mt-3">
-                                    @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <h6>FULFILLMENT ATTACHED PHOTO</h6>
-                                        <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
-                                    </div>
-                                    @endif
-    
-                                    @if(isset($arrProducts['is_cleaned']) && $arrProducts['is_cleaned'] && isset($arrProducts['cleaned_image']))
+                                    <div class="row mt-3">
+                                        @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
                                         <div class="col-12 col-sm-6 col-lg-3">
-                                            <h6>CLEANING ATTACHED PHOTO</h6>
-                                            <img src="{{ $arrProducts['cleaned_image'] }}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                            <h6>FULFILLMENT ATTACHED PHOTO</h6>
+                                            <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
                                         </div>
-                                    @endif
-                                </div>
+                                        @endif
 
+                                        @if(isset($arrProducts['is_cleaned']) && $arrProducts['is_cleaned'] && isset($arrProducts['cleaned_image']))
+                                            <div class="col-12 col-sm-6 col-lg-3">
+                                                <h6>CLEANING ATTACHED PHOTO</h6>
+                                                <img src="{{ $arrProducts['cleaned_image'] }}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                </div>
                             </div>
                         </div>
-                    </div>
-                @endforeach
+                    @endforeach
+                </div>
             </div>
         </div>
-    </div>
+    @endif
 </div>
 
 <!-- Camera Capture Modal -->
@@ -504,6 +692,7 @@
         });
 
         // Function to store open accordion items
+        // Works for both flat accordion and store-grouped accordions
         function storeAccordionState() {
             var openItems = [];
             $('.accordion-collapse.show').each(function() {
@@ -513,12 +702,13 @@
         }
 
         // Function to restore open accordion items
+        // Handles both flat accordion structure (non-ADMIN) and store-grouped structure (ADMIN)
         function restoreAccordionState() {
             var openItems = localStorage.getItem('openAccordionItems');
             if (openItems) {
                 try {
                     openItems = JSON.parse(openItems);
-                    // Open saved accordion items
+                    // Open saved accordion items - works for both structures
                     openItems.forEach(function(itemId) {
                         $('#' + itemId).addClass('show');
                         $('[data-bs-target="#' + itemId + '"]').attr('aria-expanded', 'true').removeClass('collapsed');
@@ -528,8 +718,16 @@
                 }
             } else {
                 // If no stored state, open first item by default (initial page load only)
-                $('#collapse0').addClass('show');
-                $('[data-bs-target="#collapse0"]').attr('aria-expanded', 'true');
+                // For flat accordion structure
+                if ($('#collapse0').length) {
+                    $('#collapse0').addClass('show');
+                    $('[data-bs-target="#collapse0"]').attr('aria-expanded', 'true');
+                }
+                // For store-grouped structure, open first location of first store
+                else if ($('#collapse0-0').length) {
+                    $('#collapse0-0').addClass('show');
+                    $('[data-bs-target="#collapse0-0"]').attr('aria-expanded', 'true');
+                }
             }
 
             // Restore scroll position

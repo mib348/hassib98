@@ -8,13 +8,14 @@ use App\Models\LocationProductsTable;
 use App\Models\Locations;
 use App\Models\Orders;
 use App\Models\User;
+use App\Models\Stores;
+use App\Models\StoreLocations;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Models\Stores;
 
 class DriverController extends Controller
 {
@@ -28,22 +29,58 @@ class DriverController extends Controller
     public function display($uuid = null)
     {
         $title = "";
+        // Variable to track if we're in ADMIN mode for store grouping
+        $isAdminView = false;
+        // Array to store store information for grouping in ADMIN view
+        $storesData = [];
 
         if(!empty($uuid)){
             if($uuid == 'ADMIN'){
                 $title = "ADMIN";
+                $isAdminView = true;
 
+                // For ADMIN view, fetch all active stores and their locations
+                // This allows us to group locations by store in the view
+                $stores = Stores::where('is_active', 'Y')
+                    ->with(['storeLocations']) // Eager load store locations relationship
+                    ->orderBy('name', 'ASC')
+                    ->get();
+
+                // Build array of store data with their associated locations
+                foreach ($stores as $store) {
+                    // Get location names for this store from store_locations pivot table
+                    $locationNames = $store->storeLocations->pluck('location')->toArray();
+
+                    if (!empty($locationNames)) {
+                        // Fetch actual location data for these location names
+                        $storeLocations = Locations::where('is_active', 'Y')
+                            ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
+                            ->whereIn('name', $locationNames)
+                            ->orderByRaw('location_order IS NULL, location_order ASC')
+                            ->orderBy('name', 'ASC')
+                            ->get();
+
+                        // Only add store to array if it has valid locations
+                        if ($storeLocations->isNotEmpty()) {
+                            $storesData[] = [
+                                'store' => $store,
+                                'locations' => $storeLocations
+                            ];
+                        }
+                    }
+                }
+
+                // For backward compatibility, also get all locations for the main processing loop
+                // This ensures existing logic continues to work
                 $arrLocations = Locations::where('is_active', 'Y')
                     ->whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Delivery'])
-                                            // ->where('immediate_inventory', 'Y')
-                                            // ->orderBy('location_order', 'asc')
                     ->orderByRaw('location_order IS NULL, location_order ASC')
                     ->orderBy('name', 'ASC')
                     ->get();
             }
             else{
                 $arrStore = Stores::where('uuid', $uuid)->first();
-                
+
                 if(!$arrStore || $arrStore->is_active == "N"){
                     abort(403, 'Access Denied');
                 }
@@ -192,9 +229,42 @@ class DriverController extends Controller
             }
         }
 
+        // After filtering arrData, rebuild storesData to only include stores with remaining locations
+        // This ensures we don't show empty store sections in the ADMIN view
+        if ($isAdminView && !empty($storesData)) {
+            $filteredStoresData = [];
+            // Get the list of location names that remain in arrData after filtering
+            $remainingLocationNames = array_keys($arrData);
+
+            foreach ($storesData as $storeGroup) {
+                // Filter this store's locations to only include those in the remaining list
+                $validLocations = $storeGroup['locations']->filter(function ($location) use ($remainingLocationNames) {
+                    return in_array($location->name, $remainingLocationNames);
+                });
+
+                // Only include this store if it has at least one valid location with data
+                if ($validLocations->isNotEmpty()) {
+                    $filteredStoresData[] = [
+                        'store' => $storeGroup['store'],
+                        'locations' => $validLocations
+                    ];
+                }
+            }
+
+            // Replace storesData with the filtered version
+            $storesData = $filteredStoresData;
+        }
+
         // dd($arrData);
 
-        return view('drivers', ['arrData' => $arrData, 'arrTotalOrders' => $arrTotalOrders, 'title' => $title]);
+        // Pass additional data for ADMIN view to support store grouping
+        return view('drivers', [
+            'arrData' => $arrData,
+            'arrTotalOrders' => $arrTotalOrders,
+            'title' => $title,
+            'isAdminView' => $isAdminView,
+            'storesData' => $storesData
+        ]);
     }
 
     /**
