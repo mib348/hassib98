@@ -95,6 +95,15 @@
     </div>
     <br>
     <div class="row">
+        <div class="col-3">
+            <input class="form-check-input" type="checkbox" value="Y" id="chkFilterSnacksAndDrinks" name="chkFilterSnacksAndDrinks">
+            <label class="form-check-label" for="chkFilterSnacksAndDrinks">
+                Show only Snacks and Drinks
+            </label>
+        </div>
+    </div>
+    <br>
+    <div class="row">
         <div class="col-md-12">
             <form id="locations_revenue_form">
             <div class="table-responsive">
@@ -253,6 +262,9 @@
             $(document).on('change', '#strFilterDate', function(e){
                 LoadList();
             });
+            $(document).on('change', '#chkFilterSnacksAndDrinks', function(e){
+                LoadList();
+            });
 
             $(document).on('click', '#save_btn', function(e){
                 $.ajax({
@@ -284,18 +296,20 @@
                 var fromDate = $('#strFilterFromDate').val();
                 var toDate = $('#strFilterToDate').val();
                 var dateRange = $('#strFilterDate').val();
-                
+                // Check if "Snacks and Drinks" filter is active
+                var isSnacksAndDrinks = $('#chkFilterSnacksAndDrinks').is(':checked');
+
                 // Create subheading
                 var subHeading = '';
                 var formattedDateRange = '';
-                
+
                 if (fromDate && toDate) {
                     // Parse and format dates with 3-letter months
                     var startMoment = moment(fromDate, 'DD.MM.YYYY');
                     var endMoment = moment(toDate, 'DD.MM.YYYY');
                     formattedDateRange = startMoment.format('DD MMM YYYY') + ' - ' + endMoment.format('DD MMM YYYY');
                 }
-                
+
                 if (store && store !== '--- Select Store ---') {
                     subHeading = store;
                     if (formattedDateRange) {
@@ -305,6 +319,11 @@
                     subHeading = formattedDateRange;
                 } else {
                     subHeading = 'All Data';
+                }
+
+                // Add "Snacks and Drinks only" indicator if checkbox is checked
+                if (isSnacksAndDrinks) {
+                    subHeading += ' (Snacks and Drinks Only)';
                 }
                 
                 // Logo URL with full absolute path for print window
@@ -501,7 +520,8 @@
                     // "strFilterDate": $("#strFilterDate").val(),
                     "strFilterFromDate": $("#strFilterFromDate").val(),
                     "strFilterToDate": $("#strFilterToDate").val(),
-                    "strFilterStore": $("#strFilterStore").val()
+                    "strFilterStore": $("#strFilterStore").val(),
+                    "chkFilterSnacksAndDrinks": $("#chkFilterSnacksAndDrinks").is(':checked') ? 'Y' : 'N'
             	},
             	cache:false,
             	dataType:"html",

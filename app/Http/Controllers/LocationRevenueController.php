@@ -206,10 +206,40 @@ class LocationRevenueController extends Controller
 
             $orderIds = $orders->pluck('order_id');
             $metafields = Metafields::whereIn('order_id', $orderIds)->get()->groupBy('order_id');
+            $nTotalOrders = 0;
+
+            if($request->input('chkFilterSnacksAndDrinks') != 'Y') {
+                $nTotalOrders = count($orders);
+            }
 
             foreach ($orders as $order) {
                 $arrLineItems = json_decode($order->line_items, true);
                 $orderMetafields = $metafields->get($order->order_id, collect());
+
+                // When "Snacks and Drinks" filter is active, skip ALL orders that don't contain snacks/drinks items
+                // This ensures only snacks/drinks orders are included in ALL calculations (revenue, status, items, etc.)
+                if ($request->input('chkFilterSnacksAndDrinks') == 'Y') {
+                    // Flag to track if at least one line item is a snack/drink
+                    $hasSnacksAndDrinks = false;
+
+                    if (isset($arrLineItems)) {
+                        foreach ($arrLineItems as $key => $arrLineItem) {
+                            if (isset($arrLineItem['properties'][8]['name']) && $arrLineItem['properties'][8]['name'] == 'snacks_and_drinks' && $arrLineItem['properties'][8]['value'] == 'Y') {
+                                $hasSnacksAndDrinks = true;
+                                break; // Found at least one snack/drink item, no need to check further
+                            }
+                        }
+                    }
+
+                    // Skip this order entirely if it doesn't contain any snacks/drinks items
+                    // This order will not be counted in revenue, status counts, items sold, or any other metrics
+                    if (!$hasSnacksAndDrinks) {
+                        continue;
+                    }
+
+                    // Count this order exactly once (regardless of how many snack/drink items it has)
+                    $nTotalOrders++;
+                }
 
                 $arrFields = [];
                 foreach ($orderMetafields as $metafield) {
@@ -301,7 +331,7 @@ class LocationRevenueController extends Controller
             $html .= "<td style='width: 11%; text-align:right;' class='preorders-data' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "'>" . $nTotalPreorders . "</td>";
             $html .= "<td style='width: 11%; text-align:right;' class='immediate-inventory-data'>" . $nTotalImmediateInventory . "</td>";
             // Last cell holds all data attributes needed for detail rows display
-            $html .= "<td style='width: 11%; text-align:right;' class='immediate-inventory-items-sold-data' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . count($orders) . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "' data-immediate-inventory='" . $nTotalImmediateInventory . "' data-immediate-inventory-items-sold='" . addslashes(implode(', ', $arr_immediate_inventory_items_sold)) . "'>" . $nTotalImmediateInventoryItemsSold . "</td>";
+            $html .= "<td style='width: 11%; text-align:right;' class='immediate-inventory-items-sold-data' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . $nTotalOrders . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "' data-immediate-inventory='" . $nTotalImmediateInventory . "' data-immediate-inventory-items-sold='" . addslashes(implode(', ', $arr_immediate_inventory_items_sold)) . "'>" . $nTotalImmediateInventoryItemsSold . "</td>";
             $html .= "</tr>";
             // }
         }
