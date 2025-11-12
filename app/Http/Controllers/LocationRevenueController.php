@@ -40,6 +40,10 @@ class LocationRevenueController extends Controller
         $arrLocations = Locations::whereNot('name', 'Additional Inventory')->orderBy('name', 'asc')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_REVENUE')->first();
         $arrStores = Stores::where('is_active', 'Y')->orderBy('name', 'asc')->get();
+        foreach ($arrStores as $arrStore) {
+            $count_locations = StoreLocations::where('store_id', $arrStore->id)->count();
+            $arrStore->count_locations = $count_locations;
+        }
         // $html = $this->getLocationsRevenueList(request());
 
         return view('locations_revenue', ['years_months' => $yearsMonths, 'arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note, 'arrStores' => $arrStores]);

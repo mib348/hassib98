@@ -84,7 +84,7 @@
             <select id="strFilterStore" name="strFilterStore" class="form-select">
                 <option value="" selected>--- Select Store ---</option>
                 @foreach($arrStores as $store)
-                <option value="{{ $store->name }}">{{ $store->name }}</option>
+                <option value="{{ $store->name }}">{{ $store->name }} ({{ $store->count_locations }})</span></option>
                 @endforeach
             </select>
         </div>
@@ -329,7 +329,7 @@
                 // Logo URL with full absolute path for print window
                 var fullLogoUrl = logoUrl;
                 
-                // Compute grand totals if store is selected
+                // Compute grand totals if store is selected - Use DataTables API to get ALL rows across all pages
                 var storeFilter = $('#strFilterStore').val();
                 var showFooter = storeFilter !== '';
                 var formattedRevenue = '';
@@ -340,39 +340,41 @@
                 var totalImmediateInventory = 0;
                 var totalImmediateInventoryItemsSold = 0;
                 var totalOrders = 0;
-                
+
                 if (showFooter) {
                     var totalRevenueCalc = 0;
-                    $('.revenue-data').each(function() {
-                        var text = $(this).text().replace('€ ', '').replace(/\./g, '').replace(',', '.');
-                        totalRevenueCalc += parseFloat(text) || 0;
+
+                    // Use DataTables API to iterate over ALL rows across all pages
+                    table.rows().every(function() {
+                        var $row = $(this.node());
+
+                        // Get revenue value
+                        var revenueText = $row.find('.revenue-data').text().replace('€ ', '').replace(/\./g, '').replace(',', '.');
+                        totalRevenueCalc += parseFloat(revenueText) || 0;
+
+                        // Get no status count
+                        totalNoStatus += parseInt($row.find('.no-status-data').text()) || 0;
+
+                        // Get cancelled count
+                        totalCancelled += parseInt($row.find('.cancelled-data').text()) || 0;
+
+                        // Get refunded count
+                        totalRefunded += parseInt($row.find('.refunded-data').text()) || 0;
+
+                        // Get preorders (items sold)
+                        totalItemsSold += parseInt($row.find('.preorders-data').text()) || 0;
+
+                        // Get immediate inventory
+                        totalImmediateInventory += parseInt($row.find('.immediate-inventory-data').text()) || 0;
+
+                        // Get immediate inventory items sold
+                        totalImmediateInventoryItemsSold += parseInt($row.find('.immediate-inventory-items-sold-data').text()) || 0;
+
+                        // Get total orders from data attribute
+                        totalOrders += parseInt($row.find('.immediate-inventory-items-sold-data').data('total-orders')) || 0;
                     });
+
                     formattedRevenue = '&euro; ' + totalRevenueCalc.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    
-                    $('.no-status-data').each(function() {
-                        totalNoStatus += parseInt($(this).text()) || 0;
-                    });
-                    
-                    $('.cancelled-data').each(function() {
-                        totalCancelled += parseInt($(this).text()) || 0;
-                    });
-                    
-                    $('.refunded-data').each(function() {
-                        totalRefunded += parseInt($(this).text()) || 0;
-                    });
-
-                    $('.preorders-data').each(function() {
-                        totalItemsSold += parseInt($(this).text()) || 0;
-                    });
-
-                    $('.immediate-inventory-data').each(function() {
-                        totalImmediateInventory += parseInt($(this).text()) || 0;
-                    });
-
-                    $('.immediate-inventory-items-sold-data').each(function() {
-                        totalImmediateInventoryItemsSold += parseInt($(this).text()) || 0;
-                        totalOrders += parseInt($(this).data('total-orders')) || 0;
-                    });
                 }
                 
                 // Create a new window for PDF generation
@@ -380,26 +382,28 @@
                 var printContent = '<!DOCTYPE html><html><head>';
                 printContent += '<title>Locations Revenue Report</title>';
                 printContent += '<style>';
+                printContent += '@page { size: landscape; margin: 15mm; }'; // Set PDF to landscape orientation
                 printContent += 'body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; padding: 0px 10px; background-color: #f8f9fa; }';
-                printContent += '.report-container { background-color: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1200px; margin: 0 auto; }';
+                printContent += '.report-container { background-color: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 100%; margin: 0 auto; }';
                 printContent += '.report-header { text-align: center; position: relative;  }';
                 printContent += '.company-logo { max-width: 120px; height: auto; float:left; margin-top: 3%;  margin-right: -10%; }';
                 printContent += '.headings-container { display: inline-block; margin: 0 auto; }';
                 printContent += '.locations-heading { font-size: 26px; font-weight: 600; color: #2c3e50; }';
                 printContent += '.sub-heading { font-size: 24px; color: #2c3e50; margin: 0 0 10px 0; font-weight: 400; }';
                 printContent += 'table { width: 100%; border-collapse: collapse; margin-top: 25px; background-color: white; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }';
-                printContent += 'th, td { border: 1px solid #dee2e6; padding: 12px 8px; text-align: left; font-size: 13px; background-color: white; }';
-                printContent += 'th { background-color: #f2f2f2; color: #333; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }';
+                printContent += 'th, td { border: 1px solid #dee2e6; padding: 12px 8px; text-align: left; font-size: 11px; background-color: white; }';
+                printContent += 'th { background-color: #f2f2f2; color: #333; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }';
                 printContent += 'tbody tr { background-color: white; }';
                 printContent += 'tbody tr:hover { background-color: #f8f9fa; }';
                 printContent += '.text-right { text-align: right; font-weight: 500; }';
                 printContent += '.text-center { text-align: center; }';
                 printContent += '.detail-row { background-color: #f1f3f4 !important; }';
-                printContent += '.detail-row td { border-top: 0; padding: 15px; font-size: 12px; color: #495057; background-color: #f1f3f4 !important; }';
+                printContent += '.detail-row td { border-top: 0; padding: 15px; font-size: 10px; color: #495057; background-color: #f1f3f4 !important; }';
                 printContent += '.detail-row td div { margin-bottom: 5px; }';
                 printContent += '.detail-row td div:last-child { margin-bottom: 0; }';
-                printContent += 'tfoot th { background-color: #f8f9fa; border-top: 2px solid #dee2e6; font-weight: bold; font-size: 14px; }';
-                printContent += '.tfoot .text-right { text-align: right; }';
+                // Grand total footer styles - added as regular tbody row to prevent repetition while maintaining column alignment
+                printContent += '.footer-row { background-color: #f8f9fa !important; font-weight: bold; }';
+                printContent += '.footer-row td { border-top: 2px solid #dee2e6 !important; background-color: #f8f9fa !important; font-size: 12px; padding: 12px 8px; }';
                 printContent += '@media print { body { background-color: white; } .report-container { box-shadow: none; } .company-logo { position: static; transform: none; left: 0; top: auto; display: inline-block; margin-right: 20px; vertical-align: middle; } .headings-container { display: inline-block; vertical-align: middle; } }';
                 printContent += '</style></head><body>';
                 printContent += '<div class="report-container">';
@@ -428,56 +432,73 @@
                 
                 // Add table body
                 printContent += '<tbody>';
-                
-                // Add all visible rows including detail rows (include all columns)
-                $('#locations_revenue_form tbody tr').each(function() {
-                    var $row = $(this);
-                    var isDetailRow = $row.hasClass('detail-row');
 
-                    if (isDetailRow) {
+                // Use DataTables API to get ALL rows across all pages (not just visible rows)
+                table.rows().every(function() {
+                    var $row = $(this.node());
+                    var dataCell = $row.find('.immediate-inventory-items-sold-data');
+
+                    // Add the main row with all columns
+                    printContent += '<tr>';
+                    $row.find('td').each(function(index) {
+                        var cellContent = $(this).text();
+                        var cellClass = '';
+
+                        // Center align date range (index 1)
+                        if (index === 1) {
+                            cellClass = 'text-center';
+                        }
+                        // Right-align numeric columns (indices 3-9 for all 10 columns)
+                        else if (index >= 3 && index <= 9) {
+                            cellClass = 'text-right';
+                        }
+
+                        printContent += '<td class="' + cellClass + '">' + cellContent + '</td>';
+                    });
+                    printContent += '</tr>';
+
+                    // Add detail row if data exists
+                    if (dataCell.length > 0) {
+                        var location = dataCell.data('location');
+                        var startDate = dataCell.data('start-date');
+                        var endDate = dataCell.data('end-date');
+                        var store = dataCell.data('store');
+                        var totalOrders = dataCell.data('total-orders');
+                        var noStatusOrders = dataCell.data('no-status-orders');
+                        var cancelledOrders = dataCell.data('cancelled-orders');
+                        var refundedOrders = dataCell.data('refunded-orders');
+                        var preorders = dataCell.data('preorders');
+                        var immediateInventory = dataCell.data('immediate-inventory');
+                        var immediateInventoryItemsSold = dataCell.data('immediate-inventory-items-sold');
+
                         printContent += '<tr class="detail-row">';
-                        printContent += '<td colspan="10">';
-                        printContent += $row.find('td').html();
-                        printContent += '</td></tr>';
-                    } else {
-                        printContent += '<tr>';
-                        $row.find('td').each(function(index) {
-                            var cellContent = $(this).text();
-                            var cellClass = '';
-                            
-                            // Center align date range (index 1)
-                            if (index === 1) {
-                                cellClass = 'text-center';
-                            }
-                            // Right-align numeric columns (indices 3-9 for all 10 columns)
-                            else if (index >= 3 && index <= 9) {
-                                cellClass = 'text-right';
-                            }
-                            
-                            printContent += '<td class="' + cellClass + '">' + cellContent + '</td>';
-                        });
+                        printContent += '<td colspan="10" style="background-color: #f9f9f9; padding: 15px; border-top: 0;">';
+                        printContent += '<div><strong>Total Orders:</strong> ' + totalOrders + '</div>';
+                        printContent += '<div><strong>Orders (No Status):</strong> ' + noStatusOrders + '</div>';
+                        printContent += '<div><strong>Orders (Cancelled):</strong> ' + cancelledOrders + '</div>';
+                        printContent += '<div><strong>Orders (Refunded):</strong> ' + refundedOrders + '</div>';
+                        printContent += '<div><strong>Orders (Preorders):</strong> ' + preorders + '</div>';
+                        printContent += '<div><strong>Orders (Immediate Inventory):</strong> ' + immediateInventoryItemsSold + '</div>';
+                        printContent += '</td>';
                         printContent += '</tr>';
                     }
                 });
-                
-                printContent += '</tbody>';
-                
-                // Add footer if store is selected
+
+                // Add footer row INSIDE tbody if store is selected - this prevents repetition while maintaining perfect column alignment
                 if (showFooter) {
-                    printContent += '<tfoot>';
-                    printContent += '<tr>';
-                    printContent += '<th colspan="3" class="text-right">Grand Total<br><small>Total Orders: ' + totalOrders.toLocaleString('de-DE') + '</small></th>';
-                    printContent += '<th class="text-right">' + formattedRevenue + '</th>';
-                    printContent += '<th class="text-right">' + totalNoStatus.toLocaleString('de-DE') + '</th>';
-                    printContent += '<th class="text-right">' + totalCancelled.toLocaleString('de-DE') + '</th>';
-                    printContent += '<th class="text-right">' + totalRefunded.toLocaleString('de-DE') + '</th>';
-                    printContent += '<th class="text-right">' + totalItemsSold.toLocaleString('de-DE') + '</th>';
-                    printContent += '<th class="text-right">' + totalImmediateInventory.toLocaleString('de-DE') + '</th>';
-                    printContent += '<th class="text-right">' + totalImmediateInventoryItemsSold.toLocaleString('de-DE') + '</th>';
+                    printContent += '<tr class="footer-row">';
+                    printContent += '<td colspan="3">Grand Total<br><small>Total Orders: ' + totalOrders.toLocaleString('de-DE') + '</small></td>';
+                    printContent += '<td class="text-right">' + formattedRevenue + '</td>';
+                    printContent += '<td class="text-right">' + totalNoStatus.toLocaleString('de-DE') + '</td>';
+                    printContent += '<td class="text-right">' + totalCancelled.toLocaleString('de-DE') + '</td>';
+                    printContent += '<td class="text-right">' + totalRefunded.toLocaleString('de-DE') + '</td>';
+                    printContent += '<td class="text-right">' + totalItemsSold.toLocaleString('de-DE') + '</td>';
+                    printContent += '<td class="text-right">' + totalImmediateInventory.toLocaleString('de-DE') + '</td>';
+                    printContent += '<td class="text-right">' + totalImmediateInventoryItemsSold.toLocaleString('de-DE') + '</td>';
                     printContent += '</tr>';
-                    printContent += '</tfoot>';
                 }
-                
+
+                printContent += '</tbody>';
                 printContent += '</table>';
                 printContent += '</div></body></html>';
                 
@@ -590,45 +611,44 @@
                 return;
             }
 
+            // Use DataTables API to get ALL rows across all pages (not just visible page)
             var totalRevenue = 0;
-            $('.revenue-data').each(function() {
-                var text = $(this).text().replace('€ ', '').replace(/\./g, '').replace(',', '.');
-                totalRevenue += parseFloat(text) || 0;
-            });
-
             var totalNoStatus = 0;
-            $('.no-status-data').each(function() {
-                totalNoStatus += parseInt($(this).text()) || 0;
-            });
-
             var totalCancelled = 0;
-            $('.cancelled-data').each(function() {
-                totalCancelled += parseInt($(this).text()) || 0;
-            });
-
             var totalRefunded = 0;
-            $('.refunded-data').each(function() {
-                totalRefunded += parseInt($(this).text()) || 0;
-            });
-
             var totalItemsSold = 0;
-            $('.preorders-data').each(function() {
-                totalItemsSold += parseInt($(this).text()) || 0;
-            });
-
             var totalImmediateInventory = 0;
-            $('.immediate-inventory-data').each(function() {
-                totalImmediateInventory += parseInt($(this).text()) || 0;
-            });
-
             var totalImmediateInventoryItemsSold = 0;
-            $('.immediate-inventory-items-sold-data').each(function() {
-                totalImmediateInventoryItemsSold += parseInt($(this).text()) || 0;
-            });
-
             var totalOrders = 0;
-            $('.immediate-inventory-items-sold-data').each(function() {
-                totalOrders += parseInt($(this).data('total-orders')) || 0;
+
+            // Loop through ALL rows in the DataTable, not just visible ones
+            table.rows().every(function() {
+                var $row = $(this.node());
+
+                // Get revenue value from this row
+                var revenueText = $row.find('.revenue-data').text().replace('€ ', '').replace(/\./g, '').replace(',', '.');
+                totalRevenue += parseFloat(revenueText) || 0;
+
+                // Get no status count
+                totalNoStatus += parseInt($row.find('.no-status-data').text()) || 0;
+
+                // Get cancelled count
+                totalCancelled += parseInt($row.find('.cancelled-data').text()) || 0;
+
+                // Get refunded count
+                totalRefunded += parseInt($row.find('.refunded-data').text()) || 0;
+
+                // Get preorders (items sold)
+                totalItemsSold += parseInt($row.find('.preorders-data').text()) || 0;
+
+                // Get immediate inventory
+                totalImmediateInventory += parseInt($row.find('.immediate-inventory-data').text()) || 0;
+
+                // Get immediate inventory items sold
+                totalImmediateInventoryItemsSold += parseInt($row.find('.immediate-inventory-items-sold-data').text()) || 0;
+
+                // Get total orders from data attribute
+                totalOrders += parseInt($row.find('.immediate-inventory-items-sold-data').data('total-orders')) || 0;
             });
 
             $footerRow.find('th').eq(0).html('Grand Total<br><small>Total Orders: ' + totalOrders.toLocaleString('de-DE') + '</small>');
