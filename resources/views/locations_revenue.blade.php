@@ -132,6 +132,19 @@
                     <tbody>
                     </tbody>
                     <tfoot>
+                        <!-- Repeat header row before footer with selected filter values for easy identification -->
+                        <tr id="grand-total-header-row" style="display: none;">
+                            <th id="footer-location-header" style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Location</th>
+                            <th id="footer-daterange-header" style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Date Range</th>
+                            <th id="footer-store-header" style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Store</th>
+                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Revenue</th>
+                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">No Status</th>
+                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Cancelled</th>
+                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Refunded</th>
+                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Sold Preorders</th>
+                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Created Immediate Inventory</th>
+                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Sold Immediate Inventory</th>
+                        </tr>
                         <tr id="grand-total-row" style="display: none;">
                             <th colspan="3" style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;">Grand Total</th>
                             <th style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;"></th>
@@ -484,6 +497,44 @@
                     }
                 });
 
+                // Add header row before footer INSIDE tbody if store is selected - shows actual filter values for easy identification
+                if (showFooter) {
+                    // Format location display
+                    var locationHeaderText = 'Location';
+                    if (location && location !== '--- Select Location ---') {
+                        locationHeaderText = 'Location<br><small style="font-weight: normal;">' + location + '</small>';
+                    } else {
+                        locationHeaderText = 'Location<br><small style="font-weight: normal;">All Locations</small>';
+                    }
+
+                    // Format date range display (already formatted above)
+                    var dateRangeHeaderText = 'Date Range';
+                    if (fromDate && toDate) {
+                        dateRangeHeaderText = 'Date Range<br><small style="font-weight: normal;">' + formattedDateRange.replace(' - ', '<br>') + '</small>';
+                    } else {
+                        dateRangeHeaderText = 'Date Range<br><small style="font-weight: normal;">All Dates</small>';
+                    }
+
+                    // Format store display
+                    var storeHeaderText = 'Store';
+                    if (store && store !== '--- Select Store ---') {
+                        storeHeaderText = 'Store<br><small style="font-weight: normal;">' + store + '</small>';
+                    }
+
+                    printContent += '<tr style="background-color: #f2f2f2; font-weight: 600; text-transform: uppercase; font-size: 10px;">';
+                    printContent += '<td style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">' + locationHeaderText + '</td>';
+                    printContent += '<td class="text-center" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">' + dateRangeHeaderText + '</td>';
+                    printContent += '<td style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">' + storeHeaderText + '</td>';
+                    printContent += '<td class="text-right" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">Revenue</td>';
+                    printContent += '<td class="text-right" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">No Status</td>';
+                    printContent += '<td class="text-right" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">Cancelled</td>';
+                    printContent += '<td class="text-right" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">Refunded</td>';
+                    printContent += '<td class="text-right" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">Items Sold Preorders</td>';
+                    printContent += '<td class="text-right" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">Items Created Immediate Inventory</td>';
+                    printContent += '<td class="text-right" style="border-top: 2px solid #dee2e6; background-color: #f2f2f2;">Items Sold Immediate Inventory</td>';
+                    printContent += '</tr>';
+                }
+
                 // Add footer row INSIDE tbody if store is selected - this prevents repetition while maintaining perfect column alignment
                 if (showFooter) {
                     printContent += '<tr class="footer-row">';
@@ -606,10 +657,48 @@
         function updateGrandTotals() {
             var storeFilter = $('#strFilterStore').val();
             var $footerRow = $('#grand-total-row');
+            var $headerRow = $('#grand-total-header-row');
             if (storeFilter === '') {
                 $footerRow.hide();
+                $headerRow.hide();
                 return;
             }
+
+            // Get selected filter values for display in header row
+            var locationText = $('#strFilterLocation option:selected').text();
+            var storeText = $('#strFilterStore option:selected').text();
+            var fromDate = $('#strFilterFromDate').val();
+            var toDate = $('#strFilterToDate').val();
+
+            // Format the location display - show "All Locations" if none selected
+            var locationDisplay = 'Location';
+            if (locationText && locationText !== '--- Select Location ---') {
+                locationDisplay = 'Location<br><small style="font-weight: bold;">' + locationText + '</small>';
+            } else {
+                locationDisplay = 'Location<br><small style="font-weight: bold;">All Locations</small>';
+            }
+
+            // Format the date range display with 3-letter month format
+            var dateRangeDisplay = 'Date Range';
+            if (fromDate && toDate) {
+                var startMoment = moment(fromDate, 'DD.MM.YYYY');
+                var endMoment = moment(toDate, 'DD.MM.YYYY');
+                var formattedDateRange = startMoment.format('DD MMM YYYY') + ' -<br>' + endMoment.format('DD MMM YYYY');
+                dateRangeDisplay = 'Date Range<br><small style="font-weight: bold;">' + formattedDateRange + '</small>';
+            } else {
+                dateRangeDisplay = 'Date Range<br><small style="font-weight: bold;">All Dates</small>';
+            }
+
+            // Format the store display
+            var storeDisplay = 'Store';
+            if (storeText && storeText !== '--- Select Store ---') {
+                storeDisplay = 'Store<br><small style="font-weight: bold;">' + storeText + '</small>';
+            }
+
+            // Update the header row cells with actual filter values
+            $('#footer-location-header').html(locationDisplay);
+            $('#footer-daterange-header').html(dateRangeDisplay);
+            $('#footer-store-header').html(storeDisplay);
 
             // Use DataTables API to get ALL rows across all pages (not just visible page)
             var totalRevenue = 0;
@@ -661,6 +750,7 @@
             $footerRow.find('th').eq(7).html(totalImmediateInventoryItemsSold.toLocaleString('de-DE'));
 
             $footerRow.show();
+            $headerRow.show();
         }
     </script>
 @endsection
