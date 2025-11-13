@@ -298,7 +298,7 @@
                 <div class="col-12">
                     {{-- Store heading with distinctive styling --}}
                     <h5 class="pb-2 mb-3">
-                        🏪 {{ $storeGroup['store']->name }}
+                        🏪 {{ $storeGroup['store']->name }} <span class="badge bg-primary">{{ $storeGroup['locations']->count() }}</span>
                     </h5>
                 </div>
             </div>
