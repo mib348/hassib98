@@ -833,6 +833,149 @@ if (window.jQuery) {
   let $ = window.jQuery;
 
   $(document).ready(function () {
+    // ============================================================================
+    // SESSION TIMEOUT FUNCTIONALITY (5-MINUTE INACTIVITY TIMEOUT)
+    // ============================================================================
+    // Automatically clears all session data (sessionStorage, cookies, cart) and
+    // redirects user to /pages/bestellen after 5 minutes of inactivity.
+    // This ensures users don't have stale cart/session data if they leave the
+    // browser tab open and come back later. Timer resets on any user interaction
+    // (click, scroll, keypress, mouse movement, touch).
+    // ============================================================================
+    (function initSessionTimeout() {
+      // Skip timeout initialization if already on /pages/bestellen
+      // No point redirecting to the same page we're already on
+      if (window.location.pathname === '/pages/bestellen') {
+        console.log('[Session Timeout] On bestellen page, skipping timeout initialization');
+        return;
+      }
+
+      // -------------------------------------------------------------------------
+      // CONFIGURATION: 5 minutes = 300,000 milliseconds
+      // Change this value to adjust the timeout duration
+      // -------------------------------------------------------------------------
+      var SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 300000ms = 5 minutes
+
+      // Stores the timeout ID so we can clear/reset it on user activity
+      var sessionTimeoutId = null;
+
+      // -------------------------------------------------------------------------
+      // HELPER: Clear all browser cookies
+      // Loops through all cookies and sets them to expire in the past,
+      // which effectively deletes them from the browser
+      // -------------------------------------------------------------------------
+      function clearAllCookies() {
+        try {
+          var cookies = document.cookie.split(";");
+          for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i];
+            var eqPos = cookie.indexOf("=");
+            // Extract cookie name (before the = sign)
+            var name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+            // Set cookie to expire in the past (1970) to delete it
+            // path=/ ensures we delete cookies from all paths
+            document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+          }
+          console.log('[Session Timeout] All cookies cleared');
+        } catch (e) {
+          console.error('[Session Timeout] Error clearing cookies:', e);
+        }
+      }
+
+      // -------------------------------------------------------------------------
+      // MAIN HANDLER: Executes when the 5-minute timeout is reached
+      // 1. Clears sessionStorage (location, date, inventory flags, etc.)
+      // 2. Clears all cookies
+      // 3. Clears the Shopify cart via AJAX
+      // 4. Redirects to /pages/bestellen
+      // -------------------------------------------------------------------------
+      function handleSessionTimeout() {
+        console.log('[Session Timeout] 5-minute inactivity timeout reached');
+        console.log('[Session Timeout] Clearing all session data and redirecting...');
+
+        // Step 1: Clear sessionStorage
+        // This removes location, date, immediate_inventory, no_station, etc.
+        try {
+          sessionStorage.clear();
+          console.log('[Session Timeout] SessionStorage cleared');
+        } catch (e) {
+          console.error('[Session Timeout] Error clearing sessionStorage:', e);
+        }
+
+        // Step 2: Clear all cookies
+        clearAllCookies();
+
+        // Step 3: Clear the Shopify cart and then redirect
+        // Using async:false to ensure cart is cleared before redirect
+        if (window.Shopify && window.Shopify.routes && window.Shopify.routes.root) {
+          $.ajax({
+            type: "POST",
+            url: window.Shopify.routes.root + "cart/clear.js",
+            async: false, // MUST be sync to complete before redirect
+            dataType: "json",
+            success: function() {
+              console.log('[Session Timeout] Cart cleared successfully');
+            },
+            error: function(xhr, status, error) {
+              console.error('[Session Timeout] Error clearing cart:', error);
+            },
+            complete: function() {
+              // Step 4: Redirect to bestellen page (always happens, even on error)
+              console.log('[Session Timeout] Redirecting to /pages/bestellen');
+              window.location.href = "/pages/bestellen";
+            }
+          });
+        } else {
+          // Fallback: redirect without clearing cart if Shopify routes unavailable
+          console.warn('[Session Timeout] Shopify routes not available, redirecting anyway');
+          window.location.href = "/pages/bestellen";
+        }
+      }
+
+      // -------------------------------------------------------------------------
+      // TIMER RESET: Called on initialization and on every user interaction
+      // Clears any existing timeout and starts a fresh 5-minute countdown
+      // -------------------------------------------------------------------------
+      function resetSessionTimeout() {
+        // Clear any existing timeout to prevent multiple timers
+        if (sessionTimeoutId) {
+          clearTimeout(sessionTimeoutId);
+        }
+        // Start a fresh 5-minute countdown
+        sessionTimeoutId = setTimeout(handleSessionTimeout, SESSION_TIMEOUT_MS);
+      }
+
+      // -------------------------------------------------------------------------
+      // INITIALIZATION: Start the timeout and attach activity listeners
+      // -------------------------------------------------------------------------
+
+      // Start the initial 5-minute countdown
+      resetSessionTimeout();
+
+      // List of DOM events that indicate user activity
+      // Any of these will reset the 5-minute timer
+      var activityEvents = [
+        'click',      // Mouse clicks
+        'scroll',     // Page scrolling
+        'keypress',   // Keyboard input
+        'keydown',    // Keyboard key down (catches more keys than keypress)
+        'mousemove',  // Mouse movement
+        'touchstart', // Touch screen tap start
+        'touchmove'   // Touch screen swipe/scroll
+      ];
+
+      // Attach event listeners for all activity events
+      // Using { passive: true } for better scroll/touch performance
+      activityEvents.forEach(function(eventName) {
+        document.addEventListener(eventName, resetSessionTimeout, { passive: true });
+      });
+
+      console.log('[Session Timeout] Initialized - will timeout after ' + (SESSION_TIMEOUT_MS / 1000) + ' seconds of inactivity');
+    })();
+    // ============================================================================
+    // END OF SESSION TIMEOUT FUNCTIONALITY
+    // ============================================================================
+
     //when the "bestellen" site loads, it should check whether their is already a location and date in the session -&gt; if yes it should redirect to the meunue page directly otherwise just display the normal page
     const currentPathForParams = window.location.pathname;
     const pagesForParams = ["/pages/bestellen", "/pages/datum", "/pages/order-menue"];
