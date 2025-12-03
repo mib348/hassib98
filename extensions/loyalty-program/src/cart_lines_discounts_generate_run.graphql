@@ -1,4 +1,9 @@
 query CartInput {
+  shop {
+    localTime {
+      date
+    }
+  }
   cart {
     lines {
       id
@@ -6,28 +11,26 @@ query CartInput {
       merchandise {
         __typename
         ... on ProductVariant {
-          id
           title
           product {
-            id
             title
             productType
-            handle
           }
         }
       }
       cost {
         amountPerQuantity {
           amount
-          currencyCode
         }
-        totalAmount {
-          amount
-          currencyCode
-        }
-        subtotalAmount {
-          amount
-        }
+      }
+      dateAttribute: attribute(key: "date") {
+        value
+      }
+      daynameAttribute: attribute(key: "day") {
+        value
+      }
+      immediateInventoryAttribute: attribute(key: "immediate_inventory") {
+        value
       }
     }
     buyerIdentity {
