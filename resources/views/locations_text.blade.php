@@ -171,7 +171,7 @@
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" id="immediate_inventory_48h" name="immediate_inventory_48h">
                             <label class="form-check-label" for="immediate_inventory_48h">
-                                Immediate Inventory 48H
+                                Yesterdays Items
                             </label>
                         </div>
                     </div>

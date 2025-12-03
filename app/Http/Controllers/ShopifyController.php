@@ -1065,20 +1065,37 @@ class ShopifyController extends Controller
 		return $totalQty;
 	}
 
+    /**
+     * Get immediate inventory count for a location - ONLY TODAY'S INVENTORY
+     * =========================================================================
+     * This function returns ONLY today's immediate inventory count for a location.
+     * Yesterday's inventory is handled separately by getImmediateInventoryByLocationForYesterday().
+     *
+     * This separation is crucial for the "Sofortbestellung" (Today) and
+     * "Sofortbestellung Gestern" (Yesterday) buttons which need to show
+     * distinct inventory counts without mixing data.
+     *
+     * @param string|null $location - The location name to check inventory for
+     * @return int - Total quantity of TODAY's immediate inventory only
+     * =========================================================================
+     */
     public static function getImmediateInventoryByLocation($location = null) {
 		$totalQty = 0;
 
-		$nowBerlin     = Carbon::now('Europe/Berlin');
-		$todayDate     = $nowBerlin->format('d-m-Y');
-		$yesterdayDate = $nowBerlin->copy()->subDay()->format('d-m-Y');
-		$todayDay      = $nowBerlin->format('l');
-		$yesterdayDay  = $nowBerlin->copy()->subDay()->format('l');
+		$nowBerlin = Carbon::now('Europe/Berlin');
+		$todayDate = $nowBerlin->format('d-m-Y');      // Format: dd-mm-yyyy (e.g., 03-12-2024)
+		$todayDay  = $nowBerlin->format('l');          // Format: full day name (e.g., Tuesday)
 
+		// =========================================================================
+		// QUERY ONLY TODAY'S PRODUCTS
+		// We filter by today's day name only (not yesterday) to ensure this API
+		// returns exclusively today's inventory. Yesterday has its own endpoint.
+		// =========================================================================
 		$rows = LocationProductsTable::join('products', 'products.product_id', '=', 'location_products_tables.product_id')
 			->where('products.status', 'active')
 			->where('location_products_tables.location', $location)
 			->where('inventory_type', 'immediate')
-			->whereIn('day', [$todayDay, $yesterdayDay])
+			->where('day', $todayDay)  // ONLY today's day - NOT yesterday
 			->get(['location_products_tables.product_id', 'products.title', 'location_products_tables.day']);
 
 		$shop = User::find(env('db_shop_id', 1));
@@ -1094,18 +1111,16 @@ class ShopifyController extends Controller
 
 		// Fetch all metafields at once using GraphQL instead of multiple REST calls
 		$metafieldsCache = self::fetchProductMetafieldsViaGraphQL($shop->api(), $uniqueProductIds, 'json');
-		$processedByDay  = []; // productId:day
+		$processedProducts = []; // Track processed product IDs to prevent duplicates
 
 		foreach ($rows as $row) {
 			$productId = $row['product_id'];
-			$rowDay    = $row['day'];
-			$key       = $productId . ':' . $rowDay;
 
-			// prevent duplicate counting for same product/day
-			if (isset($processedByDay[$key])) {
+			// Prevent duplicate counting for the same product
+			if (isset($processedProducts[$productId])) {
 				continue;
 			}
-			$processedByDay[$key] = true;
+			$processedProducts[$productId] = true;
 
 			// Get cached metafields for this product (already fetched via GraphQL)
 			$items = $metafieldsCache[$productId] ?? [];
@@ -1113,12 +1128,13 @@ class ShopifyController extends Controller
 				continue;
 			}
 
-			$targetDate = $rowDay === $todayDay ? $todayDate : ($rowDay === $yesterdayDay ? $yesterdayDate : null);
-			if ($targetDate === null) {
-				continue;
-			}
-
-			$sumForThisProductDay = 0;
+			// =========================================================================
+			// SUM ONLY TODAY'S INVENTORY
+			// Match metafield entries where:
+			// - Location matches the requested location
+			// - Date matches TODAY's date (not yesterday)
+			// =========================================================================
+			$sumForThisProduct = 0;
 			foreach ($items as $item) {
 				$parts = explode(':', $item);
 				if (count($parts) !== 3) {
@@ -1126,12 +1142,13 @@ class ShopifyController extends Controller
 				}
 				[$productLocation, $date, $qty] = $parts;
 
-				if ($productLocation === $location && $date === $targetDate) {
-					$sumForThisProductDay += (int) $qty;
+				// Only count inventory for today's date at the requested location
+				if ($productLocation === $location && $date === $todayDate) {
+					$sumForThisProduct += (int) $qty;
 				}
 			}
 
-			$totalQty += $sumForThisProductDay;
+			$totalQty += $sumForThisProduct;
 		}
 
 		return $totalQty;
