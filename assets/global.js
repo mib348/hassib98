@@ -851,10 +851,10 @@ if (window.jQuery) {
       }
 
       // -------------------------------------------------------------------------
-      // CONFIGURATION: 5 minutes = 300,000 milliseconds
+      // CONFIGURATION: 2 minutes = 120,000 milliseconds
       // Change this value to adjust the timeout duration
       // -------------------------------------------------------------------------
-      var SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 300000ms = 5 minutes
+      var SESSION_TIMEOUT_MS = 2 * 60 * 1000; // 120000ms = 2 minutes
 
       // Stores the timeout ID so we can clear/reset it on user activity
       var sessionTimeoutId = null;
