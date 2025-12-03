@@ -803,22 +803,47 @@ if (window.location.pathname === "/pages/order-menue" || window.location.pathnam
     todayDateObj.setHours(0, 0, 0, 0); // Normalize today to midnight
 
     if (storedDateObj < todayDateObj) {
-      console.warn("Stored date in sessionStorage (" + storedDate + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
-      sessionStorage.clear();
-      $.ajax({
-        type: "POST",
-        url: window.Shopify.routes.root + "cart/clear.js",
-        async: false,
-        dataType: "json",
-        async: false, // Crucial for completing before redirect
-        success: function () {
-          window.location.href = "/pages/bestellen";
-        },
-        error: function (xhr, status, error) {
-          console.error("Cart clear error during past date handling in global.js:", error);
-          window.location.href = "/pages/bestellen"; // Still redirect
-        }
-      });
+      // =========================================================================
+      // YESTERDAY ITEMS EXCEPTION
+      // Allow yesterday's date for immediate inventory orders. This is needed
+      // because the "Sofortbestellung Gestern" (Immediate Order Yesterday) button
+      // sets the date to yesterday to show products from yesterday's inventory.
+      // Without this exception, the date validation would clear the session and
+      // redirect away, breaking the yesterday items feature.
+      // =========================================================================
+      const isImmediateInventory = sessionStorage.getItem("immediate_inventory") === "Y";
+
+      // Calculate yesterday's date for comparison
+      const yesterdayDateObj = new Date(todayDateObj);
+      yesterdayDateObj.setDate(yesterdayDateObj.getDate() - 1);
+      yesterdayDateObj.setHours(0, 0, 0, 0); // Normalize to midnight for accurate comparison
+
+      // Check if the stored date is exactly yesterday (not older than yesterday)
+      const isExactlyYesterday = storedDateObj.getTime() === yesterdayDateObj.getTime();
+
+      // Allow yesterday's date ONLY for immediate inventory orders (yesterday items feature)
+      // For any date older than yesterday, always clear and redirect
+      if (isImmediateInventory && isExactlyYesterday) {
+        console.log("[Date Validation] Yesterday date allowed for immediate inventory order (Yesterdays Items feature)");
+        // Continue without clearing - the yesterday order is valid
+      } else {
+        console.warn("Stored date in sessionStorage (" + storedDate + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
+        sessionStorage.clear();
+        $.ajax({
+          type: "POST",
+          url: window.Shopify.routes.root + "cart/clear.js",
+          async: false,
+          dataType: "json",
+          async: false, // Crucial for completing before redirect
+          success: function () {
+            window.location.href = "/pages/bestellen";
+          },
+          error: function (xhr, status, error) {
+            console.error("Cart clear error during past date handling in global.js:", error);
+            window.location.href = "/pages/bestellen"; // Still redirect
+          }
+        });
+      }
       // Use a return or throw to stop further script execution in this context if necessary.
       // For now, the redirect will stop it.
     }
@@ -1147,16 +1172,39 @@ if (window.jQuery) {
         var removalPromises = [];
         var bReload = false;
 
+        // =========================================================================
+        // YESTERDAY ITEMS EXCEPTION
+        // Check if this is an immediate inventory order (yesterday items feature).
+        // If so, we need to allow products with yesterday's date to remain in cart.
+        // =========================================================================
+        var isImmediateInventory = sessionStorage.getItem("immediate_inventory") === "Y";
+
         $.each(response.items, function (index, product) {
           var dateParts = product.properties.date.split('-');
           var productDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+          productDate.setHours(0, 0, 0, 0); // Normalize to midnight for accurate comparison
 
           var currentDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
           currentDate.setHours(0, 0, 0, 0); // Remove time portion for comparison
 
+          // Calculate yesterday's date
+          var yesterdayDate = new Date(currentDate);
+          yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+          yesterdayDate.setHours(0, 0, 0, 0);
+
+          // Check if product date is exactly yesterday
+          var isExactlyYesterday = productDate.getTime() === yesterdayDate.getTime();
+
           if (productDate < currentDate) {
-            bReload = true;
-            removalPromises.push(removeProductFromCart(product.id));
+            // Allow yesterday's products for immediate inventory orders (yesterday items feature)
+            // Only remove products older than yesterday, or yesterday's products if NOT immediate inventory
+            if (isImmediateInventory && isExactlyYesterday) {
+              console.log('[Cart Manager] Keeping yesterday product for immediate inventory order:', product.title);
+              // Don't remove - this is a valid yesterday items order
+            } else {
+              bReload = true;
+              removalPromises.push(removeProductFromCart(product.id));
+            }
           }
         });
 

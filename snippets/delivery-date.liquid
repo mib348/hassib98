@@ -43,6 +43,14 @@
     }
 
     /*
+      Yesterday badge counter mobile display fix --------------------------------
+      Same fix for the yesterday items badge counter
+    */
+    #badge-counter-yesterday[style*="display: none"] {
+      display: none !important;
+    }
+
+    /*
       Delivery controls container -------------------------------------------------
       Keep all delivery action buttons (today, preorder, snacks & drinks) tidy and
       readable by aligning them side by side, collapsing gracefully when space is
@@ -62,12 +70,13 @@
 
     /*
       Delivery buttons base styling ----------------------------------------------
-      Provide consistent sizing/spacing so the user instantly recognises all three
+      Provide consistent sizing/spacing so the user instantly recognises all four
       actions. Inline-flex keeps icons/text centred while the compact padding makes
       the buttons feel lightweight without reducing the tap target below guidelines.
     */
     .preorderbtn,
     .todayorderbtn,
+    .yesterdayorderbtn,
     .snacks_and_drinks_btn {
       display: none;
       align-items: center;
@@ -99,6 +108,7 @@
 
       .preorderbtn,
       .todayorderbtn,
+      .yesterdayorderbtn,
       .snacks_and_drinks_btn {
         padding: 4px 8px;
         font-size: 13px;
@@ -125,6 +135,7 @@
 
        .preorderbtn,
        .todayorderbtn,
+       .yesterdayorderbtn,
        .snacks_and_drinks_btn {
          padding: 6px 10px;
          font-size: 14px;
@@ -144,6 +155,7 @@
     @media (max-width: 480px) {
       .preorderbtn,
       .todayorderbtn,
+      .yesterdayorderbtn,
       .snacks_and_drinks_btn {
         padding: 5px 8px;
         font-size: 13px;
@@ -156,6 +168,7 @@
     @media (max-width: 360px) {
       .preorderbtn,
       .todayorderbtn,
+      .yesterdayorderbtn,
       .snacks_and_drinks_btn {
         padding: 4px 6px;
         font-size: 12px;
@@ -173,6 +186,7 @@
     @media (hover: none) and (pointer: coarse) {
       .preorderbtn,
       .todayorderbtn,
+      .yesterdayorderbtn,
       .snacks_and_drinks_btn {
         {% comment %} min-height: 44px; {% endcomment %}
         padding: 8px 12px;
@@ -182,6 +196,7 @@
        @media (max-width: 576px) {
          .preorderbtn,
          .todayorderbtn,
+         .yesterdayorderbtn,
          .snacks_and_drinks_btn {
            {% comment %} min-height: 48px; {% endcomment %}
            padding: 10px 14px;
@@ -193,6 +208,7 @@
     /* Button states */
     .preorderbtn:hover,
     .todayorderbtn:hover,
+    .yesterdayorderbtn:hover,
     .snacks_and_drinks_btn:hover {
       transform: translateY(-1px);
       transition: all 0.1s ease-out;
@@ -200,6 +216,7 @@
 
     .preorderbtn:active,
     .todayorderbtn:active,
+    .yesterdayorderbtn:active,
     .snacks_and_drinks_btn:active {
       transform: translateY(0);
       transition: all 0.05s ease-out;
@@ -208,6 +225,7 @@
     /* Focus states for accessibility */
     .preorderbtn:focus,
     .todayorderbtn:focus,
+    .yesterdayorderbtn:focus,
     .snacks_and_drinks_btn:focus {
       outline: 2px solid currentColor;
       outline-offset: 2px;
@@ -260,17 +278,20 @@
       const buttonTodayOrder = document.querySelector('.todayorderbtn');
       const buttonPreOrder = document.querySelector('.preorderbtn');
       const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
 
       console.log('[Delivery Date] Buttons found:', {
         todayOrderBtn: !!buttonTodayOrder,
         preOrderBtn: !!buttonPreOrder,
-        snacksAndDrinksBtn: !!buttonSnacksAndDrinks
+        snacksAndDrinksBtn: !!buttonSnacksAndDrinks,
+        yesterdayOrderBtn: !!buttonYesterdayOrder
       });
 
       // Add loading state to buttons initially
       if (buttonTodayOrder) buttonTodayOrder.classList.add('btn-loading');
       if (buttonPreOrder) buttonPreOrder.classList.add('btn-loading');
       if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('btn-loading');
+      if (buttonYesterdayOrder) buttonYesterdayOrder.classList.add('btn-loading');
 
       // Sync badge counter height with buttons on small devices
       syncBadgeCounterHeight();
@@ -306,137 +327,61 @@
       }
     }
 
-    function toggleBadgeCounter(data, location, currentTimeInMinutes, nQty){
-      console.log('[Delivery Date] toggleBadgeCounter called', {
-        location,
-        currentTimeInMinutes,
-        nQty,
-        immediate_inventory: data.immediate_inventory,
-        immediate_inventory_48h: data.immediate_inventory_48h,
-        immediate_inventory_quantity_check_time: window.immediate_inventory_quantity_check_time
-      });
+    // =========================================================================
+    // UPDATE TODAY BADGE COUNTER
+    // =========================================================================
+    // Shows ONLY today's inventory count on the "Sofortbestellung" (Today) button.
+    // The API getImmediateInventoryByLocation now returns ONLY today's inventory
+    // (not combined). Yesterday's inventory is shown separately on its own button.
+    // strYStockOnlyCheck is always "N" for today button since yesterday has its own.
+    // =========================================================================
+    function updateTodayBadgeCounter(location) {
+      console.log('[Delivery Date] updateTodayBadgeCounter called for location:', location);
 
-      function updateBadgeDisplay(qty){
-        console.log('[Delivery Date] updateBadgeDisplay called with qty:', qty);
+      // Always set to "N" for today button - yesterday has its own button now
+      window.deliveryDateState.strYStockOnlyCheck = "N";
+
+      // Helper to update the badge display with a quantity
+      function updateBadgeDisplay(qty) {
+        console.log('[Delivery Date] Today badge display updated with qty:', qty);
         if (qty > 0) {
           $('#badge-counter')
             .html(qty)
             .removeClass('text-bg-danger')
             .addClass('text-bg-success')
             .css('display', 'inline-block');
-          console.log('[Delivery Date] Badge updated: success state with qty', qty);
-        } else if (qty < 1) {
+        } else {
           $('#badge-counter')
             .html(0)
             .removeClass('text-bg-success')
             .addClass('text-bg-danger')
             .css('display', 'inline-block');
-          console.log('[Delivery Date] Badge updated: danger state (qty 0)');
-        } else {
-          $('#badge-counter').css('display', 'none');
-          console.log('[Delivery Date] Badge hidden');
         }
       }
 
-      function fetchYesterdayQty(callback){
-        const url = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${location}`;
-        console.log('[Delivery Date] Fetching yesterday qty from:', url);
-        $.ajax({
-          url: url,
-          type: "GET",
-          async: true,
-          cache: true,
-          dataType: "json",
-          success: function(yQty){
-            console.log('[Delivery Date] Yesterday qty fetched:', yQty);
-            callback(yQty);
-          },
-          error: function(request, status, error){
-            console.error('[Delivery Date] Error fetching yesterday qty:', error);
-          }
-        });
-      }
+      // =========================================================================
+      // FETCH TODAY'S INVENTORY ONLY
+      // The API now returns ONLY today's inventory (not combined with yesterday).
+      // No calculation needed - just display the returned value directly.
+      // =========================================================================
+      const todayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocation/${location}`;
+      console.log('[Delivery Date] Fetching today-only inventory from:', todayUrl);
 
-      function fetchCombinedAndDisplay(){
-        const url = `https://dev.sushi.catering/getImmediateInventoryByLocation/${location}`;
-        console.log('[Delivery Date] Fetching combined qty from:', url);
-        $.ajax({
-          url: url,
-          type: "GET",
-          async: true,
-          cache: true,
-          dataType: "json",
-          success: function(cQty){
-            console.log('[Delivery Date] Combined qty fetched:', cQty);
-            updateBadgeDisplay(cQty);
-          },
-          error: function(request, status, error){
-            console.error('[Delivery Date] Error fetching combined qty:', error);
-          }
-        });
-      }
-
-      // If feature flags/time config not set, default to combined
-      if(!(data.immediate_inventory == "Y" && data.immediate_inventory_48h == "Y" && window.immediate_inventory_quantity_check_time)){
-        console.log('[Delivery Date] Feature flags not set, using combined inventory');
-        window.deliveryDateState.strYStockOnlyCheck = "N";
-        fetchCombinedAndDisplay();
-        console.log((window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time||'NA') + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + (nQty==null?"NA":nQty) + "-" + data.immediate_inventory_order_quantity_limit);
-        return;
-      }
-
-      const [cutoffHours_immediate_inventory_quantity_check_time, cutoffMinutes_immediate_inventory_quantity_check_time] = window.immediate_inventory_quantity_check_time.split(':').map(Number);
-      window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time = cutoffHours_immediate_inventory_quantity_check_time * 60 + cutoffMinutes_immediate_inventory_quantity_check_time;
-
-      console.log('[Delivery Date] Cutoff time calculated:', {
-        cutoffTime: window.immediate_inventory_quantity_check_time,
-        cutoffMinutes: window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time,
-        currentMinutes: currentTimeInMinutes
+      $.ajax({
+        url: todayUrl,
+        type: "GET",
+        async: true,
+        cache: false,  // Don't cache to ensure fresh data
+        dataType: "json",
+        success: function(todayQty) {
+          console.log('[Delivery Date] Today inventory received:', todayQty);
+          updateBadgeDisplay(todayQty);
+        },
+        error: function(request, status, error) {
+          console.error('[Delivery Date] Error fetching today inventory:', error);
+          updateBadgeDisplay(0);
+        }
       });
-
-      // Before kitchen inventory check time: always show yesterday only
-      if (currentTimeInMinutes < window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time) {
-        console.log('[Delivery Date] Before cutoff time - showing yesterday only');
-        window.deliveryDateState.strYStockOnlyCheck = "Y";
-        if (nQty != null) {
-          updateBadgeDisplay(nQty);
-          console.log(window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + nQty + "-" + data.immediate_inventory_order_quantity_limit);
-        } else {
-          fetchYesterdayQty(function(yQty){
-            updateBadgeDisplay(yQty);
-            console.log(window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + yQty + "-" + data.immediate_inventory_order_quantity_limit);
-          });
-        }
-        return;
-      }
-
-      // At/after kitchen inventory check time: show combined only if yesterday qty is below threshold, else show yesterday
-      var decideWithYesterdayQty = function(yQty){
-        console.log('[Delivery Date] Deciding inventory display:', {
-          yesterdayQty: yQty,
-          threshold: data.immediate_inventory_order_quantity_limit
-        });
-        if (yQty < data.immediate_inventory_order_quantity_limit) {
-          console.log('[Delivery Date] Yesterday qty below threshold - showing combined');
-          window.deliveryDateState.strYStockOnlyCheck = "N";
-          fetchCombinedAndDisplay();
-        } else {
-          console.log('[Delivery Date] Yesterday qty above threshold - showing yesterday only');
-          window.deliveryDateState.strYStockOnlyCheck = "Y";
-          updateBadgeDisplay(yQty);
-        }
-        console.log(window.cutoffTimeInMinutes_immediate_inventory_quantity_check_time + "-" + currentTimeInMinutes + "-" + window.deliveryDateState.strYStockOnlyCheck + "-" + yQty + "-" + data.immediate_inventory_order_quantity_limit);
-      };
-
-      if (nQty != null) {
-        // Use provided yesterday qty from initial load to decide
-        console.log('[Delivery Date] Using provided nQty for decision:', nQty);
-        decideWithYesterdayQty(nQty);
-      } else {
-        // Re-fetch yesterday qty on interval to avoid stale decisions
-        console.log('[Delivery Date] Re-fetching yesterday qty for decision');
-        fetchYesterdayQty(decideWithYesterdayQty);
-      }
     }
   
     // Process location and setup all functionality
@@ -608,51 +553,119 @@
           toggleButton(data.start_time, data.end_time);
           setInterval(() => {toggleButton(data.start_time, data.end_time);}, 60000);
 
-          // **Set the badge count**
-          const badgeUrl = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
-          console.log('[Delivery Date] Fetching initial yesterday qty for badge from:', badgeUrl);
+          // =========================================================================
+          // CONSOLIDATED INVENTORY FETCH
+          // Fetch yesterday's inventory ONCE and use it for:
+          // 1. Today badge: combined - yesterday = today's inventory only
+          // 2. Yesterday button: show if yesterdayQty > 0 (when 48h feature enabled)
+          // This eliminates the duplicate AJAX call that was happening before.
+          // =========================================================================
+          const is48hFeatureEnabled = data.immediate_inventory_48h === 'Y';
+          console.log('[Delivery Date] 48h feature (yesterdays items) enabled:', is48hFeatureEnabled);
 
-          $.ajax({
-            url: badgeUrl,
-            type: "GET",
-            async: true, // Changed from false to true
-            cache: true,
-            dataType: "json",
-            success: function(nQty) {
-              console.log('[Delivery Date] Initial yesterday qty received:', nQty);
-              //handling of quantity counter badge for immediate button
-              toggleBadgeCounter(data, window.deliveryDateState.location, currentTimeInMinutes, nQty);
-              setInterval(() => {
-                // Get fresh current time for each interval execution
-                const now = new Date();
-                const options = {
-                  timeZone: 'Europe/Berlin',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false
-                };
-                const formatter = new Intl.DateTimeFormat('en-GB', options);
-                const parts = formatter.formatToParts(now);
-                let dateObj = {};
-                parts.forEach(({ type, value }) => {
-                  dateObj[type] = value;
-                });
-                const currentHours = parseInt(dateObj.hour, 10);
-                const currentMinutes = parseInt(dateObj.minute, 10);
-                const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+          if (is48hFeatureEnabled) {
+            // Fetch yesterday qty, then use it for both badges
+            const yesterdayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
+            console.log('[Delivery Date] Fetching yesterday inventory from:', yesterdayUrl);
 
-                console.log('[Delivery Date] Badge counter interval update with time:', currentTimeInMinutes);
-                toggleBadgeCounter(data, window.deliveryDateState.location, currentTimeInMinutes, null);
-              }, 60000);
-            },
-            error: function(request, status, error) {
-              console.error('[Delivery Date] Error fetching initial yesterday qty:', {
-                status,
-                error,
-                url: badgeUrl
-              });
+            $.ajax({
+              url: yesterdayUrl,
+              type: "GET",
+              async: true,
+              cache: true,
+              dataType: "json",
+              success: function(yesterdayQty) {
+                console.log('[Delivery Date] Yesterday inventory received:', yesterdayQty);
+
+                // Update TODAY badge (API now returns only today's inventory)
+                updateTodayBadgeCounter(window.deliveryDateState.location);
+
+                // Update YESTERDAY badge and button visibility
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                if (yesterdayQty > 0) {
+                  // Show the yesterday order button and badge
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.add('show-button');
+                    $('.yesterdayorderbtn').css('display', 'inline-flex');
+                  }
+                  $('#badge-counter-yesterday')
+                    .html(yesterdayQty)
+                    .removeClass('text-bg-danger')
+                    .addClass('text-bg-success')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button shown with qty:', yesterdayQty);
+                } else {
+                  // No yesterday items - hide button and badge
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.remove('show-button');
+                    $('.yesterdayorderbtn').css('display', 'none');
+                  }
+                  $('#badge-counter-yesterday').css('display', 'none');
+                  console.log('[Delivery Date] Yesterday button hidden - no items available');
+                }
+
+                // Set up interval to refresh both badges every minute
+                setInterval(() => {
+                  console.log('[Delivery Date] Refreshing inventory badges...');
+                  // Re-fetch yesterday qty for updated badges
+                  $.ajax({
+                    url: yesterdayUrl,
+                    type: "GET",
+                    async: true,
+                    cache: false, // Don't cache on refresh
+                    dataType: "json",
+                    success: function(newYesterdayQty) {
+                      // Update today badge (API returns only today's inventory)
+                      updateTodayBadgeCounter(window.deliveryDateState.location);
+                      // Update yesterday badge
+                      if (newYesterdayQty > 0) {
+                        $('#badge-counter-yesterday')
+                          .html(newYesterdayQty)
+                          .removeClass('text-bg-danger')
+                          .addClass('text-bg-success')
+                          .css('display', 'inline-block');
+                      } else {
+                        $('#badge-counter-yesterday')
+                          .html(0)
+                          .removeClass('text-bg-success')
+                          .addClass('text-bg-danger')
+                          .css('display', 'inline-block');
+                      }
+                    }
+                  });
+                }, 60000);
+              },
+              error: function(request, status, error) {
+                console.error('[Delivery Date] Error fetching yesterday inventory:', error);
+                // Fallback: still show today's inventory on error
+                updateTodayBadgeCounter(window.deliveryDateState.location);
+                // Hide yesterday button on error
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.remove('show-button');
+                  $('.yesterdayorderbtn').css('display', 'none');
+                }
+                $('#badge-counter-yesterday').css('display', 'none');
+              }
+            });
+          } else {
+            // 48h feature disabled - just show today's inventory on today badge
+            console.log('[Delivery Date] 48h feature disabled, showing today inventory only');
+            updateTodayBadgeCounter(window.deliveryDateState.location);
+
+            // Set up interval for today badge refresh
+            setInterval(() => {
+              updateTodayBadgeCounter(window.deliveryDateState.location);
+            }, 60000);
+
+            // Ensure yesterday button is hidden
+            const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+            if (buttonYesterdayOrder) {
+              buttonYesterdayOrder.classList.remove('show-button');
+              $('.yesterdayorderbtn').css('display', 'none');
             }
-          });
+            $('#badge-counter-yesterday').css('display', 'none');
+          }
 
         } else if (data.error) {
           console.error('[Delivery Date] Error in location settings:', data.error);
@@ -665,16 +678,80 @@
             immediate_inventory: data.immediate_inventory,
             minDate: minDate
           });
+
+          // =========================================================================
+          // YESTERDAY ITEMS BUTTON (when today button is NOT shown)
+          // This handles the case where the today button conditions are not met
+          // (e.g., minDate != 1) but the yesterday items feature is enabled.
+          // =========================================================================
+          if (data.immediate_inventory_48h === 'Y' && data.immediate_inventory === 'Y') {
+            console.log('[Delivery Date] Yesterday items feature enabled (today btn not shown)');
+
+            const yesterdayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
+
+            $.ajax({
+              url: yesterdayUrl,
+              type: "GET",
+              async: true,
+              cache: true,
+              dataType: "json",
+              success: function(yesterdayQty) {
+                console.log('[Delivery Date] Yesterday inventory count:', yesterdayQty);
+
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                if (yesterdayQty > 0) {
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.add('show-button');
+                    $('.yesterdayorderbtn').css('display', 'inline-flex');
+                  }
+                  $('#badge-counter-yesterday')
+                    .html(yesterdayQty)
+                    .removeClass('text-bg-danger')
+                    .addClass('text-bg-success')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button shown with qty:', yesterdayQty);
+                } else {
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.remove('show-button');
+                    $('.yesterdayorderbtn').css('display', 'none');
+                  }
+                  $('#badge-counter-yesterday').css('display', 'none');
+                  console.log('[Delivery Date] Yesterday button hidden - no items');
+                }
+              },
+              error: function(request, status, error) {
+                console.error('[Delivery Date] Error fetching yesterday inventory:', error);
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.remove('show-button');
+                  $('.yesterdayorderbtn').css('display', 'none');
+                }
+                $('#badge-counter-yesterday').css('display', 'none');
+              }
+            });
+          } else {
+            // Feature not enabled - ensure yesterday button is hidden
+            console.log('[Delivery Date] Yesterday items feature NOT enabled');
+            const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+            if (buttonYesterdayOrder) {
+              buttonYesterdayOrder.classList.remove('show-button');
+              $('.yesterdayorderbtn').css('display', 'none');
+            }
+            $('#badge-counter-yesterday').css('display', 'none');
+          }
         }
       } else {
         console.log('[Delivery Date] Location is NOT active, hiding buttons');
         $('#badge-counter').css('display', 'none');
+        $('#badge-counter-yesterday').css('display', 'none');
         const buttonTodayOrder = document.querySelector('.todayorderbtn');
         const buttonPreOrder = document.querySelector('.preorderbtn');
         const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+        const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
         if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
         if (buttonPreOrder) buttonPreOrder.classList.remove('show-button');
         if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
+        if (buttonYesterdayOrder) buttonYesterdayOrder.classList.remove('show-button');
       }
     }
   
@@ -684,6 +761,7 @@
       const buttonTodayOrder = document.querySelector('.todayorderbtn');
       const buttonPreOrder = document.querySelector('.preorderbtn');
       const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
       if (buttonTodayOrder) {
         buttonTodayOrder.classList.remove('btn-loading');
         console.log('[Delivery Date] Removed loading state from today order button');
@@ -695,6 +773,10 @@
       if (buttonSnacksAndDrinks) {
         buttonSnacksAndDrinks.classList.remove('btn-loading');
         console.log('[Delivery Date] Removed loading state from snacks and drinks button');
+      }
+      if (buttonYesterdayOrder) {
+        buttonYesterdayOrder.classList.remove('btn-loading');
+        console.log('[Delivery Date] Removed loading state from yesterday order button');
       }
     }
   
@@ -781,12 +863,109 @@
           async: true, // Changed from false to true
           dataType: "json",
           success: function(data) {
-            const redirectUrl = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&strYStockOnlyCheck=" + window.deliveryDateState.strYStockOnlyCheck + "&nocache=" + randomNum;
+            // strYStockOnlyCheck is always "N" for today button - yesterday has its own button now
+            const redirectUrl = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&strYStockOnlyCheck=N&nocache=" + randomNum;
             console.log('[Delivery Date] Redirecting to:', redirectUrl);
             window.location.href = redirectUrl;
           },
           error: function(request, status, error) {
             console.error('[Delivery Date] Error setting selected date (today):', {
+              status,
+              error
+            });
+            alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+          }
+        });
+      });
+
+      // =========================================================================
+      // YESTERDAY ORDER BUTTON CLICK HANDLER
+      // Handles clicks on the "Sofortbestellung Gestern" (Immediate Order Yesterday)
+      // button. Calculates yesterday's date, sets session storage, and redirects
+      // to the order menu showing ONLY products from yesterday's inventory.
+      // =========================================================================
+      $(".yesterdayorderbtn").click(function(e){
+        e.preventDefault();
+
+        console.log('[Delivery Date] Yesterday order button clicked');
+
+        var href = $(this).attr("href");
+
+        // Calculate yesterday's date in dd-mm-yyyy format (using Germany timezone)
+        // We use the same timezone-aware logic as the rest of the app to ensure
+        // consistency across all date calculations
+        const now = new Date();
+        const optionsYesterday = {
+          timeZone: 'Europe/Berlin',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour12: false
+        };
+        const formatterYesterday = new Intl.DateTimeFormat([], optionsYesterday);
+        const partsYesterday = formatterYesterday.formatToParts(now);
+
+        let dateObjYesterday = {};
+        partsYesterday.forEach(({ type, value }) => {
+          dateObjYesterday[type] = value;
+        });
+
+        // Create a date object from Germany's current date, then subtract one day
+        const todayInGermany = new Date(
+          parseInt(dateObjYesterday.year),
+          parseInt(dateObjYesterday.month) - 1, // months are 0-indexed
+          parseInt(dateObjYesterday.day)
+        );
+        todayInGermany.setDate(todayInGermany.getDate() - 1); // Subtract 1 day
+
+        // Format yesterday's date as dd-mm-yyyy
+        const yesterday = ('0' + todayInGermany.getDate()).slice(-2) + '-' +
+                          ('0' + (todayInGermany.getMonth() + 1)).slice(-2) + '-' +
+                          todayInGermany.getFullYear();
+
+        console.log('[Delivery Date] Yesterday date calculated:', yesterday);
+
+        // Set session storage values for yesterday order
+        // immediate_inventory = Y means this is an immediate/instant order (not preorder)
+        // strYStockOnlyCheck = Y tells the order menu to show ONLY yesterday's items
+        sessionStorage.setItem("date", yesterday);
+        sessionStorage.setItem("immediate_inventory", "Y");
+        sessionStorage.setItem("snacks_and_drinks", "N");
+
+        console.log('[Delivery Date] SessionStorage set for yesterday order:', {
+          date: yesterday,
+          immediate_inventory: "Y",
+          snacks_and_drinks: "N"
+        });
+
+        // Update selected date on server
+        const updateDateUrl = "https://dev.sushi.catering/updateSelectedDate/" + yesterday;
+        console.log('[Delivery Date] Updating selected date at:', updateDateUrl);
+
+        $.ajax({
+          url: updateDateUrl,
+          type: "GET",
+          data: {"uuid": localStorage.getItem("uuid")},
+          cache: false,
+          async: true,
+          dataType: "json",
+          success: function(data) {
+            // Redirect to order menu with yesterday's date
+            // strYStockOnlyCheck=Y ensures only yesterday's items are shown
+            const redirectUrl = href + "?location=" + sessionStorage.getItem("location") +
+              "&date=" + yesterday +
+              "&immediate_inventory=Y" +
+              "&no_station=" + sessionStorage.getItem("no_station") +
+              "&snacks_and_drinks=N" +
+              "&uuid=" + localStorage.getItem("uuid") +
+              "&strYStockOnlyCheck=Y" +
+              "&nocache=" + randomNum;
+
+            console.log('[Delivery Date] Redirecting to yesterday order:', redirectUrl);
+            window.location.href = redirectUrl;
+          },
+          error: function(request, status, error) {
+            console.error('[Delivery Date] Error setting selected date (yesterday):', {
               status,
               error
             });
