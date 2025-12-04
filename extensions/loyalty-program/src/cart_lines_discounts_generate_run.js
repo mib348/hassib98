@@ -55,19 +55,6 @@ export function cartLinesDiscountsGenerateRun(input) {
       return { operations: [] };
     }
 
-    // Get shop's current date for immediate inventory discount calculations
-    // CRITICAL: Cannot use new Date() in Shopify Functions - returns epoch time (1970-01-01)
-    // Must use shop.localTime.date from GraphQL query for accurate date in store's timezone
-    const shopCurrentDate = input.shop?.localTime?.date;
-
-    if (!shopCurrentDate) {
-      console.error('Shop localTime.date not available - immediate inventory discounts disabled');
-    }
-
-    // Calculate yesterday's date for immediate inventory eligibility checks
-    // This will be used to identify items with yesterday's date that qualify for 50% discount
-    const yesterdayDate = shopCurrentDate ? getYesterdayDate(shopCurrentDate) : null;
-
     // Get customer loyalty metafields from individual metafield queries
     const loyaltyMetafields = extractLoyaltyMetafields(customer);
 
@@ -77,7 +64,7 @@ export function cartLinesDiscountsGenerateRun(input) {
     }
 
     // Get number of free items the customer is eligible for
-    // Note: Even if free_items = 0, we still need to check for immediate inventory discounts
+    // Note: Even if free_items = 0, we still need to check for yesterday item discounts
     const freeItemsAvailable = getFreeItemsAvailable(loyaltyMetafields);
 
     // Find eligible cart items for loyalty discounts
@@ -88,40 +75,38 @@ export function cartLinesDiscountsGenerateRun(input) {
       return { operations: [] };
     }
 
-    // Separate eligible items into immediate inventory and regular groups
-    // Immediate inventory items: Have yesterday's date + immediate_inventory="Y"
+    // Separate eligible items into yesterday items and regular groups
+    // Yesterday items: Have line property yesterday_item="Y"
     // These can still get 100% loyalty discount (better discount wins strategy)
     // But if not covered by loyalty, they'll get 50% discount as fallback
-    const immediateInventoryLines = [];
+    const yesterdayItems = [];
     const regularEligibleLines = [];
 
     eligibleCartLines.forEach(line => {
-      if (yesterdayDate && isEligibleForImmediateInventoryDiscount(line, yesterdayDate)) {
-        immediateInventoryLines.push(line);
+      if (isYesterdayItem(line)) {
+        yesterdayItems.push(line);
       } else {
         regularEligibleLines.push(line);
       }
     });
 
-    // DEBUG: Log immediate inventory detection results
-    console.log('DEBUG: Shop current date:', shopCurrentDate);
-    console.log('DEBUG: Yesterday date:', yesterdayDate);
+    // DEBUG: Log yesterday item detection results
     console.log('DEBUG: Eligible cart lines:', eligibleCartLines.length);
-    console.log('DEBUG: Immediate inventory lines:', immediateInventoryLines.length);
+    console.log('DEBUG: Yesterday items:', yesterdayItems.length);
     console.log('DEBUG: Regular eligible lines:', regularEligibleLines.length);
 
     // Generate combined discount operations using "better discount wins" strategy:
-    // 1. Apply 100% loyalty discount to cheapest items (includes immediate inventory items)
-    // 2. Apply 50% discount to remaining immediate inventory items not covered by loyalty
+    // 1. Apply 100% loyalty discount to cheapest items (includes yesterday items)
+    // 2. Apply 50% discount to remaining yesterday items not covered by loyalty
     const operations = generateCombinedDiscountOperations(
       eligibleCartLines,        // All eligible items (loyalty can apply to any)
       freeItemsAvailable,       // Number of free items from loyalty program
-      immediateInventoryLines   // Track which items need 50% fallback discount
+      yesterdayItems            // Track which items need 50% fallback discount
     );
 
     console.log(`Applied ${operations.length} discount operations for customer ${customer.email}`);
-    if (immediateInventoryLines.length > 0) {
-      console.log(`Immediate inventory items found: ${immediateInventoryLines.length}`);
+    if (yesterdayItems.length > 0) {
+      console.log(`Yesterday items found: ${yesterdayItems.length}`);
     }
 
     return {
@@ -257,48 +242,29 @@ function normalizeDateString(dateStr) {
 }
 
 /**
- * Check if cart line is eligible for 50% immediate inventory discount
- * Item must have all three line item properties:
- * - date: Must match yesterday's date (in DD-MM-YYYY format)
- * - day: Must be present (validates date is intentional, not missing)
- * - immediate_inventory: Must equal "Y" (case-insensitive)
+ * Check if cart line is a yesterday item eligible for 50% discount
+ * Yesterday items are identified by a single line property: yesterday_item="Y"
+ * This is simpler than date-based tracking and more reliable
  * @param {Object} line - Cart line with attribute fields from GraphQL query
- * @param {string} yesterdayDate - Yesterday's date in YYYY-MM-DD format
- * @returns {boolean} True if eligible for 50% immediate inventory discount
+ * @returns {boolean} True if eligible for 50% yesterday item discount
  */
-function isEligibleForImmediateInventoryDiscount(line, yesterdayDate) {
-  // Extract line item attribute values from GraphQL response
-  const dateValue = line.dateAttribute?.value;
-  const daynameValue = line.daynameAttribute?.value;
-  const immediateInventoryValue = line.immediateInventoryAttribute?.value;
+function isYesterdayItem(line) {
+  // Extract yesterday_item attribute value from GraphQL response
+  const yesterdayItemValue = line.yesterdayItemAttribute?.value;
 
   // DEBUG: Log line attributes
-  console.log('DEBUG: Checking line for immediate inventory eligibility:', line.id);
-  console.log('  dateAttribute:', dateValue);
-  console.log('  daynameAttribute:', daynameValue);
-  console.log('  immediateInventoryAttribute:', immediateInventoryValue);
-  console.log('  yesterdayDate:', yesterdayDate);
+  console.log('DEBUG: Checking line for yesterday item eligibility:', line.id);
+  console.log('  yesterdayItemAttribute:', yesterdayItemValue);
 
-  // All three attributes must be present for eligibility
-  // If any are missing, this is not an immediate inventory item
-  if (!dateValue || !daynameValue || !immediateInventoryValue) {
-    console.log('DEBUG: Missing required attributes - not eligible');
+  // Attribute must be present and equal "Y" (case-insensitive for robustness)
+  // Examples: "Y", "y" both pass, but "N", "n", "", null, undefined fail
+  if (!yesterdayItemValue) {
+    console.log('DEBUG: yesterday_item attribute missing - not eligible');
     return false;
   }
 
-  // Check immediate_inventory flag must be "Y" (case-insensitive for robustness)
-  // Examples: "Y", "y" both pass, but "N", "n", "" fail
-  if (immediateInventoryValue.toUpperCase() !== 'Y') {
-    console.log('DEBUG: immediate_inventory not "Y" - not eligible');
-    return false;
-  }
-
-  // Normalize the date from line item property (DD-MM-YYYY) to ISO format (YYYY-MM-DD)
-  // Then compare with yesterday's calculated date
-  const normalizedDate = normalizeDateString(dateValue);
-  console.log('DEBUG: Normalized date:', normalizedDate);
-  const isEligible = normalizedDate === yesterdayDate;
-  console.log('DEBUG: Date match result:', isEligible);
+  const isEligible = yesterdayItemValue.toUpperCase() === 'Y';
+  console.log('DEBUG: yesterday_item eligibility result:', isEligible);
   return isEligible;
 }
 
@@ -346,27 +312,34 @@ function getEligibleCartLines(cartLines) {
 /**
  * Generate combined discount operations following "better discount wins" strategy
  * This implements a two-tier discount system:
- * - Priority 1: Apply 100% loyalty discount to cheapest items (includes immediate inventory items)
- * - Priority 2: Apply 50% discount to remaining immediate inventory items not covered by loyalty
+ * - Priority 1: Apply 100% loyalty discount to cheapest items (includes yesterday items)
+ * - Priority 2: Apply 50% discount to remaining yesterday items not covered by loyalty
  * The strategy ensures customers always get the best possible discount on each item
- * @param {Array} allEligibleLines - All cart lines eligible for discounts (includes immediate inventory)
+ *
+ * CRITICAL: Handles lines with quantity > 1 correctly by tracking quantities, not just line IDs
+ * Example: If line has quantity=2 and gets 1x 100% discount, the remaining 1 can still get 50% discount
+ *
+ * @param {Array} allEligibleLines - All cart lines eligible for discounts (includes yesterday items)
  * @param {number} freeItemsCount - Number of free items customer gets from loyalty program
- * @param {Array} immediateInventoryLines - Lines with immediate inventory flag (yesterday's date + immediate_inventory=Y)
- * @returns {Array} Array of discount operations with both loyalty and immediate inventory discounts
+ * @param {Array} yesterdayItems - Lines with yesterday_item="Y" property
+ * @returns {Array} Array of discount operations with both loyalty and yesterday item discounts
  */
-function generateCombinedDiscountOperations(allEligibleLines, freeItemsCount, immediateInventoryLines) {
+function generateCombinedDiscountOperations(allEligibleLines, freeItemsCount, yesterdayItems) {
   const candidates = [];
-  const discountedLineIds = new Set(); // Track which lines received 100% loyalty discount
+  // Track how many items in each line received 100% discount
+  // This is CRITICAL for handling lines with quantity > 1
+  // Map<lineId, quantityWithLoyaltyDiscount>
+  const loyaltyDiscountedQuantities = new Map();
 
   // DEBUG: Log inputs to discount generation
   console.log('DEBUG: generateCombinedDiscountOperations called with:');
   console.log('  allEligibleLines:', allEligibleLines.length);
   console.log('  freeItemsCount:', freeItemsCount);
-  console.log('  immediateInventoryLines:', immediateInventoryLines.length);
+  console.log('  yesterdayItems:', yesterdayItems.length);
 
   // PART 1: Apply 100% loyalty discounts to cheapest eligible items
   // This follows existing loyalty program logic: "Buy 4 Get 1 Free"
-  // Immediate inventory items CAN receive this discount if they're among the cheapest
+  // Yesterday items CAN receive this discount if they're among the cheapest
   if (freeItemsCount > 0) {
     console.log('DEBUG: Applying 100% loyalty discounts (freeItemsCount > 0)');
     // Sort all eligible items by price (cheapest first) to maximize customer value
@@ -387,7 +360,7 @@ function generateCombinedDiscountOperations(allEligibleLines, freeItemsCount, im
       // Discount either all items in this line, or remaining free items (whichever is smaller)
       const quantityToDiscount = Math.min(remainingFreeItems, lineQuantity);
 
-      console.log('DEBUG: Adding 100% loyalty discount for line:', line.id);
+      console.log('DEBUG: Adding 100% loyalty discount for line:', line.id, 'quantity:', quantityToDiscount, '/', lineQuantity);
 
       candidates.push({
         // Message displayed to customer in cart/checkout (German for consistency)
@@ -405,40 +378,48 @@ function generateCombinedDiscountOperations(allEligibleLines, freeItemsCount, im
         },
       });
 
-      // Track this line as receiving 100% loyalty discount
-      // This prevents applying both discounts to the same item (better discount wins)
-      discountedLineIds.add(line.id);
+      // Track QUANTITY that received 100% discount (not just the line ID)
+      // This is critical for lines with quantity > 1
+      loyaltyDiscountedQuantities.set(line.id, quantityToDiscount);
       remainingFreeItems -= quantityToDiscount;
     }
   } else {
     console.log('DEBUG: Skipping 100% loyalty discounts (freeItemsCount = 0)');
   }
 
-  // PART 2: Apply 50% discount to immediate inventory items NOT covered by loyalty
-  // These are items with yesterday's date and immediate_inventory="Y" flag
+  // PART 2: Apply 50% discount to yesterday items NOT covered by loyalty
+  // These are items with yesterday_item="Y" property
   // Only apply if they didn't already receive the better 100% loyalty discount
-  console.log('DEBUG: Processing 50% immediate inventory discounts');
-  console.log('DEBUG: discountedLineIds:', Array.from(discountedLineIds));
+  console.log('DEBUG: Processing 50% yesterday item discounts');
+  console.log('DEBUG: loyaltyDiscountedQuantities:', Object.fromEntries(loyaltyDiscountedQuantities));
 
-  for (const line of immediateInventoryLines) {
-    console.log('DEBUG: Checking immediate inventory line:', line.id);
-    // Skip if this item already got 100% loyalty discount (better discount wins)
-    if (discountedLineIds.has(line.id)) {
-      console.log('DEBUG: Skipping line (already has 100% discount):', line.id);
+  for (const line of yesterdayItems) {
+    console.log('DEBUG: Checking yesterday item line:', line.id, 'quantity:', line.quantity);
+
+    // Check how many items in this line already got 100% loyalty discount
+    const loyaltyQuantity = loyaltyDiscountedQuantities.get(line.id) || 0;
+    // Calculate how many items still need 50% discount
+    const remainingQuantity = line.quantity - loyaltyQuantity;
+
+    console.log('DEBUG:   loyaltyQuantity:', loyaltyQuantity, ', remainingQuantity:', remainingQuantity);
+
+    // Skip if all items in this line already got 100% loyalty discount (better discount wins)
+    if (remainingQuantity <= 0) {
+      console.log('DEBUG: Skipping line (all items already have 100% discount):', line.id);
       continue;
     }
 
-    console.log('DEBUG: Adding 50% immediate inventory discount for line:', line.id);
+    console.log('DEBUG: Adding 50% yesterday item discount for line:', line.id, 'quantity:', remainingQuantity);
 
     candidates.push({
       // Message displayed to customer in cart/checkout
       // German: "50% discount on items from the previous day"
       message: "50% Rabatt auf Artikel vom Vortag",
-      // Target the entire cart line quantity (all items in this line get 50% off)
+      // Target only the remaining quantity that didn't get 100% discount
       targets: [{
         cartLine: {
           id: line.id,
-          quantity: line.quantity,
+          quantity: remainingQuantity,
         },
       }],
       // Apply 50% discount

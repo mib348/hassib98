@@ -1,9 +1,4 @@
 query CartInput {
-  shop {
-    localTime {
-      date
-    }
-  }
   cart {
     lines {
       id
@@ -23,13 +18,7 @@ query CartInput {
           amount
         }
       }
-      dateAttribute: attribute(key: "date") {
-        value
-      }
-      daynameAttribute: attribute(key: "day") {
-        value
-      }
-      immediateInventoryAttribute: attribute(key: "immediate_inventory") {
+      yesterdayItemAttribute: attribute(key: "yesterday_item") {
         value
       }
     }
