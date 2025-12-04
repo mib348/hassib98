@@ -223,6 +223,15 @@ class OrdersCreateJob implements ShouldQueue
 
     protected function updateValuesBasedOnOrder($shop, $values, $lineItem, $orderData)
     {
+        // =========================================================================
+        // YESTERDAY ITEMS INVENTORY DEDUCTION
+        // =========================================================================
+        // This method handles inventory deduction from product metafields.
+        // For yesterday items (yesterday_item=Y), we need to calculate yesterday's
+        // date from the line item's date property (which is TODAY for yesterday items)
+        // and match against YESTERDAY's inventory in the product metafield.
+        // =========================================================================
+
         // Placeholder for the updated values
         $updatedValues = [];
 
@@ -230,13 +239,67 @@ class OrdersCreateJob implements ShouldQueue
         $values = json_decode($values, true);
         $newQuantity = 0;
 
+        // =========================================================================
+        // Extract yesterday_item property to determine inventory deduction date
+        // =========================================================================
+        $yesterdayItem = 'N'; // Default: today's item
+        $orderDate = null; // The date from line item properties
+
+        foreach ($lineItem['properties'] as $property) {
+            if ($property['name'] === 'yesterday_item') {
+                $yesterdayItem = $property['value'];
+            } elseif ($property['name'] === 'date') {
+                $orderDate = $property['value'];
+            }
+        }
+
+        // =========================================================================
+        // Calculate the inventory deduction date
+        // =========================================================================
+        // - If yesterday_item = N: Use today's date from line item (normal behavior)
+        // - If yesterday_item = Y: Calculate yesterday's date for inventory deduction
+        // =========================================================================
+        $inventoryDate = $orderDate; // Default: use the date from line item
+
+        if ($yesterdayItem === 'Y' && $orderDate) {
+            // Parse the date (format: dd-mm-yyyy)
+            $dateParts = explode('-', $orderDate);
+            if (count($dateParts) === 3) {
+                $day = $dateParts[0];
+                $month = $dateParts[1];
+                $year = $dateParts[2];
+
+                // Create Carbon instance and subtract 1 day
+                $carbonDate = \Carbon\Carbon::createFromFormat('d-m-Y', $orderDate, 'Europe/Berlin');
+                $carbonDate->subDay();
+
+                // Format back to dd-mm-yyyy
+                $inventoryDate = $carbonDate->format('d-m-Y');
+
+                Log::info("Yesterday item detected for inventory deduction", [
+                    'order_id' => $orderData['id'],
+                    'order_number' => $orderData['order_number'],
+                    'product_title' => $lineItem['title'],
+                    'line_item_date' => $orderDate,
+                    'inventory_deduction_date' => $inventoryDate,
+                    'yesterday_item' => $yesterdayItem
+                ]);
+            }
+        }
+
         foreach ($values as $value) {
             // Split the value into location, date, and quantity parts
             list($location, $date, $quantity) = explode(':', $value);
 
+            // =====================================================================
+            // Check if ordered quantity exceeds available inventory
+            // =====================================================================
+            // Use $inventoryDate (which is yesterday's date for yesterday items)
+            // to match against the metafield date
+            // =====================================================================
             if (
-                isset($lineItem['properties'][2]['value']) &&
-                ($lineItem['properties'][2]['value'] == $date) &&
+                $inventoryDate &&
+                ($inventoryDate == $date) &&
                 $location == $lineItem['properties'][1]['value'] &&
                 (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) &&
                 isset($quantity) &&
@@ -316,11 +379,15 @@ class OrdersCreateJob implements ShouldQueue
                 return false;
             }
 
-            // Check if the date matches the order date
+            // =====================================================================
+            // Check if the date and location match for inventory deduction
+            // =====================================================================
+            // Use $inventoryDate (which is yesterday's date for yesterday items)
+            // to match against the metafield date and deduct the correct inventory
+            // =====================================================================
             if (
-                isset($lineItem['properties'][2]['name']) &&
-                $lineItem['properties'][2]['name'] == 'date' &&
-                $date == $lineItem['properties'][2]['value'] &&
+                $inventoryDate &&
+                $date == $inventoryDate &&
                 isset($lineItem['properties'][1]['value']) &&
                 $location == $lineItem['properties'][1]['value']
             ) {
@@ -345,15 +412,45 @@ class OrdersCreateJob implements ShouldQueue
     {
         $location = null;
         $pickUpDate = null;
+        $yesterdayItem = 'N'; // Default to N (today's item)
 
+        // Extract properties from line item
+        // Properties array structure: [name => value]
         foreach ($lineItem['properties'] as $property) {
             if ($property['name'] === 'location') {
                 $location = $property['value'];
             } elseif ($property['name'] === 'date') {
                 $pickUpDate = $property['value'];
+            } elseif ($property['name'] === 'yesterday_item') {
+                $yesterdayItem = $property['value'];
             }
         }
 
+        // =========================================================================
+        // YESTERDAY ITEMS SPECIAL HANDLING
+        // =========================================================================
+        // When a customer buys items from yesterday's inventory (yesterdayItem = Y):
+        // - The product inventory was already deducted from YESTERDAY's date (correct)
+        // - But we need to set the order's pick_up_date to TODAY's date
+        // - This is because the Raspberry Pi door system checks if pick_up_date == today
+        // - Customers are picking up yesterday's leftover items TODAY, not yesterday
+        // =========================================================================
+        if ($yesterdayItem === 'Y') {
+            // Override pick_up_date to TODAY's date (Germany timezone)
+            // This ensures the Raspberry Pi opens the door for today's pickup
+            $now = \Carbon\Carbon::now('Europe/Berlin');
+            $pickUpDate = $now->format('d-m-Y'); // Format: dd-mm-yyyy
+
+            Log::info("Yesterday item detected - using TODAY's date for pick_up_date", [
+                'order_id' => $orderData['id'],
+                'order_number' => $orderData['order_number'],
+                'original_date' => $lineItem['properties'][2]['value'] ?? 'unknown',
+                'pickup_date_set_to' => $pickUpDate,
+                'product_id' => $productId
+            ]);
+        }
+
+        // Prepare order metafield payloads
         $updatePayloadLocation = [
 			'metafield' => [
 				'namespace' => 'custom',
@@ -372,35 +469,57 @@ class OrdersCreateJob implements ShouldQueue
 			]
 		];
 
-
+        // Add yesterday_item metafield to track if this order contains yesterday's items
+        // This allows admins to differentiate between regular orders and yesterday inventory orders
+        $updatePayloadYesterdayItem = [
+			'metafield' => [
+				'namespace' => 'custom',
+				'key' => 'yesterday_item',
+				'value' => $yesterdayItem,
+				'type' => 'single_line_text_field'
+			]
+		];
 
         $orderId = $orderData['id'];
+
+        // Create/update location metafield
         $responseLocation = $shop->api()->rest('POST', "/admin/orders/{$orderId}/metafields.json", $updatePayloadLocation);
 
-		// Update pick-up date metafield
+		// Create/update pick-up date metafield
 		$responsePickUpDate = $shop->api()->rest('POST', "/admin/orders/{$orderId}/metafields.json", $updatePayloadPickUpDate);
 
+        // Create/update yesterday_item metafield
+        $responseYesterdayItem = $shop->api()->rest('POST', "/admin/orders/{$orderId}/metafields.json", $updatePayloadYesterdayItem);
 
-
+        // Validate location metafield update
         if (!$responseLocation['errors']) {
             Log::info($orderData['order_number'] . ' Order location metafield updated successfully: ' . json_encode($updatePayloadLocation));
         } else {
-            // Handle errors
             Log::error($orderData['order_number'] . ' Order location metafield could not be updated: ' . json_encode($responseLocation['body']));
-
 			throw new Exception($orderData['order_number'] . ' Order location metafield could not be updated: ' . json_encode($responseLocation['body']), 1);
         }
 
+        // Validate pick-up date metafield update
 		if (!$responsePickUpDate['errors']) {
             Log::info($orderData['order_number'] . ' Order pickup-date metafield updated successfully: ' . json_encode($updatePayloadPickUpDate));
         } else {
-            // Handle errors
             Log::error($orderData['order_number'] . ' Order pickup-date metafield could not be updated: ' . json_encode($responsePickUpDate['body']));
-
 			throw new Exception($orderData['order_number'] . ' Order pickup-date metafield could not be updated: ' . json_encode($responsePickUpDate['body']), 1);
         }
 
-        return json_encode(['location' => $responseLocation['body'], 'pick_up_date' => $responsePickUpDate['body']]);
+        // Validate yesterday_item metafield update
+        if (!$responseYesterdayItem['errors']) {
+            Log::info($orderData['order_number'] . ' Order yesterday_item metafield updated successfully: ' . json_encode($updatePayloadYesterdayItem));
+        } else {
+            Log::error($orderData['order_number'] . ' Order yesterday_item metafield could not be updated: ' . json_encode($responseYesterdayItem['body']));
+			throw new Exception($orderData['order_number'] . ' Order yesterday_item metafield could not be updated: ' . json_encode($responseYesterdayItem['body']), 1);
+        }
+
+        return json_encode([
+            'location' => $responseLocation['body'],
+            'pick_up_date' => $responsePickUpDate['body'],
+            'yesterday_item' => $responseYesterdayItem['body']
+        ]);
     }
 
     protected function sendOrderConfirmationEmail($orderData){
