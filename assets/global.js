@@ -670,6 +670,8 @@ document.addEventListener('DOMContentLoaded', function () {
         href += "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory");
       if (sessionStorage.getItem("additional_inventory_time") != null)
         href += "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time");
+      if (sessionStorage.getItem("strYStockOnlyCheck") != null)
+        href += "&strYStockOnlyCheck=" + sessionStorage.getItem("strYStockOnlyCheck");
 
       // Set the updated href back as the 'data-href' attribute
       pfMainMedia.setAttribute('data-href', href);
@@ -1015,6 +1017,7 @@ if (window.jQuery) {
       if (queryParams.has('no_station')) sessionStorage.setItem("no_station", queryParams.get('no_station'));
       if (queryParams.has('additional_inventory')) sessionStorage.setItem("b_additional_inventory", queryParams.get('additional_inventory'));
       if (queryParams.has('additional_inventory_time')) sessionStorage.setItem("additional_inventory_time", queryParams.get('additional_inventory_time'));
+      if (queryParams.has('strYStockOnlyCheck')) sessionStorage.setItem("strYStockOnlyCheck", queryParams.get('strYStockOnlyCheck'));
 
       // Page-specific logic after parameters have been processed
       if (currentPathForParams === "/pages/bestellen") {
@@ -1032,7 +1035,7 @@ if (window.jQuery) {
           } else if (sessionStorage.getItem("date") == null) {
             window.location.replace("/pages/datum");
           } else {
-            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
+            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&strYStockOnlyCheck=" + (sessionStorage.getItem("strYStockOnlyCheck") || "N") + "&uuid=" + localStorage.getItem("uuid");
           }
         }
       } else if (currentPathForParams === "/pages/datum") {

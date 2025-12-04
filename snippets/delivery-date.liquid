@@ -842,14 +842,21 @@
 
         console.log('[Delivery Date] Today order href:', href);
 
+        // Set session storage for today's order
+        // strYStockOnlyCheck = N means we're ordering TODAY's items (not yesterday's)
         sessionStorage.setItem("date", today);
         sessionStorage.setItem("immediate_inventory", "Y");
         sessionStorage.setItem("snacks_and_drinks", "N");
+        sessionStorage.setItem("strYStockOnlyCheck", "N"); // Track that this is TODAY's order
+
+        // Update global state to track which button was clicked
+        window.deliveryDateState.strYStockOnlyCheck = "N";
 
         console.log('[Delivery Date] SessionStorage set for today order:', {
           date: today,
           immediate_inventory: "Y",
-          snacks_and_drinks: "N"
+          snacks_and_drinks: "N",
+          strYStockOnlyCheck: "N"
         });
 
         const updateDateUrl = "https://dev.sushi.catering/updateSelectedDate/" + today;
@@ -880,9 +887,23 @@
 
       // =========================================================================
       // YESTERDAY ORDER BUTTON CLICK HANDLER
-      // Handles clicks on the "Sofortbestellung Gestern" (Immediate Order Yesterday)
-      // button. Calculates yesterday's date, sets session storage, and redirects
-      // to the order menu showing ONLY products from yesterday's inventory.
+      // =========================================================================
+      // This handler is for the "Sofortbestellung Gestern" (Immediate Order Yesterday) button.
+      //
+      // KEY BEHAVIOR:
+      // - Passes TODAY'S date in the URL and sessionStorage (customer picks up TODAY)
+      // - Sets strYStockOnlyCheck=Y to signal "show yesterday's inventory"
+      // - dynamic-location-inventory.liquid reads strYStockOnlyCheck=Y and sets line item property yesterday_item=Y
+      // - Backend (OrdersCreateJob) reads yesterday_item=Y and deducts inventory from yesterday's date
+      // - Order's pick_up_date remains TODAY (already correct for Raspberry Pi door access)
+      //
+      // FLOW:
+      // 1. User clicks yesterday button
+      // 2. Date = TODAY, strYStockOnlyCheck = Y
+      // 3. Liquid template shows products from yesterday's inventory
+      // 4. Line item property yesterday_item = Y is added to cart
+      // 5. Order created with pick_up_date = TODAY
+      // 6. Backend deducts inventory from yesterday's date metafield
       // =========================================================================
       $(".yesterdayorderbtn").click(function(e){
         e.preventDefault();
@@ -891,55 +912,32 @@
 
         var href = $(this).attr("href");
 
-        // Calculate yesterday's date in dd-mm-yyyy format (using Germany timezone)
-        // We use the same timezone-aware logic as the rest of the app to ensure
-        // consistency across all date calculations
-        const now = new Date();
-        const optionsYesterday = {
-          timeZone: 'Europe/Berlin',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour12: false
-        };
-        const formatterYesterday = new Intl.DateTimeFormat([], optionsYesterday);
-        const partsYesterday = formatterYesterday.formatToParts(now);
+        console.log('[Delivery Date] Using TODAY\'s date for yesterday items:', today);
 
-        let dateObjYesterday = {};
-        partsYesterday.forEach(({ type, value }) => {
-          dateObjYesterday[type] = value;
-        });
-
-        // Create a date object from Germany's current date, then subtract one day
-        const todayInGermany = new Date(
-          parseInt(dateObjYesterday.year),
-          parseInt(dateObjYesterday.month) - 1, // months are 0-indexed
-          parseInt(dateObjYesterday.day)
-        );
-        todayInGermany.setDate(todayInGermany.getDate() - 1); // Subtract 1 day
-
-        // Format yesterday's date as dd-mm-yyyy
-        const yesterday = ('0' + todayInGermany.getDate()).slice(-2) + '-' +
-                          ('0' + (todayInGermany.getMonth() + 1)).slice(-2) + '-' +
-                          todayInGermany.getFullYear();
-
-        console.log('[Delivery Date] Yesterday date calculated:', yesterday);
-
+        // =====================================================================
         // Set session storage values for yesterday order
-        // immediate_inventory = Y means this is an immediate/instant order (not preorder)
-        // strYStockOnlyCheck = Y tells the order menu to show ONLY yesterday's items
-        sessionStorage.setItem("date", yesterday);
+        // =====================================================================
+        // IMPORTANT: We use TODAY's date (when customer picks up), not yesterday's date
+        // strYStockOnlyCheck=Y signals to show yesterday's inventory in the product list
+        // The line item property yesterday_item=Y will be set by dynamic-location-inventory.liquid
+        // =====================================================================
+        sessionStorage.setItem("date", today);
         sessionStorage.setItem("immediate_inventory", "Y");
         sessionStorage.setItem("snacks_and_drinks", "N");
+        sessionStorage.setItem("strYStockOnlyCheck", "Y"); // Signal: show yesterday's inventory
+
+        // Update global state to track which button was clicked
+        window.deliveryDateState.strYStockOnlyCheck = "Y";
 
         console.log('[Delivery Date] SessionStorage set for yesterday order:', {
-          date: yesterday,
+          date: today,
           immediate_inventory: "Y",
-          snacks_and_drinks: "N"
+          snacks_and_drinks: "N",
+          strYStockOnlyCheck: "Y"
         });
 
-        // Update selected date on server
-        const updateDateUrl = "https://dev.sushi.catering/updateSelectedDate/" + yesterday;
+        // Update selected date on server with TODAY's date
+        const updateDateUrl = "https://dev.sushi.catering/updateSelectedDate/" + today;
         console.log('[Delivery Date] Updating selected date at:', updateDateUrl);
 
         $.ajax({
@@ -950,10 +948,10 @@
           async: true,
           dataType: "json",
           success: function(data) {
-            // Redirect to order menu with yesterday's date
+            // Redirect to order menu with TODAY's date
             // strYStockOnlyCheck=Y ensures only yesterday's items are shown
             const redirectUrl = href + "?location=" + sessionStorage.getItem("location") +
-              "&date=" + yesterday +
+              "&date=" + today +
               "&immediate_inventory=Y" +
               "&no_station=" + sessionStorage.getItem("no_station") +
               "&snacks_and_drinks=N" +
@@ -961,7 +959,7 @@
               "&strYStockOnlyCheck=Y" +
               "&nocache=" + randomNum;
 
-            console.log('[Delivery Date] Redirecting to yesterday order:', redirectUrl);
+            console.log('[Delivery Date] Redirecting to yesterday order with today\'s date:', redirectUrl);
             window.location.href = redirectUrl;
           },
           error: function(request, status, error) {
