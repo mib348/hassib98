@@ -3636,10 +3636,12 @@ html,
 body {
   overflow-x: hidden !important;
 }
-.todayorderbtn {
+.todayorderbtn,
+.yesterdayorderbtn {
   display: none !important;
 }
-.todayorderbtn.show-button {
+.todayorderbtn.show-button,
+.yesterdayorderbtn.show-button {
   display: inline-block !important;
 }
 .preorderbtn {
@@ -3651,7 +3653,8 @@ body {
 .cart__dynamic-checkout-buttons {
   display: none;
 }
-#badge-counter {
+#badge-counter,
+#badge-counter-yesterday {
   display: none;
   /* padding:10px 20px; */
   vertical-align: bottom;
@@ -3660,6 +3663,7 @@ body {
 .text-bg-success {
   background-color: #008000 !important; /* Bootstrap's success color */
   border-color: #008000 !important; /* Bootstrap's success color */
+  color: white !important;
   /* padding:12px 20px !important; */
 }
 
@@ -3667,7 +3671,8 @@ body {
 .text-bg-danger {
   background-color: #ff0000 !important; /* Bootstrap's danger color */
   border-color: #ff0000 !important; /* Bootstrap's danger color */
-  padding: 12px 20px !important;
+  /* padding: 12px 20px !important; */
+  color: white !important;
 }
 
 .homedeliverydatebtn,

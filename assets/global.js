@@ -642,6 +642,8 @@ document.addEventListener('DOMContentLoaded', function () {
         href += "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory");
       if (sessionStorage.getItem("additional_inventory_time") != null)
         href += "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time");
+      if (sessionStorage.getItem("strYStockOnlyCheck") != null)
+        href += "&strYStockOnlyCheck=" + sessionStorage.getItem("strYStockOnlyCheck");
 
       // Set the updated href back as the 'data-href' attribute
       pfMainMedia.setAttribute('data-href', href);
@@ -775,24 +777,49 @@ if (window.location.pathname === "/pages/order-menue" || window.location.pathnam
     todayDateObj.setHours(0, 0, 0, 0); // Normalize today to midnight
 
     if (storedDateObj < todayDateObj) {
-      console.warn("Stored date in sessionStorage (" + storedDate + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
-      sessionStorage.clear();
-      $.ajax({
-        type: "POST",
-        url: window.Shopify.routes.root + "cart/clear.js",
-        async: false,
-        dataType: "json",
-        async: false, // Crucial for completing before redirect
-        success: function () {
-          window.location.href = "/pages/bestellen";
-        },
-        error: function (xhr, status, error) {
-          console.error("Cart clear error during past date handling in global.js:", error);
-          window.location.href = "/pages/bestellen"; // Still redirect
-        }
-      });
-      // Use a return or throw to stop further script execution in this context if necessary.
-      // For now, the redirect will stop it.
+      // =========================================================================
+      // YESTERDAY ITEMS EXCEPTION
+      // Allow yesterday's date for immediate inventory orders. This is needed
+      // because the "Sofortbestellung Gestern" (Immediate Order Yesterday) button
+      // sets the date to yesterday to show products from yesterday's inventory.
+      // Without this exception, the date validation would clear the session and
+      // redirect away, breaking the yesterday items feature.
+      // =========================================================================
+      const isImmediateInventory = sessionStorage.getItem("immediate_inventory") === "Y";
+
+      // Calculate yesterday's date for comparison
+      const yesterdayDateObj = new Date(todayDateObj);
+      yesterdayDateObj.setDate(yesterdayDateObj.getDate() - 1);
+      yesterdayDateObj.setHours(0, 0, 0, 0); // Normalize to midnight for accurate comparison
+
+      // Check if the stored date is exactly yesterday (not older than yesterday)
+      const isExactlyYesterday = storedDateObj.getTime() === yesterdayDateObj.getTime();
+
+      // Allow yesterday's date ONLY for immediate inventory orders (yesterday items feature)
+      // For any date older than yesterday, always clear and redirect
+      if (isImmediateInventory && isExactlyYesterday) {
+        console.log("[Date Validation] Yesterday date allowed for immediate inventory order (Yesterdays Items feature)");
+        // Continue without clearing - the yesterday order is valid
+      } else {
+        console.warn("Stored date in sessionStorage (" + storedDate + ") is in the past. Clearing session, cart, and redirecting to /pages/bestellen.");
+        sessionStorage.clear();
+        $.ajax({
+          type: "POST",
+          url: window.Shopify.routes.root + "cart/clear.js",
+          async: false,
+          dataType: "json",
+          async: false, // Crucial for completing before redirect
+          success: function () {
+            window.location.href = "/pages/bestellen";
+          },
+          error: function (xhr, status, error) {
+            console.error("Cart clear error during past date handling in global.js:", error);
+            window.location.href = "/pages/bestellen"; // Still redirect
+          }
+        });
+        // Use a return or throw to stop further script execution in this context if necessary.
+        // For now, the redirect will stop it.
+      }
     }
   } else {
     // If 'date' does not exist in sessionStorage, set it to today's date
@@ -819,6 +846,7 @@ if (window.jQuery) {
       if (queryParams.has('no_station')) sessionStorage.setItem("no_station", queryParams.get('no_station'));
       if (queryParams.has('additional_inventory')) sessionStorage.setItem("b_additional_inventory", queryParams.get('additional_inventory'));
       if (queryParams.has('additional_inventory_time')) sessionStorage.setItem("additional_inventory_time", queryParams.get('additional_inventory_time'));
+      if (queryParams.has('strYStockOnlyCheck')) sessionStorage.setItem("strYStockOnlyCheck", queryParams.get('strYStockOnlyCheck'));
 
       // Page-specific logic after parameters have been processed
       if (currentPathForParams === "/pages/bestellen") {
@@ -836,7 +864,7 @@ if (window.jQuery) {
           } else if (sessionStorage.getItem("date") == null) {
             window.location.replace("/pages/datum");
           } else {
-            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid");
+            window.location.href = "/pages/order-menue?location=" + sessionStorage.getItem("location") + "&date=" + sessionStorage.getItem("date") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&strYStockOnlyCheck=" + (sessionStorage.getItem("strYStockOnlyCheck") || "N") + "&uuid=" + localStorage.getItem("uuid");
           }
         }
       } else if (currentPathForParams === "/pages/datum") {
@@ -977,16 +1005,36 @@ if (window.jQuery) {
         var removalPromises = [];
         var bReload = false;
 
+        // Check if this is an immediate inventory order (yesterday items feature).
+        // If so, allow products with yesterday's date to remain in cart.
+        var isImmediateInventory = sessionStorage.getItem("immediate_inventory") === "Y";
+
         $.each(response.items, function (index, product) {
           var dateParts = product.properties.date.split('-');
           var productDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+          productDate.setHours(0, 0, 0, 0); // Normalize to midnight for accurate comparison
 
           var currentDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
           currentDate.setHours(0, 0, 0, 0); // Remove time portion for comparison
 
+          // Calculate yesterday's date
+          var yesterdayDate = new Date(currentDate);
+          yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+          yesterdayDate.setHours(0, 0, 0, 0);
+
+          // Check if product date is exactly yesterday
+          var isExactlyYesterday = productDate.getTime() === yesterdayDate.getTime();
+
           if (productDate < currentDate) {
-            bReload = true;
-            removalPromises.push(removeProductFromCart(product.id));
+            // Allow yesterday's products for immediate inventory orders (yesterday items feature)
+            // Only remove products older than yesterday, or yesterday's products if NOT immediate inventory
+            if (isImmediateInventory && isExactlyYesterday) {
+              console.log('[Cart Manager] Keeping yesterday product for immediate inventory order:', product.title);
+              // Don't remove - this is a valid yesterday items order
+            } else {
+              bReload = true;
+              removalPromises.push(removeProductFromCart(product.id));
+            }
           }
         });
 
@@ -2590,5 +2638,3 @@ class ProductRecommendations extends HTMLElement {
 }
 
 customElements.define("product-recommendations", ProductRecommendations);
-
-

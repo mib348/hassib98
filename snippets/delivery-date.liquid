@@ -1,558 +1,490 @@
 <style>
-  .ui-datepicker {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000; /* Adjust z-index as needed */
-  }
-  .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
-  
-  /* Loading states for buttons */
-  .btn-loading {
-    opacity: 0.6;
-    pointer-events: none;
-    position: relative;
-  }
-  
-  .btn-loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 16px;
-    height: 16px;
-    margin: -8px 0 0 -8px;
-    border: 2px solid transparent;
-    border-top: 2px solid currentColor;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
+     .ui-datepicker {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000; /* Adjust z-index as needed */
+    }
+    .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
 
-  /*
-    Badge counter mobile display fix -----------------------------------------
-    Ensure the badge counter properly hides on mobile when display: none is applied
-    by overriding any conflicting inline styles that might be set by syncBadgeCounterHeight()
-  */
-  #badge-counter[style*="display: none"] {
-    display: none !important;
-  }
+    /* Loading states for buttons */
+    .btn-loading {
+      opacity: 0.6;
+      pointer-events: none;
+      position: relative;
+    }
 
-  /*
-    Delivery controls container -------------------------------------------------
-    Keep all delivery action buttons (today, preorder, snacks & drinks) tidy and
-    readable by aligning them side by side, collapsing gracefully when space is
-    tight so every option remains reachable on any screen width.
-  */
-  .delivery-buttons-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    justify-content: flex-start;
-  }
+    .btn-loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      margin: -8px 0 0 -8px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
 
-  .__pf.__pf_GlDVGOc7 .pf-23_, .__pf.__pf_GlDVGOc7 .pf-27_{
-    margin-left: 5px !important;
-  }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
 
-  /*
-    Delivery buttons base styling ----------------------------------------------
-    Provide consistent sizing/spacing so the user instantly recognises all three
-    actions. Inline-flex keeps icons/text centred while the compact padding makes
-    the buttons feel lightweight without reducing the tap target below guidelines.
-  */
-  .preorderbtn,
-  .todayorderbtn,
-  .snacks_and_drinks_btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 5px 10px;
-    font-size: 14px;
-    line-height: 1.1;
-    min-height: 32px;
-    font-weight: 500;
-    transition: all 0.15s ease-out;
-    white-space: nowrap;
-    text-decoration: none;
-    border: 1px solid transparent;
-    cursor: pointer;
-    box-sizing: border-box;
-    position: relative;
-  }
+    /*
+      Badge counter mobile display fix -----------------------------------------
+      Ensure the badge counter properly hides on mobile when display: none is applied
+      by overriding any conflicting inline styles that might be set by syncBadgeCounterHeight()
+    */
+    #badge-counter[style*="display: none"] {
+      display: none !important;
+    }
 
-  /*
-    Tablet behaviour ------------------------------------------------------------
-    Tighten spacing slightly and ensure each button keeps a predictable width so
-    the row stays visually balanced when content wraps on mid-sized devices.
-  */
-  @media (max-width: 768px) {
+    /*
+      Yesterday badge counter mobile display fix --------------------------------
+      Same fix for the yesterday items badge counter
+    */
+    #badge-counter-yesterday[style*="display: none"] {
+      display: none !important;
+    }
+
+    /*
+      Delivery controls container -------------------------------------------------
+      Keep all delivery action buttons (today, preorder, snacks & drinks) tidy and
+      readable by aligning them side by side, collapsing gracefully when space is
+      tight so every option remains reachable on any screen width.
+    */
     .delivery-buttons-container {
-      gap: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    {% comment %} .__pf.__pf_GlDVGOc7 .pf-23_, .__pf.__pf_GlDVGOc7 .pf-27_{
+      margin-left: 5px !important;
+    } {% endcomment %}
+
+    /*
+      Delivery buttons base styling ----------------------------------------------
+      Provide consistent sizing/spacing so the user instantly recognises all four
+      actions. Inline-flex keeps icons/text centred while the compact padding makes
+      the buttons feel lightweight without reducing the tap target below guidelines.
+    */
+    .preorderbtn,
+    .todayorderbtn,
+    .yesterdayorderbtn,
+    .snacks_and_drinks_btn {
+      display: none;
+      align-items: center;
       justify-content: center;
+      padding: 5px 10px;
+      font-size: 14px;
+      line-height: 1.1;
+      min-height: 32px;
+      font-weight: 500;
+      transition: all 0.15s ease-out;
+      white-space: nowrap;
+      text-decoration: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+      box-sizing: border-box;
+      position: relative;
     }
 
-    .preorderbtn,
-    .todayorderbtn,
-    .snacks_and_drinks_btn {
-      padding: 4px 8px;
-      font-size: 13px;
-      min-height: 30px;
-      flex: 0 0 auto;
-      min-width: 80px;
-      margin: 0;
-    }
-  }
+    /*
+      Tablet behaviour ------------------------------------------------------------
+      Tighten spacing slightly and ensure each button keeps a predictable width so
+      the row stays visually balanced when content wraps on mid-sized devices.
+    */
+    @media (max-width: 768px) {
+      .delivery-buttons-container {
+        gap: 6px;
+        justify-content: center;
+      }
 
-  /*
-    Mobile stack ----------------------------------------------------------------
-    When screens get narrow we stack the buttons so the user never needs to
-    horizontally scroll. The centred layout keeps the call-to-action easy to
-    discover for returning users. Vertical spacing matches horizontal gap for
-    visual consistency when buttons wrap to new lines.
-  */
-  @media (max-width: 576px) {
-    .delivery-buttons-container {
-      gap: 6px;
-      flex-direction: column;
-      align-items: stretch;
+      .preorderbtn,
+      .todayorderbtn,
+      .yesterdayorderbtn,
+      .snacks_and_drinks_btn {
+        padding: 4px 8px;
+        font-size: 13px;
+        min-height: 30px;
+        flex: 0 0 auto;
+        min-width: 80px;
+        margin: 0;
+      }
     }
 
-     .preorderbtn,
-     .todayorderbtn,
-     .snacks_and_drinks_btn {
-       padding: 6px 10px;
-       font-size: 14px;
-       {% comment %} min-height: 36px; {% endcomment %}
-       width: 100%;
-       max-width: 200px;
-       margin: 5px auto 0 auto !important;
-       justify-content: center;
-     }
-  }
+    /*
+      Mobile stack ----------------------------------------------------------------
+      When screens get narrow we stack the buttons so the user never needs to
+      horizontally scroll. The centred layout keeps the call-to-action easy to
+      discover for returning users. Vertical spacing matches horizontal gap for
+      visual consistency when buttons wrap to new lines.
+    */
+    @media (max-width: 576px) {
+      .delivery-buttons-container {
+        gap: 6px;
+        flex-direction: column;
+        align-items: stretch;
+      }
 
-  /*
-    Very small device refinement ------------------------------------------------
-    Slightly reduce padding/letter spacing so long translated labels still fit
-    cleanly without wrapping awkwardly on exceptionally narrow phones.
-  */
-  @media (max-width: 480px) {
-    .preorderbtn,
-    .todayorderbtn,
-    .snacks_and_drinks_btn {
-      padding: 5px 8px;
-      font-size: 13px;
-      {% comment %} min-height: 32px; {% endcomment %}
-      margin-top: 5px !important;
-      letter-spacing: -0.01em;
-    }
-  }
-
-  @media (max-width: 360px) {
-    .preorderbtn,
-    .todayorderbtn,
-    .snacks_and_drinks_btn {
-      padding: 4px 6px;
-      font-size: 12px;
-      {% comment %} min-height: 28px; {% endcomment %}
-      margin-top: 5px !important;
-      letter-spacing: -0.02em;
-    }
-  }
-
-  /*
-    Touch optimisation ----------------------------------------------------------
-    Give tablet/phone users a larger hit area so the buttons remain comfortable
-    to tap, even when the browser hides hover styles by default.
-  */
-  @media (hover: none) and (pointer: coarse) {
-    .preorderbtn,
-    .todayorderbtn,
-    .snacks_and_drinks_btn {
-      {% comment %} min-height: 44px; {% endcomment %}
-      padding: 8px 12px;
-      margin-top: 5px !important;
-    }
-
-     @media (max-width: 576px) {
        .preorderbtn,
        .todayorderbtn,
+       .yesterdayorderbtn,
        .snacks_and_drinks_btn {
-         {% comment %} min-height: 48px; {% endcomment %}
-         padding: 10px 14px;
-         margin-top: 5px !important;
+         padding: 6px 10px;
+         font-size: 14px;
+         {% comment %} min-height: 36px; {% endcomment %}
+         width: 100%;
+         max-width: 200px;
+         margin: 5px auto 0 auto !important;
+         justify-content: center;
        }
-     }
-  }
-</style>
-
-{{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
-<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
-
-<div id="datepicker"></div>
-<br>
-<br>
-<br>
-
-<script>
-  // Global state management
-  window.deliveryDateState = {
-    isInitialized: false,
-    location: null,
-    locationData: null,
-    jqueryReady: false,
-    domReady: false
-  };
-
-  // Initialize everything when ready
-  function initializeDeliveryDate() {
-    if (window.deliveryDateState.isInitialized) return;
-    
-    // Check if all dependencies are ready
-    if (!window.deliveryDateState.domReady || !window.deliveryDateState.jqueryReady) {
-      return;
     }
-    
-    console.log('Initializing delivery date functionality...');
-    
-    const buttonTodayOrder = document.querySelector('.todayorderbtn');
-    const buttonPreOrder = document.querySelector('.preorderbtn');
-    const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
-    
-    // Add loading state to buttons initially
-    if (buttonTodayOrder) buttonTodayOrder.classList.add('btn-loading');
-    if (buttonPreOrder) buttonPreOrder.classList.add('btn-loading');
-    if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('btn-loading');
-    
-    // Sync badge counter height with buttons on small devices
-    syncBadgeCounterHeight();
-    
-    // Process location and setup functionality
-    processLocationAndSetup();
-    
-    window.deliveryDateState.isInitialized = true;
-  }
 
-  // Sync badge counter height with buttons on small devices
-  function syncBadgeCounterHeight() {
-    const badgeCounter = document.getElementById('badge-counter');
-    if (!badgeCounter) return;
-    
-    // Only apply on small devices (576px and below)
-    if (window.innerWidth <= 576) {
-      const button = document.querySelector('.preorderbtn, .todayorderbtn, .snacks_and_drinks_btn');
-      if (button) {
-        const computedStyle = window.getComputedStyle(button);
-        const buttonPadding = computedStyle.padding;
-        const buttonMinHeight = computedStyle.minHeight;
-        
-        // Apply same padding and min-height to badge counter
-        // Note: Do not set display property here as it interferes with toggleButton() visibility control
-        badgeCounter.style.padding = buttonPadding;
-        badgeCounter.style.minHeight = buttonMinHeight;
-        badgeCounter.style.boxSizing = 'border-box';
-        badgeCounter.style.alignItems = 'center';
-        badgeCounter.style.justifyContent = 'center';
+    /*
+      Very small device refinement ------------------------------------------------
+      Slightly reduce padding/letter spacing so long translated labels still fit
+      cleanly without wrapping awkwardly on exceptionally narrow phones.
+    */
+    @media (max-width: 480px) {
+      .preorderbtn,
+      .todayorderbtn,
+      .yesterdayorderbtn,
+      .snacks_and_drinks_btn {
+        padding: 5px 8px;
+        font-size: 13px;
+        {% comment %} min-height: 32px; {% endcomment %}
+        margin-top: 5px !important;
+        letter-spacing: -0.01em;
+      }
+      #badge-counter-yesterday{margin-left: 30px !important;}
+    }
+
+    @media (max-width: 360px) {
+      .preorderbtn,
+      .todayorderbtn,
+      .yesterdayorderbtn,
+      .snacks_and_drinks_btn {
+        padding: 4px 6px;
+        font-size: 12px;
+        {% comment %} min-height: 28px; {% endcomment %}
+        margin-top: 5px !important;
+        letter-spacing: -0.02em;
       }
     }
-  }
 
-  // Process location and setup all functionality
-  function processLocationAndSetup() {
-    const strLocation = window.deliveryDateState.location || "";
-    
-    if (strLocation === "") {
-      console.log('No location available, skipping initialization');
-      removeLoadingStates();
-      return;
-    }
-
-    $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
-    
-    // Make AJAX call asynchronous to prevent UI blocking
-    $.ajax({
-      url: `https://app.sushi.catering/getLocations/${strLocation}`,
-      type: "GET",
-      async: true, // Changed from false to true
-      cache: true,
-      dataType: "json",
-      success: function(data) {
-        window.deliveryDateState.locationData = data;
-        setupLocationData(data);
-        setupButtonHandlers();
-        removeLoadingStates();
-        
-        // Re-sync badge counter height after buttons are shown
-        syncBadgeCounterHeight();
-      },
-      error: function(request, status, error) {
-        console.error('Error fetching location time:', error);
-        removeLoadingStates();
+    /*
+      Touch optimisation ----------------------------------------------------------
+      Give tablet/phone users a larger hit area so the buttons remain comfortable
+      to tap, even when the browser hides hover styles by default.
+    */
+    @media (hover: none) and (pointer: coarse) {
+      .preorderbtn,
+      .todayorderbtn,
+      .yesterdayorderbtn,
+      .snacks_and_drinks_btn {
+        {% comment %} min-height: 44px; {% endcomment %}
+        padding: 8px 12px;
+        margin-top: 5px !important;
       }
-    });
-  }
 
-  // Setup location-specific data
-  function setupLocationData(data) {
-    // Save the same-day preorder end time
-    window.samedayPreorderEndTime = data.sameday_preorder_end_time;
-    window.firstAdditionalInventoryPreorderEndTime = data.first_additional_inventory_end_time;
-    window.additionalInventoryPreorderEndTime = data.second_additional_inventory_end_time;
-    window.b_additional_inventory = data.additional_inventory;
-    window.accept_only_preorders = data.accept_only_preorders;
-    window.immediate_inventory = data.immediate_inventory;
-
-    sessionStorage.setItem("no_station", data.no_station);
-    sessionStorage.setItem("b_additional_inventory", data.additional_inventory);
-    sessionStorage.setItem("immediate_inventory", data.immediate_inventory);
-    const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
-
-    if(data.snacks_and_drinks != "Y"){
-      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
-      $('.snacks_and_drinks_btn').css('display', 'none');
-    }
-    else{
-      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('show-button');
-      $('.snacks_and_drinks_btn').css('display', 'inline-flex');
+       @media (max-width: 576px) {
+         .preorderbtn,
+         .todayorderbtn,
+         .yesterdayorderbtn,
+         .snacks_and_drinks_btn {
+           {% comment %} min-height: 48px; {% endcomment %}
+           padding: 10px 14px;
+           margin-top: 5px !important;
+         }
+       }
     }
 
-    if(data.driver_fulfillment_time){
-      $(".status-delivery-today span").html(data.driver_fulfillment_time).css("color", "limegreen");
-    } else {
-      $(".status-delivery-today span").html("noch nicht erfolgt").css("color", "red");
+    /* Button states */
+    .preorderbtn:hover,
+    .todayorderbtn:hover,
+    .yesterdayorderbtn:hover,
+    .snacks_and_drinks_btn:hover {
+      transform: translateY(-1px);
+      transition: all 0.1s ease-out;
     }
 
-    // Get the current date and time in Germany
-    const now = new Date();
-    const options = {
-      timeZone: 'Europe/Berlin',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
+    .preorderbtn:active,
+    .todayorderbtn:active,
+    .yesterdayorderbtn:active,
+    .snacks_and_drinks_btn:active {
+      transform: translateY(0);
+      transition: all 0.05s ease-out;
+    }
+
+    /* Focus states for accessibility */
+    .preorderbtn:focus,
+    .todayorderbtn:focus,
+    .yesterdayorderbtn:focus,
+    .snacks_and_drinks_btn:focus {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+    }
+
+    /*
+      Disabled state for yesterday button when no items available
+      Reduces opacity and prevents interaction while keeping button visible
+    */
+    .yesterdayorderbtn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .yesterdayorderbtn.disabled:hover {
+      transform: none;
+    }
+  </style>
+  
+  {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
+  <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
+  
+  <div id="datepicker"></div>
+  <br>
+  <br>
+  <br>
+  
+  <script>
+    // Global state management
+    window.deliveryDateState = {
+      isInitialized: false,
+      location: null,
+      locationData: null,
+      jqueryReady: false,
+      domReady: false,
+      strYStockOnlyCheck: "N"
     };
-    const formatter = new Intl.DateTimeFormat('en-GB', options);
-    const parts = formatter.formatToParts(now);
   
-    let dateObj = {};
-    parts.forEach(({ type, value }) => {
-      dateObj[type] = value;
-    });
-  
-    let minDate = 0; // Default to today
-  
-    const currentHours = parseInt(dateObj.hour, 10);
-    const currentMinutes = parseInt(dateObj.minute, 10);
-    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-
-    // Parse the same-day preorder end time
-    if(window.samedayPreorderEndTime){
-      const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
-      window.cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
-      if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime) {
-        minDate = 1;                       
-      }
-    }
-                       
-    if (data.note)
-      $("#note").html(data.note);
-  
-    // Handle location_toggle state
-    if (data.is_active === 'Y') {
-      const buttonTodayOrder = document.querySelector('.todayorderbtn');
-      const buttonPreOrder = document.querySelector('.preorderbtn');
-      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
-      
-      buttonPreOrder.classList.add('show-button');
-
-      //today order button aka immediate order button aka instant order button
-      if (data.start_time && data.end_time && data.is_active === 'Y' && data.accept_only_preorders === 'N' && data.immediate_inventory == "Y" && minDate == 1) {
-        toggleButton(data.start_time, data.end_time);
-        setInterval(() => toggleButton(data.start_time, data.end_time), 60000);                     
-
-        //handling of quantity counter badge for immediate button
-        if(data.immediate_inventory == "Y"){
-          // **Set the badge count**
-          $.ajax({
-            url: `https://app.sushi.catering/getImmediateInventoryByLocation/${window.deliveryDateState.location}`,
-            type: "GET",
-            async: true, // Changed from false to true
-            cache: true,
-            dataType: "json",
-            success: function(nQty) {
-              if (nQty > 0) {
-                $('#badge-counter')
-                  .html(nQty)
-                  .removeClass('text-bg-danger')
-                  .addClass('text-bg-success')
-                  .css('display', 'inline-block');
-              } 
-              else if (nQty < 1) {
-                $('#badge-counter')
-                  .html(0)
-                  .removeClass('text-bg-success')
-                  .addClass('text-bg-danger')
-                  .css('display', 'inline-block');
-              } 
-              else {
-                $('#badge-counter').css('display', 'none');
-              }
-            },
-            error: function(request, status, error) {
-              console.error('Error fetching Immediate Inventory Quantity:', error);
-            }
-          });
-        }
-      } else if (data.error) {
-        console.error('Error fetching location Settings:', data.error);
-      }
-    } else {
-      $('#badge-counter').css('display', 'none');
-      const buttonTodayOrder = document.querySelector('.todayorderbtn');
-      const buttonPreOrder = document.querySelector('.preorderbtn');
-      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
-      if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
-      if (buttonPreOrder) buttonPreOrder.classList.remove('show-button');
-      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
-    }
-  }
-
-  // Remove loading states from buttons
-  function removeLoadingStates() {
-    const buttonTodayOrder = document.querySelector('.todayorderbtn');
-    const buttonPreOrder = document.querySelector('.preorderbtn');
-    const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
-
-    if (buttonTodayOrder) buttonTodayOrder.classList.remove('btn-loading');
-    if (buttonPreOrder) buttonPreOrder.classList.remove('btn-loading');
-    if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('btn-loading');
-  }
-
-  // Setup button click handlers
-  function setupButtonHandlers() {
-    if (!window.jQuery) {
-      console.error('jQuery not available for button handlers');
-      return;
-    }
-
-    let $ = window.jQuery;
-    const randomNum = Math.random();
-
-    $(".todayorderbtn, .preorderbtn").each(function() {
-      // Reset any inline styles that might have been applied to indicate disabled state
-      this.style.pointerEvents = '';
-      this.style.opacity = '';
-    });
-
-    var button = $(".preorderbtn");
-    var buttonOffset = button.offset();
-    
-    // Calculate new top and left positions
-    var newTop = buttonOffset.top + button.outerHeight();
-    var newLeft = buttonOffset.left;
-    
-    // Apply the calculated positions
-    $("#datepicker").datepicker('hide');
-    
-    $(".todayorderbtn").click(function(e){
-      e.preventDefault();
-  
-      var href = $(this).attr("href");
-  
-      // Use Intl.DateTimeFormat to get the correct current date in Germany
-      const options = {
-        timeZone: 'Europe/Berlin',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour12: false
-      };
-  
-      const formatter = new Intl.DateTimeFormat([], options);
-      const parts = formatter.formatToParts(new Date());
-  
-      let dateObj = {};
-      parts.forEach(({ type, value }) => {
-        dateObj[type] = value;
+    // Initialize everything when ready
+    function initializeDeliveryDate() {
+      console.log('[Delivery Date] initializeDeliveryDate called', {
+        isInitialized: window.deliveryDateState.isInitialized,
+        domReady: window.deliveryDateState.domReady,
+        jqueryReady: window.deliveryDateState.jqueryReady
       });
-  
-      var today = `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
-      console.log(today);
-      console.log(new Date());
-  
-      sessionStorage.setItem("date", today);
-      sessionStorage.setItem("immediate_inventory", "Y");
-      sessionStorage.setItem("snacks_and_drinks", "N");
-  
+
+      if (window.deliveryDateState.isInitialized) {
+        console.log('[Delivery Date] Already initialized, skipping');
+        return;
+      }
+
+      // Check if all dependencies are ready
+      if (!window.deliveryDateState.domReady || !window.deliveryDateState.jqueryReady) {
+        console.log('[Delivery Date] Dependencies not ready yet', {
+          domReady: window.deliveryDateState.domReady,
+          jqueryReady: window.deliveryDateState.jqueryReady
+        });
+        return;
+      }
+
+      console.log('[Delivery Date] All dependencies ready, initializing functionality...');
+
+      const buttonTodayOrder = document.querySelector('.todayorderbtn');
+      const buttonPreOrder = document.querySelector('.preorderbtn');
+      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+
+      console.log('[Delivery Date] Buttons found:', {
+        todayOrderBtn: !!buttonTodayOrder,
+        preOrderBtn: !!buttonPreOrder,
+        snacksAndDrinksBtn: !!buttonSnacksAndDrinks,
+        yesterdayOrderBtn: !!buttonYesterdayOrder
+      });
+
+      // Add loading state to buttons initially
+      if (buttonTodayOrder) buttonTodayOrder.classList.add('btn-loading');
+      if (buttonPreOrder) buttonPreOrder.classList.add('btn-loading');
+      if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('btn-loading');
+      if (buttonYesterdayOrder) buttonYesterdayOrder.classList.add('btn-loading');
+
+      // Sync badge counter height with buttons on small devices
+      syncBadgeCounterHeight();
+
+      // Process location and setup functionality
+      processLocationAndSetup();
+
+      window.deliveryDateState.isInitialized = true;
+      console.log('[Delivery Date] Initialization complete');
+    }
+
+    // Sync badge counter height with buttons on small devices
+    function syncBadgeCounterHeight() {
+      const badgeCounter = document.getElementById('badge-counter');
+      if (!badgeCounter) return;
+      
+      // Only apply on small devices (576px and below)
+      if (window.innerWidth <= 576) {
+        const button = document.querySelector('.preorderbtn, .todayorderbtn, .snacks_and_drinks_btn');
+        if (button) {
+          const computedStyle = window.getComputedStyle(button);
+          const buttonPadding = computedStyle.padding;
+          const buttonMinHeight = computedStyle.minHeight;
+          
+          // Apply same padding and min-height to badge counter
+          // Note: Do not set display property here as it interferes with toggleButton() visibility control
+          badgeCounter.style.padding = buttonPadding;
+          badgeCounter.style.minHeight = buttonMinHeight;
+          badgeCounter.style.boxSizing = 'border-box';
+          badgeCounter.style.alignItems = 'center';
+          badgeCounter.style.justifyContent = 'center';
+        }
+      }
+    }
+
+    // =========================================================================
+    // UPDATE TODAY BADGE COUNTER
+    // =========================================================================
+    // Shows ONLY today's inventory count on the "Sofortbestellung" (Today) button.
+    // The API getImmediateInventoryByLocation now returns ONLY today's inventory
+    // (not combined). Yesterday's inventory is shown separately on its own button.
+    // strYStockOnlyCheck is always "N" for today button since yesterday has its own.
+    // =========================================================================
+    function updateTodayBadgeCounter(location) {
+      console.log('[Delivery Date] updateTodayBadgeCounter called for location:', location);
+
+      // Always set to "N" for today button - yesterday has its own button now
+      window.deliveryDateState.strYStockOnlyCheck = "N";
+
+      // Helper to update the badge display with a quantity
+      function updateBadgeDisplay(qty) {
+        console.log('[Delivery Date] Today badge display updated with qty:', qty);
+        if (qty > 0) {
+          $('#badge-counter')
+            .html(qty)
+            .removeClass('text-bg-danger')
+            .addClass('text-bg-success')
+            .css('display', 'inline-block');
+        } else {
+          $('#badge-counter')
+            .html(0)
+            .removeClass('text-bg-success')
+            .addClass('text-bg-danger')
+            .css('display', 'inline-block');
+        }
+      }
+
+      // =========================================================================
+      // FETCH TODAY'S INVENTORY ONLY
+      // The API now returns ONLY today's inventory (not combined with yesterday).
+      // No calculation needed - just display the returned value directly.
+      // =========================================================================
+      const todayUrl = `https://app.sushi.catering/getImmediateInventoryByLocation/${location}`;
+      console.log('[Delivery Date] Fetching today-only inventory from:', todayUrl);
+
       $.ajax({
-        url: "https://app.sushi.catering/updateSelectedDate/" + today,
+        url: todayUrl,
         type: "GET",
-        data: {"uuid": localStorage.getItem("uuid")},
-        cache: false,
-        async: true, // Changed from false to true
+        async: true,
+        cache: false,  // Don't cache to ensure fresh data
         dataType: "json",
-        success: function(data) {
-          window.location.href = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+        success: function(todayQty) {
+          console.log('[Delivery Date] Today inventory received:', todayQty);
+          updateBadgeDisplay(todayQty);
         },
         error: function(request, status, error) {
-          alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
-          console.log('set selected date error: today', error);
+          console.error('[Delivery Date] Error fetching today inventory:', error);
+          updateBadgeDisplay(0);
         }
       });
-    });
-
-    $(".snacks_and_drinks_btn").click(function(e){
-      e.preventDefault();
-
-      var newUrl = $(".snacks_and_drinks_btn").attr("href");
-
-      const formatter = new Intl.DateTimeFormat([], {
-        timeZone: 'Europe/Berlin',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour12: false
-      });
-      const parts = formatter.formatToParts(new Date());
-      let dateObj = {};
-      parts.forEach(({ type, value }) => {
-        dateObj[type] = value;
-      });
-      var today = `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
-
-      sessionStorage.setItem("snacks_and_drinks", "Y");
-      sessionStorage.setItem("immediate_inventory", "N");
-      sessionStorage.setItem("no_station", "N");
-      sessionStorage.setItem("additional_inventory", "N");
-      sessionStorage.setItem("additional_inventory_time", "N");
-
-      window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
-    });
-
-    $(".preorderbtn").click(function(e){
-      e.preventDefault();
-
-      // Get the offset of the button
-      const buttonOffset = $(this).offset();
-      const buttonHeight = $(this).outerHeight();
-      
-      // Calculate the new top and left positions for the datepicker
-      const newTop = buttonOffset.top + buttonHeight;
-      const newLeft = buttonOffset.left + 150;
+    }
   
-      if (window.accept_only_preorders === "Y" && (typeof window.samedayPreorderEndTime === 'undefined' || !window.samedayPreorderEndTime)) {
-        console.log('Same-day preorder end time is not set. Please try again later.');
-        //return;
+    // Process location and setup all functionality
+    function processLocationAndSetup() {
+      const strLocation = window.deliveryDateState.location || "";
+
+      console.log('[Delivery Date] processLocationAndSetup called with location:', strLocation);
+
+      if (strLocation === "") {
+        console.log('[Delivery Date] No location available, skipping initialization');
+        removeLoadingStates();
+        return;
       }
-      if (window.b_additional_inventory == "Y" && (typeof window.additionalInventoryPreorderEndTime === 'undefined' || !window.additionalInventoryPreorderEndTime)) {
-        console.log('Additional Inventory end time is not set. Please try again later.');
-        //return;
+
+      $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
+
+      const ajaxUrl = `https://app.sushi.catering/getLocations/${strLocation}`;
+      console.log('[Delivery Date] Fetching location data from:', ajaxUrl);
+
+      // Make AJAX call asynchronous to prevent UI blocking
+      $.ajax({
+        url: ajaxUrl,
+        type: "GET",
+        async: true, // Changed from false to true
+        cache: true,
+        dataType: "json",
+        success: function(data) {
+          console.log('[Delivery Date] Location data received:', data);
+          window.deliveryDateState.locationData = data;
+          setupLocationData(data);
+          setupButtonHandlers();
+          removeLoadingStates();
+          
+          // Re-sync badge counter height after buttons are shown
+          syncBadgeCounterHeight();
+        },
+        error: function(request, status, error) {
+          console.error('[Delivery Date] Error fetching location data:', {
+            status,
+            error,
+            url: ajaxUrl
+          });
+          removeLoadingStates();
+        }
+      });
+    }
+  
+    // Setup location-specific data
+    function setupLocationData(data) {
+      console.log('[Delivery Date] setupLocationData called with data:', data);
+
+      // Save the same-day preorder end time
+      window.samedayPreorderEndTime = data.sameday_preorder_end_time;
+      window.firstAdditionalInventoryPreorderEndTime = data.first_additional_inventory_end_time;
+      window.additionalInventoryPreorderEndTime = data.second_additional_inventory_end_time;
+      window.immediate_inventory_quantity_check_time = data.immediate_inventory_quantity_check_time;
+      window.b_additional_inventory = data.additional_inventory;
+      window.accept_only_preorders = data.accept_only_preorders;
+      window.immediate_inventory = data.immediate_inventory;
+
+      console.log('[Delivery Date] Window variables set:', {
+        samedayPreorderEndTime: window.samedayPreorderEndTime,
+        firstAdditionalInventoryPreorderEndTime: window.firstAdditionalInventoryPreorderEndTime,
+        additionalInventoryPreorderEndTime: window.additionalInventoryPreorderEndTime,
+        immediate_inventory_quantity_check_time: window.immediate_inventory_quantity_check_time,
+        b_additional_inventory: window.b_additional_inventory,
+        accept_only_preorders: window.accept_only_preorders,
+        immediate_inventory: window.immediate_inventory
+      });
+
+      sessionStorage.setItem("no_station", data.no_station);
+      sessionStorage.setItem("b_additional_inventory", data.additional_inventory);
+      sessionStorage.setItem("immediate_inventory", data.immediate_inventory);
+
+      console.log('[Delivery Date] SessionStorage updated:', {
+        no_station: data.no_station,
+        b_additional_inventory: data.additional_inventory,
+        immediate_inventory: data.immediate_inventory
+      });
+
+      if(data.driver_fulfillment_time){
+        $(".status-delivery-today span").html(data.driver_fulfillment_time).css("color", "limegreen");
+        console.log('[Delivery Date] Driver fulfillment time set:', data.driver_fulfillment_time);
+      } else {
+        $(".status-delivery-today span").html("noch nicht erfolgt").css("color", "red");
+        console.log('[Delivery Date] No driver fulfillment time available');
       }
-    
+
       // Get the current date and time in Germany
       const now = new Date();
       const options = {
@@ -563,228 +495,862 @@
       };
       const formatter = new Intl.DateTimeFormat('en-GB', options);
       const parts = formatter.formatToParts(now);
-  
+
       let dateObj = {};
       parts.forEach(({ type, value }) => {
         dateObj[type] = value;
       });
-  
+
       let minDate = 0; // Default to today
-      sessionStorage.setItem("additional_inventory_time", "N");
-    
+
       const currentHours = parseInt(dateObj.hour, 10);
       const currentMinutes = parseInt(dateObj.minute, 10);
       const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-  
+
+      console.log('[Delivery Date] Current time in Germany:', {
+        hours: currentHours,
+        minutes: currentMinutes,
+        totalMinutes: currentTimeInMinutes
+      });
+
       // Parse the same-day preorder end time
       if(window.samedayPreorderEndTime){
         const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
         window.cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
-      }
-    
-      // Compare current time with cutoff time
-      if(window.additionalInventoryPreorderEndTime){
-        const [cutoffHours_Additionalnventory, cutoffMinutes_Additionalnventory] = window.additionalInventoryPreorderEndTime.split(':').map(Number);
-        window.cutoffTimeInMinutes_Additionalnventory = cutoffHours_Additionalnventory * 60 + cutoffMinutes_Additionalnventory;
-      }
-    
-      if (window.additionalInventoryPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_Additionalnventory && window.b_additional_inventory === "Y") {
-        minDate = 1; // Set minDate to tomorrow                
-      }
-      else if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime && window.b_additional_inventory === "N") {
-        minDate = 1; // Set minDate to tomorrow
-      }
-    
-      // Initialize the datepicker with the adjusted minDate
-      $("#datepicker").datepicker({
-        minDate: minDate,
-        maxDate: '+6d',
-        dateFormat: "dd-mm-yy",
-        onSelect: function(dateText, inst) {
-          sessionStorage.setItem("date", dateText);
-      
-          // Get today's date and format it as 'yyyy-mm-dd'
-          var today = new Date();
 
-          var todayDateStr = ('0' + today.getDate()).slice(-2) + '-' +
-                               ('0' + (today.getMonth() + 1)).slice(-2) + '-' +
-                               today.getFullYear();
-      
-          if (
-            currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime &&
-            window.b_additional_inventory === "Y" &&
-            dateText === todayDateStr
-          ) {
-            sessionStorage.setItem("additional_inventory_time", "Y");
+        console.log('[Delivery Date] Sameday preorder cutoff:', {
+          time: window.samedayPreorderEndTime,
+          cutoffMinutes: window.cutoffTimeInMinutes_samedayPreorderEndTime
+        });
+
+        if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime) {
+          minDate = 1;
+          console.log('[Delivery Date] After sameday cutoff, minDate set to 1 (tomorrow)');
+        }
+      }
+
+      if (data.note) {
+        $("#note").html(data.note);
+        console.log('[Delivery Date] Note displayed:', data.note);
+      }
+
+      if(data.snacks_and_drinks != "Y"){
+        const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+        if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
+        $('.snacks_and_drinks_btn').css('display', 'none');
+      }
+      else{
+        const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+        if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.add('show-button');
+        $('.snacks_and_drinks_btn').css('display', 'inline-flex');
+      }
+
+      // Handle location_toggle state
+      if (data.is_active === 'Y') {
+        console.log('[Delivery Date] Location is active, setting up buttons');
+        const buttonTodayOrder = document.querySelector('.todayorderbtn');
+        const buttonPreOrder = document.querySelector('.preorderbtn');
+
+        buttonPreOrder.classList.add('show-button');
+        console.log('[Delivery Date] Preorder button shown');
+
+        //today order button aka immediate order button aka instant order button
+        if (data.start_time && data.end_time && data.is_active === 'Y' && data.accept_only_preorders === 'N' && data.immediate_inventory == "Y" && minDate == 1) {
+          console.log('[Delivery Date] Today order button conditions met:', {
+            start_time: data.start_time,
+            end_time: data.end_time,
+            is_active: data.is_active,
+            accept_only_preorders: data.accept_only_preorders,
+            immediate_inventory: data.immediate_inventory,
+            minDate: minDate
+          });
+
+          toggleButton(data.start_time, data.end_time);
+          setInterval(() => {toggleButton(data.start_time, data.end_time);}, 60000);
+
+          // =========================================================================
+          // CONSOLIDATED INVENTORY FETCH
+          // Fetch yesterday's inventory ONCE and use it for:
+          // 1. Today badge: combined - yesterday = today's inventory only
+          // 2. Yesterday button: show if yesterdayQty > 0 (when 48h feature enabled)
+          // This eliminates the duplicate AJAX call that was happening before.
+          // =========================================================================
+          const is48hFeatureEnabled = data.immediate_inventory_48h === 'Y';
+          console.log('[Delivery Date] 48h feature (yesterdays items) enabled:', is48hFeatureEnabled);
+
+          if (is48hFeatureEnabled) {
+            // Fetch yesterday qty, then use it for both badges
+            const yesterdayUrl = `https://app.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
+            console.log('[Delivery Date] Fetching yesterday inventory from:', yesterdayUrl);
+
+            $.ajax({
+              url: yesterdayUrl,
+              type: "GET",
+              async: true,
+              cache: true,
+              dataType: "json",
+              success: function(yesterdayQty) {
+                console.log('[Delivery Date] Yesterday inventory received:', yesterdayQty);
+
+                // Update TODAY badge (API now returns only today's inventory)
+                updateTodayBadgeCounter(window.deliveryDateState.location);
+
+                // =========================================================================
+                // YESTERDAY BUTTON: ALWAYS SHOW when 48h feature is enabled
+                // - If qty > 0: show button enabled with green badge
+                // - If qty === 0: show button disabled with red zero badge
+                // This ensures users always see the yesterday option is available
+                // even when temporarily out of stock
+                // =========================================================================
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+
+                // Always show the button when 48h feature is enabled
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.add('show-button');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
+                }
+
+                if (yesterdayQty > 0) {
+                  // Items available: enable button with green badge
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.remove('disabled');
+                  }
+                  $('#badge-counter-yesterday')
+                    .html(yesterdayQty)
+                    .removeClass('text-bg-danger')
+                    .addClass('text-bg-success')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button enabled with qty:', yesterdayQty);
+                } else {
+                  // No items: disable button but show red zero badge
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.add('disabled');
+                  }
+                  $('#badge-counter-yesterday')
+                    .html(0)
+                    .removeClass('text-bg-success')
+                    .addClass('text-bg-danger')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button disabled - showing red zero');
+                }
+
+                // Set up interval to refresh both badges every minute
+                setInterval(() => {
+                  console.log('[Delivery Date] Refreshing inventory badges...');
+                  // Re-fetch yesterday qty for updated badges
+                  $.ajax({
+                    url: yesterdayUrl,
+                    type: "GET",
+                    async: true,
+                    cache: false, // Don't cache on refresh
+                    dataType: "json",
+                    success: function(newYesterdayQty) {
+                      // Update today badge (API returns only today's inventory)
+                      updateTodayBadgeCounter(window.deliveryDateState.location);
+
+                      // Update yesterday button state and badge
+                      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                      if (newYesterdayQty > 0) {
+                        // Items available: enable button with green badge
+                        if (buttonYesterdayOrder) {
+                          buttonYesterdayOrder.classList.remove('disabled');
+                        }
+                        $('#badge-counter-yesterday')
+                          .html(newYesterdayQty)
+                          .removeClass('text-bg-danger')
+                          .addClass('text-bg-success')
+                          .css('display', 'inline-block');
+                      } else {
+                        // No items: disable button with red zero badge
+                        if (buttonYesterdayOrder) {
+                          buttonYesterdayOrder.classList.add('disabled');
+                        }
+                        $('#badge-counter-yesterday')
+                          .html(0)
+                          .removeClass('text-bg-success')
+                          .addClass('text-bg-danger')
+                          .css('display', 'inline-block');
+                      }
+                    }
+                  });
+                }, 60000);
+              },
+              error: function(request, status, error) {
+                console.error('[Delivery Date] Error fetching yesterday inventory:', error);
+                // Fallback: still show today's inventory on error
+                updateTodayBadgeCounter(window.deliveryDateState.location);
+                // On error: show button disabled with red zero badge
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.add('show-button');
+                  buttonYesterdayOrder.classList.add('disabled');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
+                }
+                $('#badge-counter-yesterday')
+                  .html(0)
+                  .removeClass('text-bg-success')
+                  .addClass('text-bg-danger')
+                  .css('display', 'inline-block');
+              }
+            });
+          } else {
+            // 48h feature disabled - just show today's inventory on today badge
+            console.log('[Delivery Date] 48h feature disabled, showing today inventory only');
+            updateTodayBadgeCounter(window.deliveryDateState.location);
+
+            // Set up interval for today badge refresh
+            setInterval(() => {
+              updateTodayBadgeCounter(window.deliveryDateState.location);
+            }, 60000);
+
+            // Ensure yesterday button is hidden
+            const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+            if (buttonYesterdayOrder) {
+              buttonYesterdayOrder.classList.remove('show-button');
+              $('.yesterdayorderbtn').css('display', 'none');
+            }
+            $('#badge-counter-yesterday').css('display', 'none');
           }
 
-          sessionStorage.setItem("immediate_inventory", "N");
-          sessionStorage.setItem("snacks_and_drinks", "N");
-        
-          var newUrl = $(".preorderbtn").attr("href");
-  
-          $.ajax({
-            url: "https://app.sushi.catering/updateSelectedDate/" + dateText,
-            type: "GET",
-            data: { "uuid": localStorage.getItem("uuid") },
-            cache: false,
-            async: true, // Changed from false to true
-            dataType: "json",
-            success: function(data) {
-              window.location.href = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
-            },
-            error: function(request, status, error) {
-              alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
-              console.log('Set selected date error:', error);
-            }
+        } else if (data.error) {
+          console.error('[Delivery Date] Error in location settings:', data.error);
+        } else {
+          console.log('[Delivery Date] Today order button conditions NOT met:', {
+            start_time: data.start_time,
+            end_time: data.end_time,
+            is_active: data.is_active,
+            accept_only_preorders: data.accept_only_preorders,
+            immediate_inventory: data.immediate_inventory,
+            minDate: minDate
           });
+
+          // =========================================================================
+          // YESTERDAY ITEMS BUTTON (when today button is NOT shown)
+          // This handles the case where the today button conditions are not met
+          // (e.g., minDate != 1) but the yesterday items feature is enabled.
+          // ALWAYS show button when 48h feature is enabled, with disabled state
+          // and red zero badge when no items available.
+          // =========================================================================
+          if (data.immediate_inventory_48h === 'Y' && data.immediate_inventory === 'Y') {
+            console.log('[Delivery Date] Yesterday items feature enabled (today btn not shown)');
+
+            const yesterdayUrl = `https://app.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
+
+            $.ajax({
+              url: yesterdayUrl,
+              type: "GET",
+              async: true,
+              cache: true,
+              dataType: "json",
+              success: function(yesterdayQty) {
+                console.log('[Delivery Date] Yesterday inventory count:', yesterdayQty);
+
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+
+                // Always show the button when 48h feature is enabled
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.add('show-button');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
+                }
+
+                if (yesterdayQty > 0) {
+                  // Items available: enable button with green badge
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.remove('disabled');
+                  }
+                  $('#badge-counter-yesterday')
+                    .html(yesterdayQty)
+                    .removeClass('text-bg-danger')
+                    .addClass('text-bg-success')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button enabled with qty:', yesterdayQty);
+                } else {
+                  // No items: disable button but show red zero badge
+                  if (buttonYesterdayOrder) {
+                    buttonYesterdayOrder.classList.add('disabled');
+                  }
+                  $('#badge-counter-yesterday')
+                    .html(0)
+                    .removeClass('text-bg-success')
+                    .addClass('text-bg-danger')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button disabled - showing red zero');
+                }
+              },
+              error: function(request, status, error) {
+                console.error('[Delivery Date] Error fetching yesterday inventory:', error);
+                const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                // On error: show button disabled with red zero badge
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.add('show-button');
+                  buttonYesterdayOrder.classList.add('disabled');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
+                }
+                $('#badge-counter-yesterday')
+                  .html(0)
+                  .removeClass('text-bg-success')
+                  .addClass('text-bg-danger')
+                  .css('display', 'inline-block');
+              }
+            });
+          } else {
+            // Feature not enabled - ensure yesterday button is hidden
+            console.log('[Delivery Date] Yesterday items feature NOT enabled');
+            const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+            if (buttonYesterdayOrder) {
+              buttonYesterdayOrder.classList.remove('show-button');
+              $('.yesterdayorderbtn').css('display', 'none');
+            }
+            $('#badge-counter-yesterday').css('display', 'none');
+          }
         }
-      }).datepicker('show');
-
-      $('.ui-datepicker').addClass('notranslate');
-    });
-    
-    // Add click handler to hide datepicker when clicking outside
-    $(document).on('click', function(e) {
-      // If the click is outside the datepicker, the preorderbtn, and the jQuery UI datepicker widget
-      if (!$(e.target).closest('#datepicker, .preorderbtn, .ui-datepicker, .ui-datepicker-header').length && $('#datepicker').is(':visible')) {
-        // Destroy the datepicker instead of just hiding it
-        $("#datepicker").datepicker("destroy");
+      } else {
+        console.log('[Delivery Date] Location is NOT active, hiding buttons');
+        $('#badge-counter').css('display', 'none');
+        $('#badge-counter-yesterday').css('display', 'none');
+        const buttonTodayOrder = document.querySelector('.todayorderbtn');
+        const buttonPreOrder = document.querySelector('.preorderbtn');
+        const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+        const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+        if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
+        if (buttonPreOrder) buttonPreOrder.classList.remove('show-button');
+        if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
+        if (buttonYesterdayOrder) buttonYesterdayOrder.classList.remove('show-button');
       }
-    });
-  }
-
-  function toggleButton(startTime, endTime) {
-    const now = new Date();
-    
-    // Use Intl.DateTimeFormat to get the correct current time in Germany
-    const options = {
-      timeZone: 'Europe/Berlin',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour12: false
-    };
-    
-    const formatter = new Intl.DateTimeFormat([], options);
-    const parts = formatter.formatToParts(now);
-    
-    let dateObj = {};
-    parts.forEach(({ type, value }) => {
-      dateObj[type] = value;
-    });
-    
-    const timeGermany = new Date(`${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}`);
-    
-    const currentHours = timeGermany.getHours();
-    const currentMinutes = timeGermany.getMinutes();
-    
-    const [startHours, startMinutes] = startTime.split(':').map(Number);
-    let [endHours, endMinutes] = endTime.split(':').map(Number);
-    
-    // Adjust for end time being 00:00 (midnight)
-    if (endHours === 0 && endMinutes === 0) {
-      endHours = 24;
     }
-    
-    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-    const startTimeInMinutes = startHours * 60 + startMinutes;
-    const endTimeInMinutes = endHours * 60 + endMinutes;
-    
-    const isWithinTimeSlot = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
-    
-    const buttonTodayOrder = document.querySelector('.todayorderbtn');
-    if (isWithinTimeSlot) {
+  
+    // Remove loading states from buttons
+    function removeLoadingStates() {
+      console.log('[Delivery Date] removeLoadingStates called');
+      const buttonTodayOrder = document.querySelector('.todayorderbtn');
+      const buttonPreOrder = document.querySelector('.preorderbtn');
+      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+      if (buttonTodayOrder) {
+        buttonTodayOrder.classList.remove('btn-loading');
+        console.log('[Delivery Date] Removed loading state from today order button');
+      }
+      if (buttonPreOrder) {
+        buttonPreOrder.classList.remove('btn-loading');
+        console.log('[Delivery Date] Removed loading state from preorder button');
+      }
+      if (buttonSnacksAndDrinks) {
+        buttonSnacksAndDrinks.classList.remove('btn-loading');
+        console.log('[Delivery Date] Removed loading state from snacks and drinks button');
+      }
+      if (buttonYesterdayOrder) {
+        buttonYesterdayOrder.classList.remove('btn-loading');
+        console.log('[Delivery Date] Removed loading state from yesterday order button');
+      }
+    }
+  
+    // Setup button click handlers
+    function setupButtonHandlers() {
+      console.log('[Delivery Date] setupButtonHandlers called');
+
+      if (!window.jQuery) {
+        console.error('[Delivery Date] jQuery not available for button handlers');
+        return;
+      }
+
+      let $ = window.jQuery;
+      const randomNum = Math.random();
+
+      console.log('[Delivery Date] Random number for cache busting:', randomNum);
+
+      $(".todayorderbtn, .preorderbtn").each(function() {
+        // Reset any inline styles that might have been applied to indicate disabled state
+        this.style.pointerEvents = '';
+        this.style.opacity = '';
+      });
+
+      var button = $(".preorderbtn");
+      var buttonOffset = button.offset();
+
+      // Calculate new top and left positions
+      var newTop = buttonOffset.top + button.outerHeight();
+      var newLeft = buttonOffset.left;
+
+      console.log('[Delivery Date] Preorder button offset:', { newTop, newLeft });
+
+      // Use Intl.DateTimeFormat to get the correct current date in Germany
+      const options = {
+        timeZone: 'Europe/Berlin',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour12: false
+      };
+
+      const formatter = new Intl.DateTimeFormat([], options);
+      const parts = formatter.formatToParts(new Date());
+
+      let dateObj = {};
+      parts.forEach(({ type, value }) => {
+        dateObj[type] = value;
+      });
+
+      var today = `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
+
+      console.log('[Delivery Date] Today\'s date:', today);
+
+      // Apply the calculated positions
+      $("#datepicker").datepicker('hide');
+
+      $(".todayorderbtn").click(function(e){
+        e.preventDefault();
+
+        console.log('[Delivery Date] Today order button clicked');
+
+        var href = $(this).attr("href");
+
+        console.log('[Delivery Date] Today order href:', href);
+
+        // Set session storage for today's order
+        // strYStockOnlyCheck = N means we're ordering TODAY's items (not yesterday's)
+        sessionStorage.setItem("date", today);
+        sessionStorage.setItem("immediate_inventory", "Y");
+        sessionStorage.setItem("snacks_and_drinks", "N");
+        sessionStorage.setItem("strYStockOnlyCheck", "N"); // Track that this is TODAY's order
+
+        // Update global state to track which button was clicked
+        window.deliveryDateState.strYStockOnlyCheck = "N";
+
+        console.log('[Delivery Date] SessionStorage set for today order:', {
+          date: today,
+          immediate_inventory: "Y",
+          snacks_and_drinks: "N",
+          strYStockOnlyCheck: "N"
+        });
+
+        const updateDateUrl = "https://app.sushi.catering/updateSelectedDate/" + today;
+        console.log('[Delivery Date] Updating selected date at:', updateDateUrl);
+
+        $.ajax({
+          url: updateDateUrl,
+          type: "GET",
+          data: {"uuid": localStorage.getItem("uuid")},
+          cache: false,
+          async: true, // Changed from false to true
+          dataType: "json",
+          success: function(data) {
+            // strYStockOnlyCheck is always "N" for today button - yesterday has its own button now
+            const redirectUrl = href + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&immediate_inventory=Y&no_station=" + sessionStorage.getItem("no_station") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&strYStockOnlyCheck=N&nocache=" + randomNum;
+            console.log('[Delivery Date] Redirecting to:', redirectUrl);
+            window.location.href = redirectUrl;
+          },
+          error: function(request, status, error) {
+            console.error('[Delivery Date] Error setting selected date (today):', {
+              status,
+              error
+            });
+            alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+          }
+        });
+      });
+
+      // =========================================================================
+      // YESTERDAY ORDER BUTTON CLICK HANDLER
+      // =========================================================================
+      // This handler is for the "Sofortbestellung Gestern" (Immediate Order Yesterday) button.
+      //
+      // KEY BEHAVIOR:
+      // - Passes TODAY'S date in the URL and sessionStorage (customer picks up TODAY)
+      // - Sets strYStockOnlyCheck=Y to signal "show yesterday's inventory"
+      // - dynamic-location-inventory.liquid reads strYStockOnlyCheck=Y and sets line item property yesterday_item=Y
+      // - Backend (OrdersCreateJob) reads yesterday_item=Y and deducts inventory from yesterday's date
+      // - Order's pick_up_date remains TODAY (already correct for Raspberry Pi door access)
+      //
+      // FLOW:
+      // 1. User clicks yesterday button
+      // 2. Date = TODAY, strYStockOnlyCheck = Y
+      // 3. Liquid template shows products from yesterday's inventory
+      // 4. Line item property yesterday_item = Y is added to cart
+      // 5. Order created with pick_up_date = TODAY
+      // 6. Backend deducts inventory from yesterday's date metafield
+      // =========================================================================
+      $(".yesterdayorderbtn").click(function(e){
+        e.preventDefault();
+
+        console.log('[Delivery Date] Yesterday order button clicked');
+
+        var href = $(this).attr("href");
+
+        console.log('[Delivery Date] Using TODAY\'s date for yesterday items:', today);
+
+        // =====================================================================
+        // Set session storage values for yesterday order
+        // =====================================================================
+        // IMPORTANT: We use TODAY's date (when customer picks up), not yesterday's date
+        // strYStockOnlyCheck=Y signals to show yesterday's inventory in the product list
+        // The line item property yesterday_item=Y will be set by dynamic-location-inventory.liquid
+        // =====================================================================
+        sessionStorage.setItem("date", today);
+        sessionStorage.setItem("immediate_inventory", "Y");
+        sessionStorage.setItem("snacks_and_drinks", "N");
+        sessionStorage.setItem("strYStockOnlyCheck", "Y"); // Signal: show yesterday's inventory
+
+        // Update global state to track which button was clicked
+        window.deliveryDateState.strYStockOnlyCheck = "Y";
+
+        console.log('[Delivery Date] SessionStorage set for yesterday order:', {
+          date: today,
+          immediate_inventory: "Y",
+          snacks_and_drinks: "N",
+          strYStockOnlyCheck: "Y"
+        });
+
+        // Update selected date on server with TODAY's date
+        const updateDateUrl = "https://app.sushi.catering/updateSelectedDate/" + today;
+        console.log('[Delivery Date] Updating selected date at:', updateDateUrl);
+
+        $.ajax({
+          url: updateDateUrl,
+          type: "GET",
+          data: {"uuid": localStorage.getItem("uuid")},
+          cache: false,
+          async: true,
+          dataType: "json",
+          success: function(data) {
+            // Redirect to order menu with TODAY's date
+            // strYStockOnlyCheck=Y ensures only yesterday's items are shown
+            const redirectUrl = href + "?location=" + sessionStorage.getItem("location") +
+              "&date=" + today +
+              "&immediate_inventory=Y" +
+              "&no_station=" + sessionStorage.getItem("no_station") +
+              "&snacks_and_drinks=N" +
+              "&uuid=" + localStorage.getItem("uuid") +
+              "&strYStockOnlyCheck=Y" +
+              "&nocache=" + randomNum;
+
+            console.log('[Delivery Date] Redirecting to yesterday order with today\'s date:', redirectUrl);
+            window.location.href = redirectUrl;
+          },
+          error: function(request, status, error) {
+            console.error('[Delivery Date] Error setting selected date (yesterday):', {
+              status,
+              error
+            });
+            alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+          }
+        });
+      });
+
+      $(".snacks_and_drinks_btn").click(function(e){
+        e.preventDefault();
+
+        console.log('[Delivery Date] Snacks and drinks button clicked');
+
+        var newUrl = $(".snacks_and_drinks_btn").attr("href");
+        var today = `${dateObj.day}-${dateObj.month}-${dateObj.year}`;
+
+        sessionStorage.setItem("snacks_and_drinks", "Y");
+        sessionStorage.setItem("immediate_inventory", "N");
+        sessionStorage.setItem("no_station", "N");
+        sessionStorage.setItem("additional_inventory", "N");
+        sessionStorage.setItem("additional_inventory_time", "N");
+
+        console.log('[Delivery Date] SessionStorage set for snacks and drinks:', {
+          snacks_and_drinks: "Y",
+          immediate_inventory: "N",
+          no_station: "N",
+          additional_inventory: "N",
+          additional_inventory_time: "N"
+        });
+
+        const redirectUrl = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + today + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&immediate_inventory=" + sessionStorage.getItem("immediate_inventory") + "&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+
+        console.log('[Delivery Date] Redirecting to snacks and drinks:', redirectUrl);
+        window.location.href = redirectUrl;
+      });
+
+      $(".preorderbtn").click(function(e){
+        e.preventDefault();
+
+        console.log('[Delivery Date] Preorder button clicked');
+
+        // Get the offset of the button
+        const buttonOffset = $(this).offset();
+        const buttonHeight = $(this).outerHeight();
+
+        // Calculate the new top and left positions for the datepicker
+        const newTop = buttonOffset.top + buttonHeight;
+        const newLeft = buttonOffset.left + 150;
+
+        console.log('[Delivery Date] Datepicker position calculated:', { newTop, newLeft });
+
+        if (window.accept_only_preorders === "Y" && (typeof window.samedayPreorderEndTime === 'undefined' || !window.samedayPreorderEndTime)) {
+          console.warn('[Delivery Date] Same-day preorder end time is not set');
+          //return;
+        }
+        if (window.b_additional_inventory == "Y" && (typeof window.additionalInventoryPreorderEndTime === 'undefined' || !window.additionalInventoryPreorderEndTime)) {
+          console.warn('[Delivery Date] Additional Inventory end time is not set');
+          //return;
+        }
+
+        // Get the current date and time in Germany
+        const now = new Date();
+        const options = {
+          timeZone: 'Europe/Berlin',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        };
+        const formatter = new Intl.DateTimeFormat('en-GB', options);
+        const parts = formatter.formatToParts(now);
+
+        let dateObj = {};
+        parts.forEach(({ type, value }) => {
+          dateObj[type] = value;
+        });
+
+        let minDate = 0; // Default to today
+        sessionStorage.setItem("additional_inventory_time", "N");
+
+        const currentHours = parseInt(dateObj.hour, 10);
+        const currentMinutes = parseInt(dateObj.minute, 10);
+        const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+        console.log('[Delivery Date] Preorder current time:', {
+          hours: currentHours,
+          minutes: currentMinutes,
+          totalMinutes: currentTimeInMinutes
+        });
+
+        // Parse the same-day preorder end time
+        if(window.samedayPreorderEndTime){
+          const [cutoffHours_samedayPreorderEndTime, cutoffMinutes_samedayPreorderEndTime] = window.samedayPreorderEndTime.split(':').map(Number);
+          window.cutoffTimeInMinutes_samedayPreorderEndTime = cutoffHours_samedayPreorderEndTime * 60 + cutoffMinutes_samedayPreorderEndTime;
+          console.log('[Delivery Date] Sameday cutoff minutes:', window.cutoffTimeInMinutes_samedayPreorderEndTime);
+        }
+
+        // Compare current time with cutoff time
+        if(window.additionalInventoryPreorderEndTime){
+          const [cutoffHours_Additionalnventory, cutoffMinutes_Additionalnventory] = window.additionalInventoryPreorderEndTime.split(':').map(Number);
+          window.cutoffTimeInMinutes_Additionalnventory = cutoffHours_Additionalnventory * 60 + cutoffMinutes_Additionalnventory;
+          console.log('[Delivery Date] Additional inventory cutoff minutes:', window.cutoffTimeInMinutes_Additionalnventory);
+        }
+
+        if (window.additionalInventoryPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_Additionalnventory && window.b_additional_inventory === "Y") {
+          minDate = 1; // Set minDate to tomorrow
+          console.log('[Delivery Date] After additional inventory cutoff, minDate set to 1');
+        }
+        else if (window.samedayPreorderEndTime && currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime && window.b_additional_inventory === "N") {
+          minDate = 1; // Set minDate to tomorrow
+          console.log('[Delivery Date] After sameday cutoff (no additional inventory), minDate set to 1');
+        }
+
+        console.log('[Delivery Date] Initializing datepicker with minDate:', minDate);
+
+        // Initialize the datepicker with the adjusted minDate
+        $("#datepicker").datepicker({
+          minDate: minDate,
+          maxDate: '+6d',
+          dateFormat: "dd-mm-yy",
+          onSelect: function(dateText, inst) {
+            console.log('[Delivery Date] Date selected from picker:', dateText);
+
+            sessionStorage.setItem("date", dateText);
+
+            // Get today's date and format it as 'yyyy-mm-dd'
+            var today = new Date();
+
+            var todayDateStr = ('0' + today.getDate()).slice(-2) + '-' +
+                                 ('0' + (today.getMonth() + 1)).slice(-2) + '-' +
+                                 today.getFullYear();
+
+            console.log('[Delivery Date] Today date string:', todayDateStr);
+
+            if (
+              currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime &&
+              window.b_additional_inventory === "Y" &&
+              dateText === todayDateStr
+            ) {
+              sessionStorage.setItem("additional_inventory_time", "Y");
+              console.log('[Delivery Date] Additional inventory time set to Y');
+            }
+
+            sessionStorage.setItem("immediate_inventory", "N");
+            sessionStorage.setItem("snacks_and_drinks", "N");
+
+            var newUrl = $(".preorderbtn").attr("href");
+
+            const updateDateUrl = "https://app.sushi.catering/updateSelectedDate/" + dateText;
+            console.log('[Delivery Date] Updating selected preorder date at:', updateDateUrl);
+
+            $.ajax({
+              url: updateDateUrl,
+              type: "GET",
+              data: { "uuid": localStorage.getItem("uuid") },
+              cache: false,
+              async: true, // Changed from false to true
+              dataType: "json",
+              success: function(data) {
+                const redirectUrl = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+                console.log('[Delivery Date] Redirecting to preorder:', redirectUrl);
+                window.location.href = redirectUrl;
+              },
+              error: function(request, status, error) {
+                console.error('[Delivery Date] Error setting selected date (preorder):', {
+                  status,
+                  error
+                });
+                alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+              }
+            });
+          }
+        }).datepicker('show');
+
+        console.log('[Delivery Date] Datepicker shown');
+
+        $('.ui-datepicker').addClass('notranslate');
+      });
+      
+      // Add click handler to hide datepicker when clicking outside
+      $(document).on('click', function(e) {
+        // If the click is outside the datepicker, the preorderbtn, and the jQuery UI datepicker widget
+        if (!$(e.target).closest('#datepicker, .preorderbtn, .ui-datepicker, .ui-datepicker-header').length && $('#datepicker').is(':visible')) {
+          // Destroy the datepicker instead of just hiding it
+          $("#datepicker").datepicker("destroy");
+        }
+      });
+    }
+  
+    function toggleButton(startTime, endTime) {
+      const now = new Date();
+      
+      // Use Intl.DateTimeFormat to get the correct current time in Germany
+      const options = {
+        timeZone: 'Europe/Berlin',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour12: false
+      };
+      
+      const formatter = new Intl.DateTimeFormat([], options);
+      const parts = formatter.formatToParts(now);
+      
+      let dateObj = {};
+      parts.forEach(({ type, value }) => {
+        dateObj[type] = value;
+      });
+      
+      const timeGermany = new Date(`${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}`);
+      
+      const currentHours = timeGermany.getHours();
+      const currentMinutes = timeGermany.getMinutes();
+      
+      const [startHours, startMinutes] = startTime.split(':').map(Number);
+      let [endHours, endMinutes] = endTime.split(':').map(Number);
+      
+      // Adjust for end time being 00:00 (midnight)
+      if (endHours === 0 && endMinutes === 0) {
+        endHours = 24;
+      }
+      
+      const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+      const startTimeInMinutes = startHours * 60 + startMinutes;
+      const endTimeInMinutes = endHours * 60 + endMinutes;
+      
+      const isWithinTimeSlot = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
+        {% comment %} alert(isWithinTimeSlot + "-" + currentTimeInMinutes + "-" +startTimeInMinutes + "-" +endTimeInMinutes); {% endcomment %}
+      
+      const buttonTodayOrder = document.querySelector('.todayorderbtn');
+      {% comment %} if (isWithinTimeSlot) {
+        if (buttonTodayOrder) buttonTodayOrder.classList.add('show-button');
+        $('#badge-counter').css('display', 'inline-block');
+      } else {
+        if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
+        $('#badge-counter').css('display', 'none');
+      } {% endcomment %}
       if (buttonTodayOrder) buttonTodayOrder.classList.add('show-button');
       $('#badge-counter').css('display', 'inline-block');
-    } else {
-      if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
-      $('#badge-counter').css('display', 'none');
     }
-  }
-
-  // DOM Content Loaded - Handle location determination
-  document.addEventListener('DOMContentLoaded', function() {
-    window.deliveryDateState.domReady = true;
-    
-    // --- Start of the refined location handling logic ---
-    let determinedLocation = null;
-
-    // 1. First priority: Try to get from URL parameters
-    const queryParams = new URLSearchParams(window.location.search);
-    const urlLocation = queryParams.get('location');
-    if (urlLocation && urlLocation.trim() !== "") {
-      determinedLocation = urlLocation.trim();
-      // Set it in sessionStorage for future use within the session
-      sessionStorage.setItem("location", determinedLocation);
-      console.log("Location: Set from URL param to sessionStorage:", determinedLocation);
-    }
-
-    // 2. If not in URL, try to get from sessionStorage first (prioritized)
-    if (!determinedLocation) {
-      const ssLocation = sessionStorage.getItem("location");
-      if (ssLocation && ssLocation.trim() !== "") {
-        determinedLocation = ssLocation.trim();
-        console.log("Location: Found in sessionStorage:", determinedLocation);
-      }
-    }
-
-    // 3. If not in URL or sessionStorage, try to get from localStorage
-    if (!determinedLocation) {
-      const lsLocation = localStorage.getItem("location");
-      if (lsLocation && lsLocation.trim() !== "") {
-        determinedLocation = lsLocation.trim();
-        // Ensure sessionStorage is also set if localStorage had it
-        if (sessionStorage.getItem("location") !== determinedLocation) {
-          sessionStorage.setItem("location", determinedLocation);
-          console.log("Location: Set from localStorage to sessionStorage:", determinedLocation);
-        }
-      }
-    }
-
-    // Store the determined location
-    window.deliveryDateState.location = determinedLocation || "";
-    
-    // Try to initialize if jQuery is already available
-    initializeDeliveryDate();
-  });
-
-  // Window load - Handle jQuery and full page load
-  window.addEventListener('load', function() {
-    // Check if jQuery is available
-    if (window.jQuery) {
-      window.deliveryDateState.jqueryReady = true;
-      console.log('jQuery is ready');
-      initializeDeliveryDate();
-    } else {
-      // Wait for jQuery to be available
-      const checkJQuery = setInterval(function() {
-        if (window.jQuery) {
-          window.deliveryDateState.jqueryReady = true;
-          console.log('jQuery became available');
-          clearInterval(checkJQuery);
-          initializeDeliveryDate();
-        }
-      }, 100);
+  
+    // DOM Content Loaded - Handle location determination
+    document.addEventListener('DOMContentLoaded', function() {
+      window.deliveryDateState.domReady = true;
       
-      // Timeout after 10 seconds
-      setTimeout(function() {
-        if (!window.deliveryDateState.jqueryReady) {
-          clearInterval(checkJQuery);
-          console.error('jQuery failed to load within 10 seconds');
-          removeLoadingStates();
+      // --- Start of the refined location handling logic ---
+      let determinedLocation = null;
+  
+      // 1. First priority: Try to get from URL parameters
+      const queryParams = new URLSearchParams(window.location.search);
+      const urlLocation = queryParams.get('location');
+      if (urlLocation && urlLocation.trim() !== "") {
+        determinedLocation = urlLocation.trim();
+        // Set it in sessionStorage for future use within the session
+        sessionStorage.setItem("location", determinedLocation);
+        console.log("Location: Set from URL param to sessionStorage:", determinedLocation);
+      }
+  
+      // 2. If not in URL, try to get from sessionStorage first (prioritized)
+      if (!determinedLocation) {
+        const ssLocation = sessionStorage.getItem("location");
+        if (ssLocation && ssLocation.trim() !== "") {
+          determinedLocation = ssLocation.trim();
+          console.log("Location: Found in sessionStorage:", determinedLocation);
         }
-      }, 10000);
-    }
-  });
+      }
+  
+      // 3. If not in URL or sessionStorage, try to get from localStorage
+      if (!determinedLocation) {
+        const lsLocation = localStorage.getItem("location");
+        if (lsLocation && lsLocation.trim() !== "") {
+          determinedLocation = lsLocation.trim();
+          // Ensure sessionStorage is also set if localStorage had it
+          if (sessionStorage.getItem("location") !== determinedLocation) {
+            sessionStorage.setItem("location", determinedLocation);
+            console.log("Location: Set from localStorage to sessionStorage:", determinedLocation);
+          }
+        }
+      }
+  
+      // Store the determined location
+      window.deliveryDateState.location = determinedLocation || "";
+      
+      // Try to initialize if jQuery is already available
+      initializeDeliveryDate();
+    });
+  
+    // Window load - Handle jQuery and full page load
+    window.addEventListener('load', function() {
+      // Check if jQuery is available
+      if (window.jQuery) {
+        window.deliveryDateState.jqueryReady = true;
+        console.log('jQuery is ready');
+        initializeDeliveryDate();
+      } else {
+        // Wait for jQuery to be available
+        const checkJQuery = setInterval(function() {
+          if (window.jQuery) {
+            window.deliveryDateState.jqueryReady = true;
+            console.log('jQuery became available');
+            clearInterval(checkJQuery);
+            initializeDeliveryDate();
+          }
+        }, 100);
+        
+        // Timeout after 10 seconds
+        setTimeout(function() {
+          if (!window.deliveryDateState.jqueryReady) {
+            clearInterval(checkJQuery);
+            console.error('jQuery failed to load within 10 seconds');
+            removeLoadingStates();
+          }
+        }, 10000);
+      }
+    });
 
-  // Handle window resize to re-sync badge counter height
-  window.addEventListener('resize', function() {
-    if (window.deliveryDateState.isInitialized) {
-      syncBadgeCounterHeight();
-    }
-  });
-</script>
+    // Handle window resize to re-sync badge counter height
+    window.addEventListener('resize', function() {
+      if (window.deliveryDateState.isInitialized) {
+        syncBadgeCounterHeight();
+      }
+    });
+  </script>
+  
