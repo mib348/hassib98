@@ -870,6 +870,32 @@ class ShopifyController extends Controller
 			if (isset($metafield['value'])) {
 				$values = json_decode($metafield['value'], TRUE);
 
+                // -----------------------------------------------------------------
+                // Yesterday-item support for immediate inventory:
+                // Storefront sets line item property yesterday_item=Y but keeps
+                // properties[date] as TODAY (pickup day). For inventory we must
+                // look at YESTERDAY's date bucket in the product metafield.
+                // -----------------------------------------------------------------
+                $targetDateForInventory = $product['properties']['date'] ?? null;
+                if (
+                    isset($product['properties']['yesterday_item']) &&
+                    $product['properties']['yesterday_item'] === 'Y' &&
+                    !empty($targetDateForInventory)
+                ) {
+                    try {
+                        $targetDateForInventory = Carbon::createFromFormat('d-m-Y', $targetDateForInventory, 'Europe/Berlin')
+                            ->subDay()
+                            ->format('d-m-Y');
+                    } catch (\Exception $e) {
+                        // If parsing fails, fall back to the provided date to avoid blocking checkout
+                        Log::warning('Failed to parse yesterday-item date for cart qty check', [
+                            'product_id' => $product['product_id'],
+                            'raw_date' => $product['properties']['date'],
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
 				foreach ($values as $value) {
 					// Split the value into date and quantity
 					$parts = explode(':', $value);
@@ -880,8 +906,12 @@ class ShopifyController extends Controller
 						$matchingQty = $parts[2];
 						break; // Break out of the loop since we found the matching quantity
                     }
-					else if ($parts[0] == $product['properties']['location'] && $parts[1] === $product['properties']['date']) {
-						// If the date matches, set the matching quantity
+					else if (
+                        $parts[0] == $product['properties']['location'] &&
+                        $targetDateForInventory !== null &&
+                        $parts[1] === $targetDateForInventory
+                    ) {
+						// If the date matches (including yesterday for yesterday_item orders), set the matching quantity
 						$matchingQty = $parts[2];
 						break; // Break out of the loop since we found the matching quantity
 					}
@@ -972,22 +1002,76 @@ class ShopifyController extends Controller
 
         $metafieldsCache = [];
 
-        // Parse the GraphQL response using the same pattern as LocationProductsTableController
-        // The ResponseAccess object implements ArrayAccess, so we can use array notation
-        if (isset($response['body']['container']['data'])) {
-            foreach ($response['body']['container']['data'] as $key => $productData) {
-                // Only process product aliases (skip extensions and other fields)
-                if (strpos($key, 'product_') === 0 && isset($productData['id']) && isset($productData['metafield']['value'])) {
-                    // Extract product ID from the GraphQL ID
-                    $nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
-                    
-                    // Parse the metafield value (should be JSON array)
-                    $metafieldValue = json_decode($productData['metafield']['value'], true);
-                    if (is_array($metafieldValue)) {
-                        $metafieldsCache[$nProductId] = $metafieldValue;
-                    }
-                }
+        // Normalize body to array so we can handle both ResponseAccess and plain arrays
+        $bodyArray = [];
+        try {
+            if (isset($response['body'])) {
+                $bodyArray = json_decode(json_encode($response['body']), true) ?? [];
             }
+        } catch (\Throwable $e) {
+            Log::warning('GraphQL metafields response could not be normalized', [
+                'error' => $e->getMessage(),
+                'response_body_type' => isset($response['body']) ? gettype($response['body']) : 'missing'
+            ]);
+        }
+
+        // Prefer flattened data node; fall back to nested container if present
+        $dataNode = $bodyArray['data']
+            ?? ($bodyArray['container']['data'] ?? null)
+            ?? ($response['body']['data'] ?? null)
+            ?? ($response['body']['container']['data'] ?? null);
+
+        if (!is_array($dataNode)) {
+            Log::warning('GraphQL metafields response missing data node', [
+                'product_ids' => $productIds,
+                'metafield_key' => $metafieldKey,
+                'body_keys' => array_keys($bodyArray ?: []),
+            ]);
+            return [];
+        }
+
+        foreach ($dataNode as $key => $productData) {
+            // Only process product aliases (skip extensions and other fields)
+            if (strpos($key, 'product_') !== 0 || empty($productData['id'])) {
+                continue;
+            }
+
+            // Extract numeric product ID from gid
+            $nProductId = null;
+            if (preg_match('/Product\\/(\\d+)/', $productData['id'], $matches)) {
+                $nProductId = $matches[1];
+            }
+            if (!$nProductId) {
+                continue;
+            }
+
+            $metafield = $productData['metafield'] ?? null;
+            if (!is_array($metafield) || !array_key_exists('value', $metafield)) {
+                // No metafield found; skip silently to keep cache clean
+                continue;
+            }
+
+            $rawValue = $metafield['value'];
+
+            // Shopify can return value as JSON string or already as array
+            if (is_string($rawValue)) {
+                $decoded = json_decode($rawValue, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $metafieldsCache[$nProductId] = $decoded;
+                    continue;
+                }
+                // If decode fails, still store the raw string to avoid losing data
+                $metafieldsCache[$nProductId] = [$rawValue];
+                continue;
+            }
+
+            if (is_array($rawValue)) {
+                $metafieldsCache[$nProductId] = $rawValue;
+                continue;
+            }
+
+            // Fallback: store scalar as single-element array
+            $metafieldsCache[$nProductId] = [$rawValue];
         }
 
         return $metafieldsCache;

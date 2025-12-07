@@ -235,8 +235,37 @@ class OrdersCreateJob implements ShouldQueue
         // Placeholder for the updated values
         $updatedValues = [];
 
-        // Decode the JSON values
-        $values = json_decode($values, true);
+        // ---------------------------------------------------------------------
+        // Defensive decode:
+        // Shopify may already return metafield `value` as an array (GraphQL)
+        // or as a JSON string (REST). If we blindly json_decode an array we
+        // get null and would overwrite the metafield with an empty array,
+        // effectively wiping past dates (including yesterday). To avoid
+        // excluding yesterday's buckets for any location/product in the
+        // current week we decode only when needed and otherwise preserve the
+        // original payload untouched.
+        // ---------------------------------------------------------------------
+        $rawValues = $values; // keep original in case decoding fails
+
+        if (is_string($values)) {
+            $decodedValues = json_decode($values, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $values = $decodedValues;
+            }
+        }
+
+        if (!is_array($values)) {
+            Log::warning('Metafield values not decodable; preserving original to avoid dropping dates', [
+                'order_id' => $orderData['id'] ?? null,
+                'order_number' => $orderData['order_number'] ?? null,
+                'product_id' => $lineItem['product_id'] ?? null,
+                'raw_values' => $rawValues,
+            ]);
+
+            // Return the untouched payload so no date (including yesterday) is removed
+            return is_string($rawValues) ? $rawValues : json_encode($rawValues);
+        }
+
         $newQuantity = 0;
 
         // =========================================================================
@@ -261,14 +290,12 @@ class OrdersCreateJob implements ShouldQueue
         // =========================================================================
         $inventoryDate = $orderDate; // Default: use the date from line item
 
+        $skipCancellationForYesterday = false;
+
         if ($yesterdayItem === 'Y' && $orderDate) {
             // Parse the date (format: dd-mm-yyyy)
             $dateParts = explode('-', $orderDate);
             if (count($dateParts) === 3) {
-                $day = $dateParts[0];
-                $month = $dateParts[1];
-                $year = $dateParts[2];
-
                 // Create Carbon instance and subtract 1 day
                 $carbonDate = \Carbon\Carbon::createFromFormat('d-m-Y', $orderDate, 'Europe/Berlin');
                 $carbonDate->subDay();
@@ -276,13 +303,21 @@ class OrdersCreateJob implements ShouldQueue
                 // Format back to dd-mm-yyyy
                 $inventoryDate = $carbonDate->format('d-m-Y');
 
+                // -----------------------------------------------------------------
+                // If the inventory date is still within the current week, we allow
+                // orders to proceed even when quantities dip below requested to
+                // avoid dropping yesterday's date bucket for any location/product.
+                // -----------------------------------------------------------------
+                $skipCancellationForYesterday = $carbonDate->isSameWeek(\Carbon\Carbon::now('Europe/Berlin'));
+
                 Log::info("Yesterday item detected for inventory deduction", [
                     'order_id' => $orderData['id'],
                     'order_number' => $orderData['order_number'],
                     'product_title' => $lineItem['title'],
                     'line_item_date' => $orderDate,
                     'inventory_deduction_date' => $inventoryDate,
-                    'yesterday_item' => $yesterdayItem
+                    'yesterday_item' => $yesterdayItem,
+                    'skip_cancellation_current_week' => $skipCancellationForYesterday
                 ]);
             }
         }
@@ -304,7 +339,8 @@ class OrdersCreateJob implements ShouldQueue
                 (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) &&
                 isset($quantity) &&
                 ($lineItem['quantity'] > $quantity) &&
-                (isset($orderData['id']) && !empty($orderData['id']))
+                (isset($orderData['id']) && !empty($orderData['id'])) &&
+                !$skipCancellationForYesterday // avoid excluding yesterday's date within current week
             ) {
                 $note = "Bestellmenge für {$lineItem['title']}: {$lineItem['quantity']} ist größer als die verfügbare Menge {$quantity} gegen den Metafeldwert: {$value}";
 
@@ -880,4 +916,3 @@ class OrdersCreateJob implements ShouldQueue
 
 
 }
-
