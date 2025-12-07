@@ -231,6 +231,20 @@
       outline: 2px solid currentColor;
       outline-offset: 2px;
     }
+
+    /*
+      Disabled state for yesterday button when no items available
+      Reduces opacity and prevents interaction while keeping button visible
+    */
+    .yesterdayorderbtn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .yesterdayorderbtn.disabled:hover {
+      transform: none;
+    }
   </style>
   
   {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
@@ -581,28 +595,43 @@
                 // Update TODAY badge (API now returns only today's inventory)
                 updateTodayBadgeCounter(window.deliveryDateState.location);
 
-                // Update YESTERDAY badge and button visibility
+                // =========================================================================
+                // YESTERDAY BUTTON: ALWAYS SHOW when 48h feature is enabled
+                // - If qty > 0: show button enabled with green badge
+                // - If qty === 0: show button disabled with red zero badge
+                // This ensures users always see the yesterday option is available
+                // even when temporarily out of stock
+                // =========================================================================
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+
+                // Always show the button when 48h feature is enabled
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.add('show-button');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
+                }
+
                 if (yesterdayQty > 0) {
-                  // Show the yesterday order button and badge
+                  // Items available: enable button with green badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.add('show-button');
-                    $('.yesterdayorderbtn').css('display', 'inline-flex');
+                    buttonYesterdayOrder.classList.remove('disabled');
                   }
                   $('#badge-counter-yesterday')
                     .html(yesterdayQty)
                     .removeClass('text-bg-danger')
                     .addClass('text-bg-success')
                     .css('display', 'inline-block');
-                  console.log('[Delivery Date] Yesterday button shown with qty:', yesterdayQty);
+                  console.log('[Delivery Date] Yesterday button enabled with qty:', yesterdayQty);
                 } else {
-                  // No yesterday items - hide button and badge
+                  // No items: disable button but show red zero badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.remove('show-button');
-                    $('.yesterdayorderbtn').css('display', 'none');
+                    buttonYesterdayOrder.classList.add('disabled');
                   }
-                  $('#badge-counter-yesterday').css('display', 'none');
-                  console.log('[Delivery Date] Yesterday button hidden - no items available');
+                  $('#badge-counter-yesterday')
+                    .html(0)
+                    .removeClass('text-bg-success')
+                    .addClass('text-bg-danger')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button disabled - showing red zero');
                 }
 
                 // Set up interval to refresh both badges every minute
@@ -618,14 +647,24 @@
                     success: function(newYesterdayQty) {
                       // Update today badge (API returns only today's inventory)
                       updateTodayBadgeCounter(window.deliveryDateState.location);
-                      // Update yesterday badge
+
+                      // Update yesterday button state and badge
+                      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
                       if (newYesterdayQty > 0) {
+                        // Items available: enable button with green badge
+                        if (buttonYesterdayOrder) {
+                          buttonYesterdayOrder.classList.remove('disabled');
+                        }
                         $('#badge-counter-yesterday')
                           .html(newYesterdayQty)
                           .removeClass('text-bg-danger')
                           .addClass('text-bg-success')
                           .css('display', 'inline-block');
                       } else {
+                        // No items: disable button with red zero badge
+                        if (buttonYesterdayOrder) {
+                          buttonYesterdayOrder.classList.add('disabled');
+                        }
                         $('#badge-counter-yesterday')
                           .html(0)
                           .removeClass('text-bg-success')
@@ -640,13 +679,18 @@
                 console.error('[Delivery Date] Error fetching yesterday inventory:', error);
                 // Fallback: still show today's inventory on error
                 updateTodayBadgeCounter(window.deliveryDateState.location);
-                // Hide yesterday button on error
+                // On error: show button disabled with red zero badge
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
                 if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.remove('show-button');
-                  $('.yesterdayorderbtn').css('display', 'none');
+                  buttonYesterdayOrder.classList.add('show-button');
+                  buttonYesterdayOrder.classList.add('disabled');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
                 }
-                $('#badge-counter-yesterday').css('display', 'none');
+                $('#badge-counter-yesterday')
+                  .html(0)
+                  .removeClass('text-bg-success')
+                  .addClass('text-bg-danger')
+                  .css('display', 'inline-block');
               }
             });
           } else {
@@ -684,6 +728,8 @@
           // YESTERDAY ITEMS BUTTON (when today button is NOT shown)
           // This handles the case where the today button conditions are not met
           // (e.g., minDate != 1) but the yesterday items feature is enabled.
+          // ALWAYS show button when 48h feature is enabled, with disabled state
+          // and red zero badge when no items available.
           // =========================================================================
           if (data.immediate_inventory_48h === 'Y' && data.immediate_inventory === 'Y') {
             console.log('[Delivery Date] Yesterday items feature enabled (today btn not shown)');
@@ -700,34 +746,51 @@
                 console.log('[Delivery Date] Yesterday inventory count:', yesterdayQty);
 
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+
+                // Always show the button when 48h feature is enabled
+                if (buttonYesterdayOrder) {
+                  buttonYesterdayOrder.classList.add('show-button');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
+                }
+
                 if (yesterdayQty > 0) {
+                  // Items available: enable button with green badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.add('show-button');
-                    $('.yesterdayorderbtn').css('display', 'inline-flex');
+                    buttonYesterdayOrder.classList.remove('disabled');
                   }
                   $('#badge-counter-yesterday')
                     .html(yesterdayQty)
                     .removeClass('text-bg-danger')
                     .addClass('text-bg-success')
                     .css('display', 'inline-block');
-                  console.log('[Delivery Date] Yesterday button shown with qty:', yesterdayQty);
+                  console.log('[Delivery Date] Yesterday button enabled with qty:', yesterdayQty);
                 } else {
+                  // No items: disable button but show red zero badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.remove('show-button');
-                    $('.yesterdayorderbtn').css('display', 'none');
+                    buttonYesterdayOrder.classList.add('disabled');
                   }
-                  $('#badge-counter-yesterday').css('display', 'none');
-                  console.log('[Delivery Date] Yesterday button hidden - no items');
+                  $('#badge-counter-yesterday')
+                    .html(0)
+                    .removeClass('text-bg-success')
+                    .addClass('text-bg-danger')
+                    .css('display', 'inline-block');
+                  console.log('[Delivery Date] Yesterday button disabled - showing red zero');
                 }
               },
               error: function(request, status, error) {
                 console.error('[Delivery Date] Error fetching yesterday inventory:', error);
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+                // On error: show button disabled with red zero badge
                 if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.remove('show-button');
-                  $('.yesterdayorderbtn').css('display', 'none');
+                  buttonYesterdayOrder.classList.add('show-button');
+                  buttonYesterdayOrder.classList.add('disabled');
+                  $('.yesterdayorderbtn').css('display', 'inline-flex');
                 }
-                $('#badge-counter-yesterday').css('display', 'none');
+                $('#badge-counter-yesterday')
+                  .html(0)
+                  .removeClass('text-bg-success')
+                  .addClass('text-bg-danger')
+                  .css('display', 'inline-block');
               }
             });
           } else {
