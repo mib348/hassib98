@@ -835,7 +835,16 @@ class ShopifyController extends Controller
 		if (!isset($shop) || !$shop)
 			$shop = User::find(env('db_shop_id', 1));
 
-		$orderData = json_decode($request->input('items'), true);
+		// Ensure we always iterate over an array to avoid fatal "foreach on null"
+		$orderData = json_decode($request->input('items', '[]'), true) ?? [];
+		if (!is_array($orderData)) {
+			$orderData = [];
+		}
+
+		// Return empty array if no valid items data provided (prevents foreach error on null)
+		if (empty($orderData) || !is_array($orderData)) {
+			return json_encode([]);
+		}
 
 		$arr = [];
 
