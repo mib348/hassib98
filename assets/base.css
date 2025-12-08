@@ -3640,15 +3640,14 @@ body {
 .yesterdayorderbtn {
   display: none !important;
 }
-.todayorderbtn.show-button,
-.yesterdayorderbtn.show-button {
-  display: inline-block !important;
+.todayorderbtn.show-button {
+  display: inline-flex !important;
 }
 .preorderbtn {
   display: none !important;
 }
 .preorderbtn.show-button {
-  display: inline-block !important;
+  display: inline-flex !important;
 }
 .cart__dynamic-checkout-buttons {
   display: none;

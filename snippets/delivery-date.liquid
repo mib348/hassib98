@@ -140,11 +140,36 @@
          padding: 6px 10px;
          font-size: 14px;
          {% comment %} min-height: 36px; {% endcomment %}
-         width: 100%;
+         {% comment %} width: 100%; {% endcomment %}
          max-width: 200px;
-         margin: 5px auto 0 auto !important;
-         justify-content: center;
+         {% comment %} margin: 5px auto 0 auto !important; {% endcomment %}
+         {% comment %} justify-content: center; {% endcomment %}
        }
+
+       .mobile-sofortkauf-container {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        justify-content: center;
+        align-items: stretch;
+        flex-wrap: wrap;
+      }
+
+      .mobile-sofortkauf-pair {
+        display: flex;
+        {% comment %} gap: 8px; {% endcomment %}
+        align-items: center;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .mobile-order-buttons-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        align-items: center;
+      }
     }
 
     /*
@@ -160,7 +185,7 @@
         padding: 5px 8px;
         font-size: 13px;
         {% comment %} min-height: 32px; {% endcomment %}
-        margin-top: 5px !important;
+        {% comment %} margin-top: 5px !important; {% endcomment %}
         letter-spacing: -0.01em;
       }
       #badge-counter-yesterday{margin-left: 30px !important;}
@@ -174,7 +199,7 @@
         padding: 4px 6px;
         font-size: 12px;
         {% comment %} min-height: 28px; {% endcomment %}
-        margin-top: 5px !important;
+        {% comment %} margin-top: 5px !important; {% endcomment %}
         letter-spacing: -0.02em;
       }
     }
@@ -191,7 +216,7 @@
       .snacks_and_drinks_btn {
         {% comment %} min-height: 44px; {% endcomment %}
         padding: 8px 12px;
-        margin-top: 5px !important;
+        {% comment %} margin-top: 5px !important; {% endcomment %}
       }
 
        @media (max-width: 576px) {
@@ -201,7 +226,7 @@
          .snacks_and_drinks_btn {
            {% comment %} min-height: 48px; {% endcomment %}
            padding: 10px 14px;
-           margin-top: 5px !important;
+           {% comment %} margin-top: 5px !important; {% endcomment %}
          }
        }
     }
@@ -244,6 +269,15 @@
 
     .yesterdayorderbtn.disabled:hover {
       transform: none;
+    }
+
+    /* Explicit control for yesterday button + badge visibility */
+    .yesterday-inline-flex {
+      display: inline-flex !important;
+    }
+
+    .yesterday-hidden {
+      display: none !important;
     }
   </style>
   
@@ -310,6 +344,7 @@
 
       // Sync badge counter height with buttons on small devices
       syncBadgeCounterHeight();
+      wrapImmediateButtonsForMobile();
 
       // Process location and setup functionality
       processLocationAndSetup();
@@ -338,6 +373,145 @@
           badgeCounter.style.boxSizing = 'border-box';
           badgeCounter.style.alignItems = 'center';
           badgeCounter.style.justifyContent = 'center';
+        }
+      }
+    }
+
+    // Group immediate order buttons with their badges on mobile so the parent can be flexed
+    function wrapImmediateButtonsForMobile() {
+      const isMobile = window.innerWidth <= 576;
+
+      const pairs = [
+        {
+          button: document.querySelector('.todayorderbtn'),
+          badge: document.getElementById('badge-counter'),
+          wrapperClass: 'mobile-sofortkauf-heute-wrapper'
+        },
+        {
+          button: document.querySelector('.yesterdayorderbtn'),
+          badge: document.getElementById('badge-counter-yesterday'),
+          wrapperClass: 'mobile-sofortkauf-gestern-wrapper'
+        }
+      ];
+
+      pairs.forEach(({ button, badge, wrapperClass }) => {
+        if (!button || !badge) return;
+
+        const haveSameParent = button.parentNode && button.parentNode === badge.parentNode;
+        if (!haveSameParent) return;
+
+        const existingWrapper = button.closest(`.${wrapperClass}`) || badge.closest(`.${wrapperClass}`);
+
+        if (isMobile) {
+          if (existingWrapper) return;
+
+          const wrapper = document.createElement('div');
+          wrapper.className = `mobile-sofortkauf-pair ${wrapperClass}`;
+
+          const firstNode = (button.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_PRECEDING) ? badge : button;
+          button.parentNode.insertBefore(wrapper, firstNode);
+
+          if (firstNode === badge) {
+            wrapper.appendChild(badge);
+            wrapper.appendChild(button);
+          } else {
+            wrapper.appendChild(button);
+            wrapper.appendChild(badge);
+          }
+        } else if (existingWrapper) {
+          const parent = existingWrapper.parentNode;
+          while (existingWrapper.firstChild) {
+            parent.insertBefore(existingWrapper.firstChild, existingWrapper);
+          }
+          parent.removeChild(existingWrapper);
+        }
+      });
+
+      const pairNodes = document.querySelectorAll('.mobile-sofortkauf-pair');
+
+      if (isMobile && pairNodes.length) {
+        let container = document.querySelector('.mobile-sofortkauf-container');
+
+        if (!container) {
+          container = document.createElement('div');
+          container.className = 'mobile-sofortkauf-container';
+          const firstPair = pairNodes[0];
+          firstPair.parentNode.insertBefore(container, firstPair);
+        }
+
+        pairNodes.forEach((pair) => {
+          if (pair.parentNode !== container) {
+            container.appendChild(pair);
+          }
+        });
+      } else {
+        const container = document.querySelector('.mobile-sofortkauf-container');
+        if (container) {
+          const parent = container.parentNode;
+          while (container.firstChild) {
+            parent.insertBefore(container.firstChild, container);
+          }
+          parent.removeChild(container);
+        }
+      }
+
+      const orderCandidates = Array.from(document.querySelectorAll('.mobile-sofortkauf-container, .preorderbtn, .snacks_and_drinks_btn'));
+
+      if (isMobile && orderCandidates.length) {
+        let orderWrapper = document.querySelector('.mobile-order-buttons-wrapper');
+        if (!orderWrapper) {
+          orderWrapper = document.createElement('div');
+          orderWrapper.className = 'mobile-order-buttons-wrapper';
+          const firstNode = orderCandidates[0];
+          firstNode.parentNode.insertBefore(orderWrapper, firstNode);
+        }
+
+        const sortedNodes = [...orderCandidates].sort((a, b) => {
+          const position = a.compareDocumentPosition(b);
+          if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+          if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+          return 0;
+        });
+
+        sortedNodes.forEach((node) => {
+          if (node.parentNode !== orderWrapper) {
+            orderWrapper.appendChild(node);
+          }
+        });
+      } else {
+        const orderWrapper = document.querySelector('.mobile-order-buttons-wrapper');
+        if (orderWrapper) {
+          const parent = orderWrapper.parentNode;
+          while (orderWrapper.firstChild) {
+            parent.insertBefore(orderWrapper.firstChild, orderWrapper);
+          }
+          parent.removeChild(orderWrapper);
+        }
+      }
+    }
+
+    // Show/hide yesterday button & badge with inline-flex !important when enabled
+    function setYesterdayDisplay(isEnabled) {
+      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+      const badgeYesterday = document.getElementById('badge-counter-yesterday');
+
+      if (isEnabled) {
+        if (buttonYesterdayOrder) {
+          buttonYesterdayOrder.classList.add('show-button', 'yesterday-inline-flex');
+          buttonYesterdayOrder.classList.remove('yesterday-hidden');
+        }
+        if (badgeYesterday) {
+          badgeYesterday.classList.add('yesterday-inline-flex');
+          badgeYesterday.classList.remove('yesterday-hidden');
+        }
+      } else {
+        if (buttonYesterdayOrder) {
+          buttonYesterdayOrder.classList.remove('show-button', 'yesterday-inline-flex');
+          buttonYesterdayOrder.classList.add('yesterday-hidden');
+        }
+        if (badgeYesterday) {
+          badgeYesterday.classList.remove('yesterday-inline-flex');
+          badgeYesterday.classList.add('yesterday-hidden');
         }
       }
     }
@@ -602,13 +776,8 @@
                 // This ensures users always see the yesterday option is available
                 // even when temporarily out of stock
                 // =========================================================================
+                setYesterdayDisplay(true);
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
-
-                // Always show the button when 48h feature is enabled
-                if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.add('show-button');
-                  $('.yesterdayorderbtn').css('display', 'inline-flex');
-                }
 
                 if (yesterdayQty > 0) {
                   // Items available: enable button with green badge
@@ -619,7 +788,8 @@
                     .html(yesterdayQty)
                     .removeClass('text-bg-danger')
                     .addClass('text-bg-success')
-                    .css('display', 'inline-block');
+                    .addClass('yesterday-inline-flex')
+                    .removeClass('yesterday-hidden');
                   console.log('[Delivery Date] Yesterday button enabled with qty:', yesterdayQty);
                 } else {
                   // No items: disable button but show red zero badge
@@ -630,7 +800,8 @@
                     .html(0)
                     .removeClass('text-bg-success')
                     .addClass('text-bg-danger')
-                    .css('display', 'inline-block');
+                    .addClass('yesterday-inline-flex')
+                    .removeClass('yesterday-hidden');
                   console.log('[Delivery Date] Yesterday button disabled - showing red zero');
                 }
 
@@ -659,7 +830,8 @@
                           .html(newYesterdayQty)
                           .removeClass('text-bg-danger')
                           .addClass('text-bg-success')
-                          .css('display', 'inline-block');
+                          .addClass('yesterday-inline-flex')
+                          .removeClass('yesterday-hidden');
                       } else {
                         // No items: disable button with red zero badge
                         if (buttonYesterdayOrder) {
@@ -669,7 +841,8 @@
                           .html(0)
                           .removeClass('text-bg-success')
                           .addClass('text-bg-danger')
-                          .css('display', 'inline-block');
+                          .addClass('yesterday-inline-flex')
+                          .removeClass('yesterday-hidden');
                       }
                     }
                   });
@@ -680,17 +853,17 @@
                 // Fallback: still show today's inventory on error
                 updateTodayBadgeCounter(window.deliveryDateState.location);
                 // On error: show button disabled with red zero badge
+                setYesterdayDisplay(true);
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
                 if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.add('show-button');
                   buttonYesterdayOrder.classList.add('disabled');
-                  $('.yesterdayorderbtn').css('display', 'inline-flex');
                 }
                 $('#badge-counter-yesterday')
                   .html(0)
                   .removeClass('text-bg-success')
                   .addClass('text-bg-danger')
-                  .css('display', 'inline-block');
+                  .addClass('yesterday-inline-flex')
+                  .removeClass('yesterday-hidden');
               }
             });
           } else {
@@ -704,12 +877,7 @@
             }, 60000);
 
             // Ensure yesterday button is hidden
-            const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
-            if (buttonYesterdayOrder) {
-              buttonYesterdayOrder.classList.remove('show-button');
-              $('.yesterdayorderbtn').css('display', 'none');
-            }
-            $('#badge-counter-yesterday').css('display', 'none');
+            setYesterdayDisplay(false);
           }
 
         } else if (data.error) {
@@ -745,13 +913,8 @@
               success: function(yesterdayQty) {
                 console.log('[Delivery Date] Yesterday inventory count:', yesterdayQty);
 
+                setYesterdayDisplay(true);
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
-
-                // Always show the button when 48h feature is enabled
-                if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.add('show-button');
-                  $('.yesterdayorderbtn').css('display', 'inline-flex');
-                }
 
                 if (yesterdayQty > 0) {
                   // Items available: enable button with green badge
@@ -762,7 +925,8 @@
                     .html(yesterdayQty)
                     .removeClass('text-bg-danger')
                     .addClass('text-bg-success')
-                    .css('display', 'inline-block');
+                    .addClass('yesterday-inline-flex')
+                    .removeClass('yesterday-hidden');
                   console.log('[Delivery Date] Yesterday button enabled with qty:', yesterdayQty);
                 } else {
                   // No items: disable button but show red zero badge
@@ -773,7 +937,8 @@
                     .html(0)
                     .removeClass('text-bg-success')
                     .addClass('text-bg-danger')
-                    .css('display', 'inline-block');
+                    .addClass('yesterday-inline-flex')
+                    .removeClass('yesterday-hidden');
                   console.log('[Delivery Date] Yesterday button disabled - showing red zero');
                 }
               },
@@ -781,38 +946,33 @@
                 console.error('[Delivery Date] Error fetching yesterday inventory:', error);
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
                 // On error: show button disabled with red zero badge
+                setYesterdayDisplay(true);
                 if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.add('show-button');
                   buttonYesterdayOrder.classList.add('disabled');
-                  $('.yesterdayorderbtn').css('display', 'inline-flex');
                 }
                 $('#badge-counter-yesterday')
                   .html(0)
                   .removeClass('text-bg-success')
                   .addClass('text-bg-danger')
-                  .css('display', 'inline-block');
+                  .addClass('yesterday-inline-flex')
+                  .removeClass('yesterday-hidden');
               }
             });
           } else {
             // Feature not enabled - ensure yesterday button is hidden
             console.log('[Delivery Date] Yesterday items feature NOT enabled');
-            const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
-            if (buttonYesterdayOrder) {
-              buttonYesterdayOrder.classList.remove('show-button');
-              $('.yesterdayorderbtn').css('display', 'none');
-            }
-            $('#badge-counter-yesterday').css('display', 'none');
+            setYesterdayDisplay(false);
           }
-        }
-      } else {
-        console.log('[Delivery Date] Location is NOT active, hiding buttons');
-        $('#badge-counter').css('display', 'none');
-        $('#badge-counter-yesterday').css('display', 'none');
-        const buttonTodayOrder = document.querySelector('.todayorderbtn');
-        const buttonPreOrder = document.querySelector('.preorderbtn');
-        const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
-        const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
-        if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
+      }
+    } else {
+      console.log('[Delivery Date] Location is NOT active, hiding buttons');
+      $('#badge-counter').css('display', 'none');
+      setYesterdayDisplay(false);
+      const buttonTodayOrder = document.querySelector('.todayorderbtn');
+      const buttonPreOrder = document.querySelector('.preorderbtn');
+      const buttonSnacksAndDrinks = document.querySelector('.snacks_and_drinks_btn');
+      const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
+      if (buttonTodayOrder) buttonTodayOrder.classList.remove('show-button');
         if (buttonPreOrder) buttonPreOrder.classList.remove('show-button');
         if (buttonSnacksAndDrinks) buttonSnacksAndDrinks.classList.remove('show-button');
         if (buttonYesterdayOrder) buttonYesterdayOrder.classList.remove('show-button');
@@ -1312,6 +1472,7 @@
   
       // Store the determined location
       window.deliveryDateState.location = determinedLocation || "";
+      wrapImmediateButtonsForMobile();
       
       // Try to initialize if jQuery is already available
       initializeDeliveryDate();
@@ -1350,6 +1511,7 @@
     window.addEventListener('resize', function() {
       if (window.deliveryDateState.isInitialized) {
         syncBadgeCounterHeight();
+        wrapImmediateButtonsForMobile();
       }
     });
   </script>
