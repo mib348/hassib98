@@ -1,0 +1,19 @@
+api_version = "2025-07"
+
+[[extensions]]
+name = "Loyalty Program - Buy 4 Get 1 Free"
+handle = "loyalty-program"
+
+uid = "5259592a-b4a3-aafb-ea7d-ec368c0d4b43ae18d6f1"
+
+type = "function"
+description = "Automatic loyalty program discount - Buy 4 Get 1 Free for active loyalty members"
+
+  [[extensions.targeting]]
+  target = "cart.lines.discounts.generate.run"
+  input_query = "src/cart_lines_discounts_generate_run.graphql"
+  export = "cart-lines-discounts-generate-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"

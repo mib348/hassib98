@@ -1,0 +1,19 @@
+api_version = "2025-07"
+
+[[extensions]]
+name = "Yesterday Items - 50% Off"
+handle = "yesterday-discount"
+
+uid = "5121f4cf-9593-c4a9-d5c4-3039d3eca0dec4197bd2"
+
+type = "function"
+description = "Automatic 50% discount on items from yesterday"
+
+  [[extensions.targeting]]
+  target = "cart.lines.discounts.generate.run"
+  input_query = "src/cart_lines_discounts_generate_run.graphql"
+  export = "cart-lines-discounts-generate-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
