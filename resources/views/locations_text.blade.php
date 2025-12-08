@@ -175,14 +175,18 @@
                             </label>
                         </div>
                     </div>
+                    {{-- Temporarily hidden - Immediate Inventory Quantity Check Time field
                     <div class="col-4 immediate_inventory_quantity_check_time_portion" style="display:none;">
                         <label class="label" for="immediate_inventory_quantity_check_time">Immediate Inventory Quantity Check Time</label>
                         <input class="form-control" type="time" value="00:00" id="immediate_inventory_quantity_check_time" name="immediate_inventory_quantity_check_time">
                     </div>
+                    --}}
+                    {{-- Temporarily hidden - Immediate Inventory Order Quantity Limit field
                     <div class="col-5 immediate_inventory_48h_portion immediate_inventory_order_quantity_limit_portion" style="display:none;">
                         <label class="label" for="immediate_inventory_order_quantity_limit">Immediate Inventory Order Quantity Limit</label>
                         <input class="form-control" type="number" value="2" id="immediate_inventory_order_quantity_limit" name="immediate_inventory_order_quantity_limit">
                     </div>
+                    --}}
                 </div>
                 <br>
                 <div class="row">
