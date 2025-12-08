@@ -93,8 +93,10 @@ class LocationsTextController extends Controller
         $arrLocation->additional_inventory = $request->has('additional_inventory') ? 'Y' : 'N';
         $arrLocation->immediate_inventory = $request->has('immediate_inventory') ? 'Y' : 'N';
         $arrLocation->immediate_inventory_48h = $request->has('immediate_inventory_48h') ? 'Y' : 'N';
-        $arrLocation->immediate_inventory_order_quantity_limit = $request->input('immediate_inventory_order_quantity_limit');
-        $arrLocation->immediate_inventory_quantity_check_time = $request->input('immediate_inventory_quantity_check_time');
+        // Preserve the existing limit when the field is absent (e.g. hidden UI), because the DB column is non-nullable.
+        $immediateInventoryOrderLimit = $request->input('immediate_inventory_order_quantity_limit', $arrLocation->immediate_inventory_order_quantity_limit);
+        $arrLocation->immediate_inventory_order_quantity_limit = $immediateInventoryOrderLimit;
+        $arrLocation->immediate_inventory_quantity_check_time = $request->input('immediate_inventory_quantity_check_time', $arrLocation->immediate_inventory_quantity_check_time);
         $arrLocation->location_order = $request->input('location_order');
         $arrLocation->location_public_private = $request->has('location_public_private') ? 'PUBLIC' : 'PRIVATE';
         $arrLocation->snacks_and_drinks = $request->has('snacks_and_drinks') ? 'Y' : 'N';
