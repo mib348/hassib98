@@ -1,0 +1,47 @@
+query CartInput {
+  cart {
+    lines {
+      id
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          title
+          product {
+            title
+            productType
+          }
+        }
+      }
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+      yesterdayItemAttribute: attribute(key: "yesterday_item") {
+        value
+      }
+    }
+    buyerIdentity {
+      customer {
+        id
+        email
+        loyaltyStatus: metafield(namespace: "loyalty", key: "status") {
+          value
+        }
+        loyaltyFreeItems: metafield(namespace: "loyalty", key: "free_items") {
+          value
+        }
+        customLoyaltyStatus: metafield(namespace: "custom", key: "loyalty_status") {
+          value
+        }
+        customLoyaltyFreeItems: metafield(namespace: "custom", key: "loyalty_free_items") {
+          value
+        }
+      }
+    }
+  }
+  discount {
+    discountClasses
+  }
+}

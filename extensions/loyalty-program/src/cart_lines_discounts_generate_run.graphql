@@ -18,9 +18,6 @@ query CartInput {
           amount
         }
       }
-      yesterdayItemAttribute: attribute(key: "yesterday_item") {
-        value
-      }
     }
     buyerIdentity {
       customer {
