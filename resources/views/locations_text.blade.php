@@ -7,6 +7,10 @@
     #locations_text_form table td:first-child{width:50%;}
     #locations_text_form table td:nth-child(2){width:25%;}
     #locations_text_form table td:nth-child(3){width:25%;}
+    /* Keep the immediate inventory quantity/time inputs in the DOM for backend submissions,
+       but force them hidden at all times to satisfy the requirement without altering JS logic. */
+    .immediate_inventory_quantity_check_time_portion,
+    .immediate_inventory_order_quantity_limit_portion {display: none !important;}
 </style>
 @endsection
 
