@@ -161,7 +161,8 @@
                             <th style="width:1%; text-align: right;">Items Sold</th>
                             <th style="width:1%; text-align: right;">Items Sold Preorders</th>
                             <th style="width:1%; text-align: right;">Items Created Immediate Inventory</th>
-                            <th style="width:1%; text-align: right;">Items Sold Immediate Inventory</th>
+                            <th style="width:1%; text-align: right;">Items Sold Immediate Inventory Today</th>
+                            <th style="width:1%; text-align: right;">Items Sold Immediate Inventory Yesterday</th>
                             <th style="width:1%; text-align: center;">Driver<br>Images</th>
                         </tr>
                     </thead>
@@ -256,7 +257,7 @@
                     columnDefs: [
                         { type: 'date-de', targets: 0 }  // Apply our new sorting method
                     ],
-                    unsortable: [10]
+                    unsortable: [11]  // Driver Images column (0-indexed) - updated after adding yesterday column
                 });
 
 

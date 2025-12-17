@@ -149,7 +149,15 @@ class OrdersController extends Controller
             // Track preorder and immediate-inventory item quantities per order so the modal can surface human-friendly details.
             $preorderItemsSoldByOrder = [];
             $immediateInventoryItemsSoldByOrder = [];
-            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = $items_created = $items_sold_preorders = $items_created_immediate_inventory = $items_sold_immediate_inventory = 0;
+            // =====================================================================
+            // YESTERDAY ITEMS TRACKING
+            // =====================================================================
+            // Track items sold from yesterday's immediate inventory separately.
+            // This is determined by the line item property 'yesterday_item' = Y.
+            // Items with yesterday_item=Y are from yesterday's inventory but picked up today.
+            // =====================================================================
+            $immediateInventoryYesterdayItemsSoldByOrder = [];
+            $totalOrders = $fulfilled = $took_zero = $took_less = $wrong_item = $no_status = $cancelled = $refunded = $items = $items_created = $items_sold_preorders = $items_created_immediate_inventory = $items_sold_immediate_inventory_today = $items_sold_immediate_inventory_yesterday = 0;
 
             // Track locations with images for this date (and potentially filtered location)
             $locationImages = [];
@@ -233,15 +241,37 @@ class OrdersController extends Controller
                             $isImmediateInventoryItem = $this->isImmediateInventoryLineItem($arrLineItem);
 
                             if ($isImmediateInventoryItem) {
-                                $items_sold_immediate_inventory += $quantity;
-                                if (! isset($immediateInventoryItemsSoldByOrder[$order->order_id])) {
-                                    // Store order number and running total so the modal can highlight how many immediate items each order carried.
-                                    $immediateInventoryItemsSoldByOrder[$order->order_id] = [
-                                        'number' => $order->number,
-                                        'quantity' => 0,
-                                    ];
+                                // =====================================================================
+                                // SEPARATE TODAY vs YESTERDAY IMMEDIATE INVENTORY ITEMS
+                                // =====================================================================
+                                // Check the 'yesterday_item' line property to determine source:
+                                // - yesterday_item = Y: Item from yesterday's inventory (customer clicked "Yesterday" button)
+                                // - yesterday_item = N or not set: Item from today's inventory
+                                // =====================================================================
+                                $isYesterdayItem = $this->isYesterdayInventoryLineItem($arrLineItem);
+
+                                if ($isYesterdayItem) {
+                                    // Count as yesterday's immediate inventory sale
+                                    $items_sold_immediate_inventory_yesterday += $quantity;
+                                    if (! isset($immediateInventoryYesterdayItemsSoldByOrder[$order->order_id])) {
+                                        $immediateInventoryYesterdayItemsSoldByOrder[$order->order_id] = [
+                                            'number' => $order->number,
+                                            'quantity' => 0,
+                                        ];
+                                    }
+                                    $immediateInventoryYesterdayItemsSoldByOrder[$order->order_id]['quantity'] += $quantity;
+                                } else {
+                                    // Count as today's immediate inventory sale
+                                    $items_sold_immediate_inventory_today += $quantity;
+                                    if (! isset($immediateInventoryItemsSoldByOrder[$order->order_id])) {
+                                        // Store order number and running total so the modal can highlight how many immediate items each order carried.
+                                        $immediateInventoryItemsSoldByOrder[$order->order_id] = [
+                                            'number' => $order->number,
+                                            'quantity' => 0,
+                                        ];
+                                    }
+                                    $immediateInventoryItemsSoldByOrder[$order->order_id]['quantity'] += $quantity;
                                 }
-                                $immediateInventoryItemsSoldByOrder[$order->order_id]['quantity'] += $quantity;
                             } else {
                                 $items_sold_preorders += $quantity;
                                 if (! isset($preorderItemsSoldByOrder[$order->order_id])) {
@@ -372,6 +402,10 @@ class OrdersController extends Controller
             // Build lightweight modal payloads that surface order numbers alongside item counts for the new preorder/immediate columns.
             $preorderOrdersForModal = $this->formatOrderQuantitiesForModal($preorderItemsSoldByOrder);
             $immediateOrdersForModal = $this->formatOrderQuantitiesForModal($immediateInventoryItemsSoldByOrder);
+            // =====================================================================
+            // Modal payload for yesterday's immediate inventory orders
+            // =====================================================================
+            $immediateYesterdayOrdersForModal = $this->formatOrderQuantitiesForModal($immediateInventoryYesterdayItemsSoldByOrder);
             $immediateInventoryModalPayload = [
                 'immediate_inventory' => $final_items_created['immediate_inventory'] ?? [],
                 'preorder_inventory' => [],
@@ -389,7 +423,14 @@ class OrdersController extends Controller
             // $html .= "<td><a class='text-decoration-none items_created_counter' data-type='Items Created' data-items-created='".htmlspecialchars(json_encode($final_items_created), ENT_QUOTES, 'UTF-8')."'>".$items_created.'</a></td>';
             $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Items Sold Preorders' data-orders='".json_encode($preorderOrdersForModal)."'>".$items_sold_preorders.'</a></td>';
             $html .= "<td class='text-end'><a class='text-decoration-none items_created_counter' data-type='Items Created Immediate Inventory' data-items-created='".htmlspecialchars(json_encode($immediateInventoryModalPayload), ENT_QUOTES, 'UTF-8')."'>".$items_created_immediate_inventory.'</a></td>';
-            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Items Sold Immediate Inventory' data-orders='".json_encode($immediateOrdersForModal)."'>".$items_sold_immediate_inventory.'</a></td>';
+            // =====================================================================
+            // ITEMS SOLD IMMEDIATE INVENTORY - SPLIT INTO TODAY AND YESTERDAY
+            // =====================================================================
+            // Items Sold Immediate Inventory Today: Items with yesterday_item=N or not set
+            // Items Sold Immediate Inventory Yesterday: Items with yesterday_item=Y
+            // =====================================================================
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Items Sold Immediate Inventory Today' data-orders='".json_encode($immediateOrdersForModal)."'>".$items_sold_immediate_inventory_today.'</a></td>';
+            $html .= "<td class='text-end'><a class='text-decoration-none order_counter' data-type='Items Sold Immediate Inventory Yesterday' data-orders='".json_encode($immediateYesterdayOrdersForModal)."'>".$items_sold_immediate_inventory_yesterday.'</a></td>';
             $html .= "<td class='text-center'><a class='text-decoration-none view_images' data-type='View' data-images='".htmlspecialchars(json_encode($locationImages), ENT_QUOTES, 'UTF-8')."'><i class='fa-solid fa-eye'></i></a></td>";
             $html .= '</tr>';
         }
@@ -539,6 +580,35 @@ class OrdersController extends Controller
             $value = $property['value'] ?? null;
 
             if ($name === 'immediate_inventory') {
+                return $value === 'Y';
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether a given Shopify line item is from yesterday's immediate inventory.
+     * =====================================================================
+     * This checks for the 'yesterday_item' line property which is set to 'Y'
+     * when a customer orders from the "Sofortbestellung Gestern" (Yesterday) button.
+     * These items are from yesterday's inventory but being picked up today.
+     * =====================================================================
+     *
+     * @param array $lineItem Raw line item payload decoded from the orders.line_items column
+     * @return bool True when the item has yesterday_item property set to 'Y'
+     */
+    private function isYesterdayInventoryLineItem(array $lineItem): bool
+    {
+        if (empty($lineItem['properties']) || ! is_array($lineItem['properties'])) {
+            return false;
+        }
+
+        foreach ($lineItem['properties'] as $property) {
+            $name = $property['name'] ?? null;
+            $value = $property['value'] ?? null;
+
+            if ($name === 'yesterday_item') {
                 return $value === 'Y';
             }
         }
