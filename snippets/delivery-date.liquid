@@ -553,7 +553,7 @@
       // The API now returns ONLY today's inventory (not combined with yesterday).
       // No calculation needed - just display the returned value directly.
       // =========================================================================
-      const todayUrl = `https://app.sushi.catering/getImmediateInventoryByLocation/${location}`;
+      const todayUrl = `https://app.sushi.catering/getImmediateInventoryByLocation/${encodeURIComponent(location)}`;
       console.log('[Delivery Date] Fetching today-only inventory from:', todayUrl);
 
       $.ajax({
@@ -587,7 +587,7 @@
 
       $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
 
-      const ajaxUrl = `https://app.sushi.catering/getLocations/${strLocation}`;
+      const ajaxUrl = `https://app.sushi.catering/getLocations/${encodeURIComponent(strLocation)}`;
       console.log('[Delivery Date] Fetching location data from:', ajaxUrl);
 
       // Make AJAX call asynchronous to prevent UI blocking
@@ -754,7 +754,7 @@
 
           if (is48hFeatureEnabled) {
             // Fetch yesterday qty, then use it for both badges
-            const yesterdayUrl = `https://app.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
+            const yesterdayUrl = `https://app.sushi.catering/getImmediateInventoryByLocationForYesterday/${encodeURIComponent(window.deliveryDateState.location)}`;
             console.log('[Delivery Date] Fetching yesterday inventory from:', yesterdayUrl);
 
             $.ajax({
@@ -902,7 +902,7 @@
           if (data.immediate_inventory_48h === 'Y' && data.immediate_inventory === 'Y') {
             console.log('[Delivery Date] Yesterday items feature enabled (today btn not shown)');
 
-            const yesterdayUrl = `https://app.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
+            const yesterdayUrl = `https://app.sushi.catering/getImmediateInventoryByLocationForYesterday/${encodeURIComponent(window.deliveryDateState.location)}`;
 
             $.ajax({
               url: yesterdayUrl,
