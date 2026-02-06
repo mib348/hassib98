@@ -9,8 +9,8 @@
  */
 {
   "current": {
-    "logo": "shopify://shop_images/Gruppe_4440.png",
-    "logo_width": 150,
+    "logo": "shopify://shop_images/Gruppe_4437.png",
+    "logo_width": 110,
     "favicon": "shopify://shop_images/klein-icon.png",
     "type_header_font": "mono",
     "heading_scale": 100,
@@ -210,6 +210,17 @@
           "button": "#ffffff",
           "button_label": "#334fb4",
           "secondary_button_label": "#ffffff",
+          "shadow": "#121212"
+        }
+      },
+      "scheme-96f1065c-7a61-46cd-81ca-4ae86072a5ca": {
+        "settings": {
+          "background": "#ff4778",
+          "background_gradient": "",
+          "text": "#121212",
+          "button": "#121212",
+          "button_label": "#ffffff",
+          "secondary_button_label": "#121212",
           "shadow": "#121212"
         }
       }
