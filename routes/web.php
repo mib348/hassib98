@@ -79,6 +79,8 @@ Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/getLocations/{location?}', [ShopifyController::class, 'getLocations'])->name('getLocations');
     Route::get('/getLocationsTextList', [LocationsTextController::class, 'getLocationsTextList'])->name('getLocationsTextList');
     Route::post('/locations_text/addLocation', [LocationsTextController::class, 'addLocation'])->name('locations_text.addLocation');
+    // Excel export route — must be before the resource route so /export/excel isn't caught by {locations_text}
+    Route::get('/locations_text/export/excel', [LocationsTextController::class, 'exportExcel'])->name('locations_text.exportExcel');
     Route::resource('locations_text', LocationsTextController::class);
 
     // orders

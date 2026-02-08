@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class LocationsTextController extends Controller
 {
@@ -21,6 +26,314 @@ class LocationsTextController extends Controller
         $arrLocations = Locations::whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Snacks and Drinks'])->orderBy('name', 'asc')->get();
         $personal_notepad = PersonalNotepad::select('note')->where('key', 'LOCATION_TEXT')->first();
         return view('locations_text', ['arrLocations' => $arrLocations, 'personal_notepad' => optional($personal_notepad)->note]);
+    }
+
+    /**
+     * Export all location settings as a professionally styled Excel (.xlsx) file.
+     *
+     * HOW IT WORKS:
+     * 1. Fetches every location from the DB (excluding system locations like "Additional Inventory", "Default Menu", "Snacks and Drinks").
+     * 2. Builds a PhpSpreadsheet workbook with two header rows:
+     *    - Row 1: Group headers (merged cells) — "Basic Info", "Time Slot 1", etc.
+     *    - Row 2: Individual column headers — "Name", "Start Time", etc.
+     * 3. Populates data rows with alternating white/light-gray background for readability.
+     * 4. Applies professional styling: Calibri font, dark-blue header backgrounds, thin borders, auto-sized columns.
+     * 5. Freezes the first column + header rows so you can scroll through data without losing context.
+     * 6. Streams the file as a download (no temp file saved on disk).
+     */
+    public function exportExcel()
+    {
+        // ────────────────────────────────────────────────────────────
+        // 1) FETCH LOCATIONS — same filter the index() page uses
+        // ────────────────────────────────────────────────────────────
+        $locations = Locations::whereNotIn('name', ['Additional Inventory', 'Default Menu', 'Snacks and Drinks'])
+            ->orderBy('name', 'asc')
+            ->get();
+
+        // ────────────────────────────────────────────────────────────
+        // 2) DEFINE COLUMN GROUPS — each group gets a merged header on row 1
+        //    'cols' are the individual column headers shown on row 2.
+        //    'fields' are the matching DB column names (same order).
+        // ────────────────────────────────────────────────────────────
+        $groups = [
+            [
+                'label'  => 'Basic Info',
+                'cols'   => ['Name', 'Order', 'Active', 'Public/Private'],
+                'fields' => ['name', 'location_order', 'is_active', 'location_public_private'],
+            ],
+            [
+                'label'  => 'Time Slot 1',
+                'cols'   => ['Start Time', 'End Time', 'Order Limit'],
+                'fields' => ['start_time', 'end_time', 'time_order_limit'],
+            ],
+            [
+                'label'  => 'Time Slot 2',
+                'cols'   => ['Start Time 2', 'End Time 2', 'Order Limit 2'],
+                'fields' => ['start_time2', 'end_time2', 'time2_order_limit'],
+            ],
+            [
+                'label'  => 'Time Slot 3',
+                'cols'   => ['Start Time 3', 'End Time 3', 'Order Limit 3'],
+                'fields' => ['start_time3', 'end_time3', 'time3_order_limit'],
+            ],
+            [
+                'label'  => 'Time Slot 4',
+                'cols'   => ['Start Time 4', 'End Time 4', 'Order Limit 4'],
+                'fields' => ['start_time4', 'end_time4', 'time4_order_limit'],
+            ],
+            [
+                'label'  => 'Time Slot 5',
+                'cols'   => ['Start Time 5', 'End Time 5', 'Order Limit 5'],
+                'fields' => ['start_time5', 'end_time5', 'time5_order_limit'],
+            ],
+            [
+                'label'  => 'Preorder Times',
+                'cols'   => ['Sameday Preorder End Time', 'First Additional Inventory End Time', 'Second Additional Inventory End Time', 'Home Delivery Preorder End Time'],
+                'fields' => ['sameday_preorder_end_time', 'first_additional_inventory_end_time', 'second_additional_inventory_end_time', 'preorder_end_time_home_delivery'],
+            ],
+            [
+                'label'  => 'Feature Flags',
+                'cols'   => ['Accept Only PreOrders', 'No Station', 'Additional Inventory', 'Immediate Inventory', 'Yesterdays Items (48h)', 'Snacks & Drinks'],
+                'fields' => ['accept_only_preorders', 'no_station', 'additional_inventory', 'immediate_inventory', 'immediate_inventory_48h', 'snacks_and_drinks'],
+            ],
+            [
+                'label'  => 'Inventory',
+                'cols'   => ['Min Order Limit', 'Immediate Inventory Order Quantity Limit', 'Immediate Inventory Quantity Check Time'],
+                'fields' => ['min_order_limit', 'immediate_inventory_order_quantity_limit', 'immediate_inventory_quantity_check_time'],
+            ],
+            [
+                'label'  => 'Location Details',
+                'cols'   => ['Address', 'Maps Directions', 'Latitude', 'Longitude'],
+                'fields' => ['address', 'maps_directions', 'latitude', 'longitude'],
+            ],
+            [
+                'label'  => 'Notes',
+                'cols'   => ['Note (Store Frontend)', 'Checkout Note (Delivery)'],
+                'fields' => ['note', 'checkout_note'],
+            ],
+        ];
+
+        // Build flat arrays for the individual column headers and their DB fields
+        $columnHeaders = [];  // e.g. ['Name', 'Order', 'Active', ...]
+        $columnFields  = [];  // e.g. ['name', 'location_order', 'is_active', ...]
+        foreach ($groups as $group) {
+            $columnHeaders = array_merge($columnHeaders, $group['cols']);
+            $columnFields  = array_merge($columnFields, $group['fields']);
+        }
+
+        // These fields store time values — we truncate them to HH:MM (5 chars) just like getLocationsTextList() does
+        $timeFields = [
+            'start_time', 'end_time',
+            'start_time2', 'end_time2',
+            'start_time3', 'end_time3',
+            'start_time4', 'end_time4',
+            'start_time5', 'end_time5',
+            'sameday_preorder_end_time',
+            'first_additional_inventory_end_time',
+            'second_additional_inventory_end_time',
+            'preorder_end_time_home_delivery',
+            'immediate_inventory_quantity_check_time',
+        ];
+
+        // Y/N or PUBLIC/PRIVATE flag fields — these get centered alignment in the Excel
+        $flagFields = [
+            'is_active', 'location_public_private',
+            'accept_only_preorders', 'no_station', 'additional_inventory',
+            'immediate_inventory', 'immediate_inventory_48h', 'snacks_and_drinks',
+        ];
+
+        // Fields that may contain HTML (from rich-text editors or stored with markup).
+        // We convert <br> / <br/> to real newlines and strip all remaining HTML tags
+        // so the Excel cell shows clean readable text instead of raw HTML.
+        $htmlFields = [
+            'address', 'maps_directions', 'note', 'checkout_note',
+        ];
+
+        // Text-heavy columns that need a fixed width + word-wrap instead of auto-size.
+        // Auto-size on long text makes columns absurdly wide; fixed width with wrap is more readable.
+        $wrapFields = [
+            'address', 'maps_directions', 'note', 'checkout_note',
+        ];
+
+        // ────────────────────────────────────────────────────────────
+        // 3) CREATE SPREADSHEET & SET DEFAULT FONT
+        // ────────────────────────────────────────────────────────────
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Location Settings');
+
+        // Calibri 10pt as the default font for all cells
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(10);
+
+        // ────────────────────────────────────────────────────────────
+        // 4) ROW 1: GROUP HEADERS — merged cells with lighter blue background
+        //    Each group spans as many columns as it has individual columns.
+        // ────────────────────────────────────────────────────────────
+        $colIndex = 1; // PhpSpreadsheet columns are 1-based
+        foreach ($groups as $group) {
+            $span = count($group['cols']);
+            $startCol = $colIndex;
+            $endCol   = $colIndex + $span - 1;
+
+            // Write the group label into the first cell of the span
+            $sheet->setCellValue([$startCol, 1], $group['label']);
+
+            // Merge the cells across the span if more than one column
+            if ($span > 1) {
+                $sheet->mergeCells([$startCol, 1, $endCol, 1]);
+            }
+
+            // Style the group header row: lighter blue (#2E75B6), bold, white text, centered, size 12
+            $sheet->getStyle([$startCol, 1, $endCol, 1])->applyFromArray([
+                'font' => [
+                    'bold'  => true,
+                    'color' => ['rgb' => 'FFFFFF'],
+                    'size'  => 12,
+                ],
+                'fill' => [
+                    'fillType'   => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '2E75B6'],
+                ],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical'   => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
+
+            $colIndex = $endCol + 1;
+        }
+
+        // ────────────────────────────────────────────────────────────
+        // 5) ROW 2: INDIVIDUAL COLUMN HEADERS — dark blue (#1F4E79), bold, white text, size 11
+        // ────────────────────────────────────────────────────────────
+        $totalCols = count($columnHeaders);
+        for ($c = 0; $c < $totalCols; $c++) {
+            $sheet->setCellValue([$c + 1, 2], $columnHeaders[$c]);
+        }
+
+        // Apply dark blue header style to the entire column header row
+        $sheet->getStyle([1, 2, $totalCols, 2])->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'color' => ['rgb' => 'FFFFFF'],
+                'size'  => 11,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '1F4E79'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        // ────────────────────────────────────────────────────────────
+        // 6) DATA ROWS — one row per location, alternating white / light-gray (#F2F2F2)
+        // ────────────────────────────────────────────────────────────
+        $dataStartRow = 3; // data begins on row 3 (after two header rows)
+        foreach ($locations as $rowIdx => $location) {
+            $excelRow = $dataStartRow + $rowIdx;
+
+            for ($c = 0; $c < $totalCols; $c++) {
+                $field = $columnFields[$c];
+                $value = $location->{$field};
+
+                // Truncate time fields to HH:MM format (matching getLocationsTextList logic)
+                if (in_array($field, $timeFields) && $value !== null) {
+                    $value = substr($value, 0, 5);
+                }
+
+                // Strip HTML from rich-text fields:
+                // 1. Convert <br>, <br/>, <br /> tags into real newlines so line breaks are preserved in the cell
+                // 2. Strip all remaining HTML tags (like <b>, <p>, <div>, etc.) leaving only plain text
+                // 3. Decode HTML entities (&amp; → &, &lt; → <, etc.) for clean output
+                // 4. Trim leading/trailing whitespace left over after stripping
+                if (in_array($field, $htmlFields) && $value !== null) {
+                    $value = preg_replace('/<br\s*\/?>/i', "\n", $value);
+                    $value = strip_tags($value);
+                    $value = html_entity_decode($value, ENT_QUOTES, 'UTF-8');
+                    $value = trim($value);
+                }
+
+                $sheet->setCellValue([$c + 1, $excelRow], $value);
+
+                // Center-align Y/N, PUBLIC/PRIVATE flag columns and time columns for readability
+                if (in_array($field, $flagFields) || in_array($field, $timeFields)) {
+                    $sheet->getStyle([$c + 1, $excelRow])->getAlignment()
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+
+                // Enable text-wrap + top-align on text-heavy columns so content
+                // displays nicely within the fixed column width instead of overflowing
+                if (in_array($field, $wrapFields)) {
+                    $sheet->getStyle([$c + 1, $excelRow])->getAlignment()
+                        ->setWrapText(true)
+                        ->setVertical(Alignment::VERTICAL_TOP);
+                }
+            }
+
+            // Alternating row colors: even index = white (default), odd index = light gray
+            if ($rowIdx % 2 === 1) {
+                $sheet->getStyle([1, $excelRow, $totalCols, $excelRow])->applyFromArray([
+                    'fill' => [
+                        'fillType'   => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'F2F2F2'],
+                    ],
+                ]);
+            }
+        }
+
+        // ────────────────────────────────────────────────────────────
+        // 7) THIN BORDERS on every cell that has content (headers + data)
+        // ────────────────────────────────────────────────────────────
+        $lastDataRow = $dataStartRow + $locations->count() - 1;
+        // Make sure we don't apply style to an invalid range if there are no locations
+        if ($locations->count() > 0) {
+            $sheet->getStyle([1, 1, $totalCols, $lastDataRow])->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color'       => ['rgb' => '000000'],
+                    ],
+                ],
+            ]);
+        }
+
+        // ────────────────────────────────────────────────────────────
+        // 8) COLUMN WIDTHS — auto-size for most columns, fixed width + wrap for text-heavy ones.
+        //    Notes/address columns get a fixed 40-char width so they don't stretch the sheet;
+        //    text wrapping (set per-cell above) keeps the content readable within that width.
+        // ────────────────────────────────────────────────────────────
+        for ($c = 1; $c <= $totalCols; $c++) {
+            $field = $columnFields[$c - 1];
+            if (in_array($field, $wrapFields)) {
+                // Fixed width (40 characters) for text-heavy columns — wrap handles overflow
+                $sheet->getColumnDimensionByColumn($c)->setAutoSize(false)->setWidth(40);
+            } else {
+                $sheet->getColumnDimensionByColumn($c)->setAutoSize(true);
+            }
+        }
+
+        // ────────────────────────────────────────────────────────────
+        // 9) FREEZE PANES — freeze column A (location name) + the two header rows.
+        //    Freezing at B3 means rows 1-2 and column A stay visible when scrolling.
+        // ────────────────────────────────────────────────────────────
+        $sheet->freezePane('B3');
+
+        // ────────────────────────────────────────────────────────────
+        // 10) STREAM THE FILE AS A DOWNLOAD — no temp file needed on disk
+        // ────────────────────────────────────────────────────────────
+        $fileName = 'Location_Settings_' . date('Y-m-d') . '.xlsx';
+        $writer   = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
     }
 
     /**

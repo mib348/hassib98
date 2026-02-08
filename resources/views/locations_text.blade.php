@@ -62,8 +62,12 @@
                     <div class="col-12 col-md-6 mb-2 mb-md-0">
                         <label class="label fw-bold font-bold" for="strFilterLocation">Filter Location</label>
                     </div>
-                    <div class="col-12 col-md-6 text-md-end">
-                        <button type="button" class="btn btn-success w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#addLocationModal">
+                    {{-- On mobile: buttons stack full-width (d-grid). On md+: buttons sit inline right-aligned (d-md-flex). --}}
+                    <div class="col-12 col-md-6 d-grid d-md-flex justify-content-md-end gap-2">
+                        <button type="button" class="btn btn-primary" id="exportExcelBtn">
+                            <i class="fas fa-file-excel"></i> Export Excel
+                        </button>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addLocationModal">
                             <i class="fas fa-plus"></i> Add Location
                         </button>
                     </div>
@@ -287,6 +291,40 @@
 
     <script type="text/javascript">
     	$(function(){
+              // Handle Export Excel button click — fetches the file in the background
+              // so the page stays put (Shopify embedded apps break if you navigate away).
+              // The response blob is turned into a temporary download link and auto-clicked.
+              $(document).on('click', '#exportExcelBtn', function(e){
+                var $btn = $(this);
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...');
+
+                fetch("{{ route('locations_text.exportExcel') }}", {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Export failed');
+                    return response.blob();
+                })
+                .then(function(blob) {
+                    // Create a hidden <a> element, assign the blob as its href, click it, then remove it
+                    var url = window.URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'Location_Settings.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                })
+                .catch(function(err) {
+                    alert('Error exporting Excel: ' + err.message);
+                })
+                .finally(function() {
+                    $btn.prop('disabled', false).html('<i class="fas fa-file-excel"></i> Export Excel');
+                });
+              });
+
               // Handle filter location change
               $(document).on('change', '#strFilterLocation', function(e){
                 if($(this).val() == ""){
