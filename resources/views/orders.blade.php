@@ -96,6 +96,20 @@
         color: #888;
         font-style: italic;
     }
+
+    /* Hide Driver Images column (11th column) - using multiple selectors for DataTables compatibility */
+    table thead tr th:nth-child(11),
+    table tbody tr td:nth-child(11),
+    .js-dataTable-full thead tr th:nth-child(11),
+    .js-dataTable-full tbody tr td:nth-child(11),
+    .dataTable thead tr th:nth-child(11),
+    .dataTable tbody tr td:nth-child(11) {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+    }
 </style>
 @endsection
 
@@ -256,9 +270,22 @@
                     autoWidth: false,
                     columnDefs: [
                         { type: 'date-de', targets: 0 }  // Apply our new sorting method
-                    ],
-                    unsortable: [11]  // Driver Images column (0-indexed) - updated after adding yesterday column
+                    ]
                 });
+
+                // Hide Driver Images column by finding it via header text
+                var driverImagesColumnIndex = -1;
+                jQuery('.js-dataTable-full thead th').each(function(index) {
+                    if (jQuery(this).text().indexOf('Driver') > -1 || jQuery(this).text().indexOf('Images') > -1) {
+                        driverImagesColumnIndex = index;
+                        return false; // break the loop
+                    }
+                });
+
+                if (driverImagesColumnIndex !== -1) {
+                    window.table.column(driverImagesColumnIndex).visible(false);
+                    console.log('Hidden Driver Images column at index:', driverImagesColumnIndex);
+                }
 
 
 

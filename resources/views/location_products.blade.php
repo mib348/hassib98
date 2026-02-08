@@ -12,9 +12,22 @@
     .loading-icon.show {
         display: inline-block !important;
     }
-    .day-column{width:146px !important;}
+    
+    /* Base Column Styles */
+    .day-column {
+        width: 146px;
+        min-width: 146px;
+    }
+    .product-cell {
+        min-width: 200px;
+    }
+    .quantity-cell {
+        min-width: 80px;
+    }
+
     .remove-product-btn{cursor:pointer;}
 
+    /* Preorder Table Specifics */
     .preorder_table .table-responsive {
         overflow-x: auto;
         position: relative; /* Ensure that sticky elements are positioned correctly */
@@ -37,20 +50,27 @@
         background-color: #f9f9f9;
         position: sticky;
         top: 0;
-        z-index: 1;
+        z-index: 10;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.05);
     }
 
     .preorder_table .fixed-column {
         position: sticky;
         left: 0;
         background-color: #fff;
+        z-index: 5;
+        box-shadow: 1px 0 1px rgba(0,0,0,0.05);
+    }
+    
+    /* Corner cell (Top Left) needs highest Z-Index */
+    .preorder_table thead th.fixed-column {
+        z-index: 20;
     }
 
     .preorder_table .fixed-column.day-column {
         min-width: 150px;
         max-width: 150px;
         width: 150px;
-        z-index: 2; /* Ensure the fixed column appears above other elements */
     }
 
     .preorder_table .product-cell {
@@ -78,7 +98,47 @@
         width: 50px;
     }
 
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .day-column, 
+        .preorder_table .fixed-column.day-column,
+        .preorder_table .day-column {
+            width: 110px !important;
+            min-width: 110px !important;
+            max-width: 110px !important;
+        }
 
+        .product-cell,
+        .preorder_table .product-cell {
+            width: 160px !important;
+            min-width: 160px !important;
+        }
+
+        .quantity-cell,
+        .preorder_table .quantity-cell {
+            width: 70px !important;
+            min-width: 70px !important;
+        }
+        
+        .save-day {
+            padding: 2px 4px;
+            font-size: 10px;
+            margin-top: 2px;
+            float: none !important;
+            display: block;
+            width: 100%;
+        }
+
+        .form-select, .form-control {
+            font-size: 12px;
+            padding: 4px;
+        }
+        
+        /* Adjust Immediate Inventory Table */
+        .table-responsive .table {
+            min-width: 800px; /* Force scroll triggered on small screens */
+        }
+    }
 </style>
 @endsection
 
@@ -116,17 +176,17 @@
 
             <br>
             <!-- Preorders Table -->
-            <h5 class="float-left pull-left float-start pull-start ">PreOrder Inventory</h5>
-            <button type="button" class="float-left pull-left float-start pull-start ms-3 btn btn-primary btn-sm save-all-days_btn float-right" data-inventory-type="preorder">
-                Save All
-                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
-            </button>
-            <button type="button" class="float-left pull-left float-start pull-start ms-3 btn btn-info btn-sm import_default_menu_btn float-right text-white" data-inventory-type="preorder">
-                Import Default Menu
-                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
-            </button>
-            <br class="clearfix">
-            <br class="clearfix">
+            <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 10px;">
+                <h5 class="mb-0">PreOrder Inventory</h5>
+                <button type="button" class="btn btn-primary btn-sm save-all-days_btn" data-inventory-type="preorder">
+                    Save All
+                    <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
+                </button>
+                <button type="button" class="btn btn-info btn-sm import_default_menu_btn text-white" data-inventory-type="preorder">
+                    Import Default Menu
+                    <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
+                </button>
+            </div>
             <form id="location_products_form_preorder" class="clearfix">
                 <input type="hidden" name="inventory_type" value="preorder">
                 <div class="table-responsive preorder_table">
@@ -140,17 +200,17 @@
             <br>
 
             <!-- Immediate Orders Table -->
-            <h5 class="float-start">Immediate Inventory</h5>
-            <button type="button" class="float-start ms-3 btn btn-primary btn-sm save-all-days_btn float-right" data-inventory-type="immediate">
-                Save All
-                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
-            </button>
-            <button type="button" class="float-start ms-3 btn btn-info btn-sm import_default_menu_btn float-right text-white" data-inventory-type="immediate">
-                Import Default Menu
-                <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
-            </button>
-            <br class="clearfix">
-            <br class="clearfix">
+            <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 10px;">
+                <h5 class="mb-0">Immediate Inventory</h5>
+                <button type="button" class="btn btn-primary btn-sm save-all-days_btn" data-inventory-type="immediate">
+                    Save All
+                    <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
+                </button>
+                <button type="button" class="btn btn-info btn-sm import_default_menu_btn text-white" data-inventory-type="immediate">
+                    Import Default Menu
+                    <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
+                </button>
+            </div>
             <form id="location_products_form_immediate">
                 <input type="hidden" name="inventory_type" value="immediate">
                 <div class="table-responsive">

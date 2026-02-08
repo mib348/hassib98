@@ -63,9 +63,9 @@
               </div>
         </div>
     </div> --}}
-    <div class="row">
-        <div class="col-3">
-            Location
+    <div class="row g-3">
+        <div class="col-12 col-md-6 col-lg-3">
+            <label for="strFilterLocation" class="form-label fw-bold">Location</label>
             <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                 <option value="" selected>--- Select Location ---</option>
                 @foreach($arrLocations as $location)
@@ -73,14 +73,14 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-3">
-            Date Range
+        <div class="col-12 col-md-6 col-lg-3">
+            <label for="strFilterDate" class="form-label fw-bold">Date Range</label>
             <input type="text" name="strFilterDate" id="strFilterDate" class="form-control" placeholder="Select Date Range">
             <input type="hidden" name="strFilterFromDate" id="strFilterFromDate">
             <input type="hidden" name="strFilterToDate" id="strFilterToDate">
         </div>
-        <div class="col-3">
-            Store
+        <div class="col-12 col-md-6 col-lg-3">
+            <label for="strFilterStore" class="form-label fw-bold">Store</label>
             <select id="strFilterStore" name="strFilterStore" class="form-select">
                 <option value="" selected>--- Select Store ---</option>
                 @foreach($arrStores as $store)
@@ -88,14 +88,13 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-3">
-            <br>
-            <button type="button" class="btn btn-primary" id="export_pdf_btn">Export PDF</button>
+        <div class="col-12 col-md-6 col-lg-3 d-flex align-items-end">
+            <button type="button" class="btn btn-primary w-100" id="export_pdf_btn">Export PDF</button>
         </div>
     </div>
     <br>
     <div class="row">
-        <div class="col-3">
+        <div class="col-12 col-md-6 col-lg-3">
             <input class="form-check-input" type="checkbox" value="Y" id="chkFilterSnacksAndDrinks" name="chkFilterSnacksAndDrinks">
             <label class="form-check-label" for="chkFilterSnacksAndDrinks">
                 Show only Snacks and Drinks
@@ -110,23 +109,23 @@
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
                         <tr>
-                            <th style="width:11%;">
+                            <th>
                                 Location
                                 
                             </th>
-                            <th style="width:11%;">
+                            <th>
                                 Date Range
                             </th>
-                            <th style="width:11%;">
+                            <th>
                                 Store
                             </th>
-                            <th style="width:11%;">Revenue</th>
-                            <th style="width:11%;">No Status</th>
-                            <th style="width:11%;">Cancelled</th>
-                            <th style="width:11%;">Refunded</th>
-                            <th style="width:11%;">Items Sold Preorders</th>
-                            <th style="width:11%;">Items Created Immediate Inventory</th>
-                            <th style="width:11%;">Items Sold Immediate Inventory</th>
+                            <th>Revenue</th>
+                            <th>No Status</th>
+                            <th>Cancelled</th>
+                            <th>Refunded</th>
+                            <th>Items Sold Preorders</th>
+                            <th>Items Created Immediate Inventory</th>
+                            <th>Items Sold Immediate Inventory</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -134,16 +133,16 @@
                     <tfoot>
                         <!-- Repeat header row before footer with selected filter values for easy identification -->
                         <tr id="grand-total-header-row" style="display: none;">
-                            <th id="footer-location-header" style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Location</th>
-                            <th id="footer-daterange-header" style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Date Range</th>
-                            <th id="footer-store-header" style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Store</th>
-                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Revenue</th>
-                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">No Status</th>
-                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Cancelled</th>
-                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Refunded</th>
-                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Sold Preorders</th>
-                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Created Immediate Inventory</th>
-                            <th style="width:11%; background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Sold Immediate Inventory</th>
+                            <th id="footer-location-header" style="background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Location</th>
+                            <th id="footer-daterange-header" style="background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Date Range</th>
+                            <th id="footer-store-header" style="background-color: #f2f2f2; border-top: 2px solid #dee2e6; font-size: 11px;">Store</th>
+                            <th style="background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Revenue</th>
+                            <th style="background-color: #f2f2f2; border-top: 2px solid #dee2e6;">No Status</th>
+                            <th style="background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Cancelled</th>
+                            <th style="background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Refunded</th>
+                            <th style="background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Sold Preorders</th>
+                            <th style="background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Created Immediate Inventory</th>
+                            <th style="background-color: #f2f2f2; border-top: 2px solid #dee2e6;">Items Sold Immediate Inventory</th>
                         </tr>
                         <tr id="grand-total-row" style="display: none;">
                             <th colspan="3" style="text-align: right; font-weight: bold; background-color: #f8f9f9; border-top: 2px solid #dee2e6;">Grand Total</th>

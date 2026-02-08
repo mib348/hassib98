@@ -61,6 +61,15 @@ class LocationsTextController extends Controller
     public function update(Request $request, $locations_text)
     {
         $arrLocation = Locations::where('name', $locations_text)->first();
+        if (!$arrLocation) {
+            // Guard against stale dropdown values or direct URL edits.
+            // Without this check, the next property assignment would throw on null.
+            return response()->json([
+                'success' => false,
+                'message' => 'Location not found',
+            ], 404);
+        }
+
         $arrLocation->start_time = $request->input('start_time');
         $arrLocation->end_time = $request->input('end_time');
         $arrLocation->time_order_limit = $request->input('time_order_limit');
@@ -347,7 +356,7 @@ class LocationsTextController extends Controller
 
             $html = "<tr>";
                 if($arrLocation['name'] == 'Delivery') {
-                    $html .= "<td>" . $arrLocation['name'] . "<br><p class='mb-0'>Min Order Qty Limit</p>" . '<input type="text" name="min_order_limit" id="min_order_limit" value="' . $arrLocation['min_order_limit'] . '" class="form-control w-25" />';
+                    $html .= "<td>" . $arrLocation['name'] . "<br><p class='mb-0'>Min Order Qty Limit</p>" . '<input type="text" name="min_order_limit" id="min_order_limit" value="' . $arrLocation['min_order_limit'] . '" class="form-control responsive-input" />';
                 }
                 else{
                     $html .= "<td>" . $arrLocation['name'];
@@ -356,7 +365,7 @@ class LocationsTextController extends Controller
                 if($arrLocation['name'] == 'Delivery') {
                     $html .= "<br><p class='mb-0'>Timezone 1</p>
                     <p class='mb-0'>Order Limit:</p>
-                    <input type='number' name='time_order_limit' value='" . $arrLocation['time_order_limit'] . "' class='form-control w-25' />";
+                    <input type='number' name='time_order_limit' value='" . $arrLocation['time_order_limit'] . "' class='form-control responsive-input' />";
                 }
                 $html .= "</td>";
                 $html .= "<td><input type='time' id='start_time' name='start_time' value='" . $startTime . "' class='form-control'/></td>";
@@ -367,7 +376,7 @@ class LocationsTextController extends Controller
                 $html .= "<tr>";
                     $html .= "<td><p class='mb-0'>Timezone 2</p>
                                 <p class='mb-0'>Order Limit:</p>
-                                <input type='number' name='time2_order_limit' value='" . $arrLocation['time2_order_limit'] . "' class='form-control w-25' />
+                                <input type='number' name='time2_order_limit' value='" . $arrLocation['time2_order_limit'] . "' class='form-control responsive-input' />
                             </td>";
                     $html .= "<td><input type='time' id='start_time2' name='start_time2' value='" . $startTime2 . "' class='form-control'/></td>";
                     $html .= "<td><input type='time' id='end_time2' name='end_time2' value='" . $endTime2 . "' class='form-control'/></td>";
@@ -375,7 +384,7 @@ class LocationsTextController extends Controller
                 $html .= "<tr>";
                     $html .= "<td><p class='mb-0'>Timezone 3</p>
                                 <p class='mb-0'>Order Limit:</p>
-                                <input type='number' name='time3_order_limit' value='" . $arrLocation['time3_order_limit'] . "' class='form-control w-25' />
+                                <input type='number' name='time3_order_limit' value='" . $arrLocation['time3_order_limit'] . "' class='form-control responsive-input' />
                             </td>";
                     $html .= "<td><input type='time' id='start_time3' name='start_time3' value='" . $startTime3 . "' class='form-control'/></td>";
                     $html .= "<td><input type='time' id='end_time3' name='end_time3' value='" . $endTime3 . "' class='form-control'/></td>";
@@ -383,7 +392,7 @@ class LocationsTextController extends Controller
                 $html .= "<tr>";
                     $html .= "<td><p class='mb-0'>Timezone 4</p>
                                 <p class='mb-0'>Order Limit:</p>
-                                <input type='number' name='time4_order_limit' value='" . $arrLocation['time4_order_limit'] . "'  class='form-control w-25' />
+                                <input type='number' name='time4_order_limit' value='" . $arrLocation['time4_order_limit'] . "'  class='form-control responsive-input' />
                             </td>";
                     $html .= "<td><input type='time' id='start_time4' name='start_time4' value='" . $startTime4 . "' class='form-control'/></td>";
                     $html .= "<td><input type='time' id='end_time4' name='end_time4' value='" . $endTime4 . "' class='form-control'/></td>";
@@ -391,7 +400,7 @@ class LocationsTextController extends Controller
                 $html .= "<tr>";
                     $html .= "<td><p class='mb-0'>Timezone 5</p>
                                 <p class='mb-0'>Order Limit:</p>
-                                <input type='number' name='time5_order_limit' value='" . $arrLocation['time5_order_limit'] . "'  class='form-control w-25' />
+                                <input type='number' name='time5_order_limit' value='" . $arrLocation['time5_order_limit'] . "'  class='form-control responsive-input' />
                             </td>";
                     $html .= "<td><input type='time' id='start_time3' name='start_time5' value='" . $startTime5 . "' class='form-control'/></td>";
                     $html .= "<td><input type='time' id='end_time3' name='end_time5' value='" . $endTime5 . "' class='form-control'/></td>";

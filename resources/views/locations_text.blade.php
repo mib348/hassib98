@@ -4,9 +4,31 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/css/bootstrap-timepicker.min.css" rel="stylesheet">
 <style>
     #save_btn {display: none;}
-    #locations_text_form table td:first-child{width:50%;}
-    #locations_text_form table td:nth-child(2){width:25%;}
-    #locations_text_form table td:nth-child(3){width:25%;}
+    
+    /* Responsive Table Layout */
+    #locations_text_form table td:first-child, #locations_text_form table th:first-child{width:50%;}
+    #locations_text_form table td:nth-child(2), #locations_text_form table th:nth-child(2){width:25%;}
+    #locations_text_form table td:nth-child(3), #locations_text_form table th:nth-child(3){width:25%;}
+
+    .responsive-input {
+        width: 100%;
+        max-width: 150px;
+    }
+
+    @media (max-width: 768px) {
+        #locations_text_form table td:first-child, #locations_text_form table th:first-child{width:40%;}
+        #locations_text_form table td:nth-child(2), #locations_text_form table th:nth-child(2){width:30%;}
+        #locations_text_form table td:nth-child(3), #locations_text_form table th:nth-child(3){width:30%;}
+        
+        .form-control, .form-select {
+            font-size: 14px; /* Prevent zoom on iOS */
+        }
+        
+        .responsive-input {
+            max-width: 100%; /* Allow full width on mobile if needed, or keep 150px if that's enough */
+        }
+    }
+
     /* Keep the immediate inventory quantity/time inputs in the DOM for backend submissions,
        but force them hidden at all times to satisfy the requirement without altering JS logic. */
     .immediate_inventory_quantity_check_time_portion,
@@ -33,26 +55,15 @@
 </s-page>
 
 <div class="container-fluid p-2">
-    {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
-    {{-- <div class="row">
-        <div class="col-6">
-            <h5>Orders</h5>
-        </div>
-        <div class="col-6 d-flex flex-row flex-wrap align-items-center justify-content-end mb-3">
-            <div class="d-grid gap-2 d-md-block">
-                <a href="https://admin.shopify.com/store/dc9ef9/apps/sushi-catering-1/products" class="btn btn-primary">Products</a>
-              </div>
-        </div>
-    </div> --}}
     <div class="row">
         <div class="col-md-12">
             <form id="locations_text_form">
                 <div class="row align-items-center mb-2">
-                    <div class="col-6">
+                    <div class="col-12 col-md-6 mb-2 mb-md-0">
                         <label class="label fw-bold font-bold" for="strFilterLocation">Filter Location</label>
                     </div>
-                    <div class="col-6 text-end">
-                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addLocationModal">
+                    <div class="col-12 col-md-6 text-md-end">
+                        <button type="button" class="btn btn-success w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#addLocationModal">
                             <i class="fas fa-plus"></i> Add Location
                         </button>
                     </div>
@@ -60,8 +71,8 @@
                 <div class="form-group mb-3">
                     <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                         <option value="" selected>--- Select Location ---</option>
-                        @foreach($arrLocations as $location)
-                        <option value="{{ $location->name }}">{{ $location->name }}</option>
+                        @foreach($arrLocations as $loc)
+                        <option value="{{ $loc->name }}">{{ $loc->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -80,25 +91,25 @@
                     </table>
                 </div>
                 <div class="row">
-                    <div class="col-6">
-                        <div class="form-group">
+                    <div class="col-12 col-md-6 mb-3">
+                        <div class="form-group h-100">
                             <label class="label fw-bold font-bold" for="address">Address</label>
-                            <textarea id='address' name='address' rows='6' cols='5' class='form-control'></textarea>
+                            <textarea id='address' name='address' rows='6' class='form-control h-100'></textarea>
                         </div>
                     </div>
-                    <div class="col-6">
-                        <div class="form-group">
+                    <div class="col-12 col-md-6">
+                        <div class="form-group mb-3">
                             <label class="label fw-bold font-bold" for="maps_directions">Maps Directions</label>
-                            <textarea id='maps_directions' name='maps_directions' rows='3' cols='5' class='form-control'></textarea>
+                            <textarea id='maps_directions' name='maps_directions' rows='3' class='form-control'></textarea>
                         </div>
-                        <div class="row" style="margin-top: 10px;">
-                            <div class="col-6">
+                        <div class="row">
+                            <div class="col-12 col-md-6 mb-3 mb-md-0">
                                 <div class="form-group">
                                     <label class="label fw-bold font-bold" for="latitude">Latitude</label>
                                     <input type="text" id='latitude' name='latitude' class='form-control'></input>
                                 </div>
                             </div>
-                            <div class="col-6">
+                            <div class="col-12 col-md-6">
                                 <div class="form-group">
                                     <label class="label fw-bold font-bold" for="longitude">Longitude</label>
                                     <input type="text" id='longitude' name='longitude' class='form-control'></input>
@@ -111,16 +122,16 @@
                 <br>
                 <div class="form-group">
                     <label class="label fw-bold font-bold" for="note">Note (For Store Frontend)</label>
-                    <textarea id='note' name='note' rows='3' cols='5' class='form-control'></textarea>
+                    <textarea id='note' name='note' rows='3' class='form-control'></textarea>
                 </div>
                 <br>
                 <div class="form-group checkout_note_portion">
                     <label class="label fw-bold font-bold" for="checkout_note">Checkout Note (For Delivery)</label>
-                    <textarea id='checkout_note' name='checkout_note' rows='3' cols='5' class='form-control'></textarea>
+                    <textarea id='checkout_note' name='checkout_note' rows='3' class='form-control'></textarea>
                 </div>
                 <br>
-                <div class="row">
-                    <div class="col-2">
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" id="location_toggle" name="location_toggle">
                             <label class="form-check-label" for="location_toggle">
@@ -128,7 +139,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2 accept_only_preorders_portion">
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-2 accept_only_preorders_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="accept_only_preorders" name="accept_only_preorders">
                             <label class="form-check-label" for="accept_only_preorders">
@@ -136,7 +147,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2 no_station_portion">
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-2 no_station_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="no_station" name="no_station">
                             <label class="form-check-label" for="no_station">
@@ -144,7 +155,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2 additional_inventory_portion">
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-2 additional_inventory_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="additional_inventory" name="additional_inventory">
                             <label class="form-check-label" for="additional_inventory">
@@ -152,7 +163,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2 immediate_inventory_portion">
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-2 immediate_inventory_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="immediate_inventory" name="immediate_inventory">
                             <label class="form-check-label" for="immediate_inventory">
@@ -160,7 +171,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-2 location_public_private_portion">
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-2 location_public_private_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="PUBLIC" id="location_public_private" name="location_public_private">
                             <label class="form-check-label" for="location_public_private">
@@ -170,8 +181,8 @@
                     </div>
                 </div>
                 <br>
-                <div class="form-group row immediate_inventory_48h_portion" style="display:none;">
-                    <div class="col-3">
+                <div class="row g-3 immediate_inventory_48h_portion" style="display:none;">
+                    <div class="col-12 col-md-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" id="immediate_inventory_48h" name="immediate_inventory_48h">
                             <label class="form-check-label" for="immediate_inventory_48h">
@@ -180,18 +191,18 @@
                         </div>
                     </div>
                     {{-- Keep these inputs in the DOM so the form always submits values required by the DB, while visibility is still toggled via JS. --}}
-                    <div class="col-4 immediate_inventory_quantity_check_time_portion" style="display:none;">
+                    <div class="col-12 col-md-4 immediate_inventory_quantity_check_time_portion" style="display:none;">
                         <label class="label" for="immediate_inventory_quantity_check_time">Immediate Inventory Quantity Check Time</label>
                         <input class="form-control" type="time" value="00:00" id="immediate_inventory_quantity_check_time" name="immediate_inventory_quantity_check_time">
                     </div>
-                    <div class="col-5 immediate_inventory_48h_portion immediate_inventory_order_quantity_limit_portion" style="display:none;">
+                    <div class="col-12 col-md-5 immediate_inventory_48h_portion immediate_inventory_order_quantity_limit_portion" style="display:none;">
                         <label class="label" for="immediate_inventory_order_quantity_limit">Immediate Inventory Order Quantity Limit</label>
                         <input class="form-control" type="number" value="2" id="immediate_inventory_order_quantity_limit" name="immediate_inventory_order_quantity_limit">
                     </div>
                 </div>
                 <br>
-                <div class="row">
-                    <div class="col-2">
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" id="snacks_and_drinks" name="snacks_and_drinks">
                             <label class="form-check-label" for="snacks_and_drinks">
@@ -200,19 +211,19 @@
                         </div>
                     </div>
                 </div>
-                <div class="row location_order_portion">
+                <div class="row location_order_portion mt-3">
                     <div class="col-12">
                         <label class="label fw-bold font-bold" for="location_order">Order</label>
                         <select name="location_order" id="location_order" class="form-control">
                             <option value="">--- Select ---</option>
-                            @foreach($arrLocations as $location)
+                            @foreach($arrLocations as $loc)
                             <option value="{{ ($loop->index + 1) }}">{{ ($loop->index + 1) }}</option>
                             @endforeach
                         </select>
                     </div>
                 </div>
                 <br>
-                <button type="button" class="btn btn-primary" id="save_btn">Save</button>
+                <button type="button" class="btn btn-primary w-100 w-md-auto" id="save_btn">Save</button>
             </form>
             <br>
             @php

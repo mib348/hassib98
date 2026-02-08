@@ -337,11 +337,10 @@
                                     <div class="accordion-body">
                                         <p>{!! $arrProducts['location_data']['address'] !!}</p>
 
-                                        <div class="d-grid gap-2 col-12 mx-auto">
-                                            <div class="col-auto">
+                                        <div class="d-flex flex-column flex-md-row gap-2 justify-content-center w-100">
                                                 <button
                                                     type="button"
-                                                    class="btn btn-primary open-google-maps"
+                                                    class="btn btn-primary open-google-maps flex-grow-1"
                                                     data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
                                                     data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
                                                     data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
@@ -349,13 +348,13 @@
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }}"
+                                                    class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }} flex-grow-1"
                                                     data-location="{{ $location }}">
                                                     <i class="fa-solid fa-truck-fast"></i> {{ $arrProducts['is_fulfilled'] ? 'Fulfilled' : 'Fulfill' }}
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }}"
+                                                    class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }} flex-grow-1"
                                                     data-location="{{ $location }}">
                                                     <i class="fa-solid fa-broom"></i> {{ $arrProducts['is_cleaned'] ? 'Cleaned ' . $arrProducts['cleaning_time'] : 'Clean' }}
                                                 </button>
@@ -399,7 +398,7 @@
                                             @endif
 
                                             @for($i = $productCount; $i < 4; $i++)
-                                            <div class="col-12 col-sm-6">
+                                            <div class="col-12 col-sm-6 col-lg-3">
                                                 <div class="row">
                                                     <div class="col-4">
                                                         &nbsp;
@@ -420,7 +419,7 @@
                                             @endphp
                                             @if(!empty($arrProducts))
                                                 @foreach($arrProducts['preorder_slot']['products'] as $productName => $quantity)
-                                                    <div class="col-12 col-sm-6">
+                                                    <div class="col-12 col-sm-6 col-lg-3">
                                                         <div class="row">
                                                             <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
                                                                     {{ $quantity }}
@@ -437,7 +436,7 @@
                                             @endif
 
                                             @for($i = $productCount; $i < 4; $i++)
-                                            <div class="col-12 col-sm-6">
+                                            <div class="col-12 col-sm-6 col-lg-3">
                                                 <div class="row">
                                                     <div class="col-4">
                                                         &nbsp;
@@ -497,29 +496,28 @@
                                 <div class="accordion-body">
                                     <p>{!! $arrProducts['location_data']['address'] !!}</p>
 
-                                    <div class="d-grid gap-2 col-12 mx-auto">
-                                        <div class="col-auto">
-                                            <button
-                                                type="button"
-                                                class="btn btn-primary open-google-maps"
-                                                data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
-                                                data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
-                                                data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
-                                                <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }}"
-                                                data-location="{{ $location }}">
-                                                <i class="fa-solid fa-truck-fast"></i> {{ $arrProducts['is_fulfilled'] ? 'Fulfilled' : 'Fulfill' }}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }}"
-                                                data-location="{{ $location }}">
-                                                <i class="fa-solid fa-broom"></i> {{ $arrProducts['is_cleaned'] ? 'Cleaned ' . $arrProducts['cleaning_time'] : 'Clean' }}
-                                            </button>
-                                        </div>
+                                            <div class="d-flex flex-column flex-md-row gap-2 justify-content-center w-100">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-primary open-google-maps flex-grow-1"
+                                                    data-address="{{ ($arrProducts['location_data']['maps_directions']) ? $arrProducts['location_data']['maps_directions'] : '' }}"
+                                                    data-latitude="{{ ($arrProducts['location_data']['latitude']) ? $arrProducts['location_data']['latitude'] : '' }}"
+                                                    data-longitude="{{ ($arrProducts['location_data']['longitude']) ? $arrProducts['location_data']['longitude'] : '' }}">
+                                                    <i class="fa-solid fa-map-location-dot"></i> Open in Google Maps
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-success mark-fulfilled {{ $arrProducts['is_fulfilled'] ? 'fulfilled-btn-disabled' : '' }} flex-grow-1"
+                                                    data-location="{{ $location }}">
+                                                    <i class="fa-solid fa-truck-fast"></i> {{ $arrProducts['is_fulfilled'] ? 'Fulfilled' : 'Fulfill' }}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn {{ $arrProducts['is_cleaned'] ? 'btn-success' : 'btn-danger' }} mark-cleaned {{ $arrProducts['is_cleaned'] ? 'cleaned-btn-disabled' : '' }} flex-grow-1"
+                                                    data-location="{{ $location }}">
+                                                    <i class="fa-solid fa-broom"></i> {{ $arrProducts['is_cleaned'] ? 'Cleaned ' . $arrProducts['cleaning_time'] : 'Clean' }}
+                                                </button>
+                                            </div>
 
                                         <div class="map_canvas mb-3" style="height: 400px; width: 100%;">
                                             <div id="map{{ $loop->index }}" style="height: 100%; width: 100%; text-align:center;">
@@ -539,7 +537,7 @@
                                         @if(!empty($arrProducts))
                                             @foreach($arrProducts['immediate_inventory_slot']['products'] as $productName => $quantity)
                                                 @if($productCount < 4)
-                                                    <div class="col-12 col-sm-6">
+                                                    <div class="col-12 col-sm-6 col-lg-3">
                                                         <div class="row">
                                                             <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
                                                                     {{ $quantity }}
@@ -559,7 +557,7 @@
                                         @endif
 
                                         @for($i = $productCount; $i < 4; $i++)
-                                        <div class="col-12 col-sm-6">
+                                        <div class="col-12 col-sm-6 col-lg-3">
                                             <div class="row">
                                                 <div class="col-4">
                                                     &nbsp;
@@ -580,7 +578,7 @@
                                         @endphp
                                         @if(!empty($arrProducts))
                                             @foreach($arrProducts['preorder_slot']['products'] as $productName => $quantity)
-                                                <div class="col-12 col-sm-6">
+                                                <div class="col-12 col-sm-6 col-lg-3">
                                                     <div class="row">
                                                         <div class="col-4 border border-secondary p-2 location-{{ $productCount+1 }} text-center column-qty">
                                                                 {{ $quantity }}
@@ -597,7 +595,7 @@
                                         @endif
 
                                         @for($i = $productCount; $i < 4; $i++)
-                                        <div class="col-12 col-sm-6">
+                                        <div class="col-12 col-sm-6 col-lg-3">
                                             <div class="row">
                                                 <div class="col-4">
                                                     &nbsp;

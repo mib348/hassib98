@@ -323,19 +323,19 @@ class LocationRevenueController extends Controller
 
             // Main data row only - no detail rows sent to DataTables
             $html .= "<tr>";
-            $html .= "<td style='width: 11%;' class='location-data'>" . $arrLocation->name . "</td>";
-            $html .= "<td style='width: 11%; text-align:center;' class='date-data'>" . $startDatePresentable . " - " . $endDatePresentable . "</td>";
-            $html .= "<td style='width: 11%;' class='store-data'>" . $strFilterStore . "</td>";
-            $html .= "<td style='width: 11%; text-align:right;' class='revenue-data'>&euro; " . number_format($nTotalAmount, 2, ",", ".") . "</td>";
-            $html .= "<td style='width: 11%; text-align:right;' class='no-status-data'>" . $no_status . "</td>";
-            $html .= "<td style='width: 11%; text-align:right;' class='cancelled-data'>" . $cancelled . "</td>";
-            $html .= "<td style='width: 11%; text-align:right;' class='refunded-data'>" . $refunded . "</td>";
-            // $html .= "<td style='width: 11%; text-align:right;' class='items-sold-data'>" . $nTotalItemsSold . "</td>";
-            // $html .= "<td style='width: 11%; text-align:right; position: relative;' class='items-created-data' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . count($orders) . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "'>" . $nTotalItemsCreated . "</td>";
-            $html .= "<td style='width: 11%; text-align:right;' class='preorders-data' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "'>" . $nTotalPreorders . "</td>";
-            $html .= "<td style='width: 11%; text-align:right;' class='immediate-inventory-data'>" . $nTotalImmediateInventory . "</td>";
+            $html .= "<td class='location-data'>" . $arrLocation->name . "</td>";
+            $html .= "<td class='date-data text-center'>" . $startDatePresentable . " - " . $endDatePresentable . "</td>";
+            $html .= "<td class='store-data'>" . $strFilterStore . "</td>";
+            $html .= "<td class='revenue-data text-end'>&euro; " . number_format($nTotalAmount, 2, ",", ".") . "</td>";
+            $html .= "<td class='no-status-data text-end'>" . $no_status . "</td>";
+            $html .= "<td class='cancelled-data text-end'>" . $cancelled . "</td>";
+            $html .= "<td class='refunded-data text-end'>" . $refunded . "</td>";
+            // $html .= "<td class='items-sold-data text-end'>" . $nTotalItemsSold . "</td>";
+            // $html .= "<td class='items-created-data text-end' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . count($orders) . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "'>" . $nTotalItemsCreated . "</td>";
+            $html .= "<td class='preorders-data text-end' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "'>" . $nTotalPreorders . "</td>";
+            $html .= "<td class='immediate-inventory-data text-end'>" . $nTotalImmediateInventory . "</td>";
             // Last cell holds all data attributes needed for detail rows display
-            $html .= "<td style='width: 11%; text-align:right;' class='immediate-inventory-items-sold-data' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . $nTotalOrders . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "' data-immediate-inventory='" . $nTotalImmediateInventory . "' data-immediate-inventory-items-sold='" . addslashes(implode(', ', $arr_immediate_inventory_items_sold)) . "'>" . $nTotalImmediateInventoryItemsSold . "</td>";
+            $html .= "<td class='immediate-inventory-items-sold-data text-end' data-location='" . $arrLocation->name . "' data-start-date='" . $startDatePresentable . "' data-end-date='" . $endDatePresentable . "' data-store='" . $strFilterStore . "' data-total-orders='" . $nTotalOrders . "' data-no-status-orders='" . addslashes(implode(', ', $arr_no_status)) . "' data-cancelled-orders='" . addslashes(implode(', ', $arr_cancelled)) . "' data-refunded-orders='" . addslashes(implode(', ', $arr_refunded)) . "' data-preorders='" . addslashes(implode(', ', $arr_preorders)) . "' data-immediate-inventory='" . $nTotalImmediateInventory . "' data-immediate-inventory-items-sold='" . addslashes(implode(', ', $arr_immediate_inventory_items_sold)) . "'>" . $nTotalImmediateInventoryItemsSold . "</td>";
             $html .= "</tr>";
             // }
         }
