@@ -19,6 +19,21 @@ function getQueryParams() {
   return new URLSearchParams(window.location.search);
 }
 
+// Ensure URL-provided location/date always override stored values (highest priority).
+(() => {
+  const initialParams = getQueryParams();
+  const urlLocation = initialParams.get('location');
+  const urlDate = initialParams.get('date');
+
+  if (urlLocation && urlLocation.trim() !== '') {
+    sessionStorage.setItem('location', urlLocation.trim());
+  }
+
+  if (urlDate && urlDate.trim() !== '') {
+    sessionStorage.setItem('date', urlDate.trim());
+  }
+})();
+
 // Disable clicks until the page is fully loaded (bestellen page only)
 if (window.location && window.location.pathname === "/pages/bestellen") {
   (function () {
@@ -229,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Only check time expiration if cart has non-snacks items
     if (isSameDayPreorder && !cartHasOnlySnacks) {
       $.ajax({
-        url: `https://dev.sushi.catering/getLocations/${effectiveLocation}`,
+        url: `https://dev.sushi.catering/getLocations/${encodeURIComponent(effectiveLocation)}`,
         type: "GET",
         async: false,
         cache: true,
@@ -726,6 +741,15 @@ document.addEventListener('DOMContentLoaded', function () {
   if (qp.has('uuid')) {
     localStorage.setItem("uuid", qp.get('uuid'));
   }
+  // Respect location/date passed via shared links before any redirect logic runs.
+  // Without this, /pages/order-menue links that only include ?location=... lose the
+  // location when we bounce the user back to /pages/bestellen to collect missing data.
+  if (qp.has('location')) {
+    sessionStorage.setItem("location", qp.get('location'));
+  }
+  if (qp.has('date')) {
+    sessionStorage.setItem("date", qp.get('date'));
+  }
 
   // Check if required parameters are missing and redirect accordingly
   if (
@@ -734,7 +758,22 @@ document.addEventListener('DOMContentLoaded', function () {
       localStorage.getItem("uuid") == null) &&
     (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart")
   ) {
-    window.location.href = "/pages/bestellen";
+    // Preserve any known location when redirecting so links with ?location keep working.
+    const redirectParams = new URLSearchParams();
+    const redirectLocation =
+      qp.get('location') ||
+      sessionStorage.getItem("location") ||
+      localStorage.getItem("location");
+
+    if (redirectLocation) {
+      redirectParams.set("location", redirectLocation);
+    }
+
+    const redirectUrl = redirectParams.toString()
+      ? `/pages/bestellen?${redirectParams.toString()}`
+      : "/pages/bestellen";
+
+    window.location.href = redirectUrl;
   } else if (window.location.pathname === "/pages/datum") {
     const queryParams = getQueryParams();
     if (queryParams.has('location')) {
@@ -2811,5 +2850,3 @@ class ProductRecommendations extends HTMLElement {
 }
 
 customElements.define("product-recommendations", ProductRecommendations);
-
-
