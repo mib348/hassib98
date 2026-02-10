@@ -19,6 +19,533 @@ function getQueryParams() {
   return new URLSearchParams(window.location.search);
 }
 
+// VPN/Proxy guard: show warning strip and block add-to-cart actions.
+(function initializeVpnCartGuard() {
+  if (window.__vpnCartGuardInitialized) return;
+  window.__vpnCartGuardInitialized = true;
+  window.__vpnGuardBuild = '2026-02-10-v3';
+
+  const CACHE_KEY = 'vpn_detection_cache_v1';
+  const BLOCKED_MESSAGE = 'VPN/Proxy erkannt. Produkte koennen nicht in den Warenkorb gelegt werden.';
+  const BLOCKED_TITLE = 'VPN/Proxy erkannt. Bitte deaktivieren Sie den VPN/Proxy.';
+  const ADD_TO_CART_SELECTOR = [
+    'form[action*="/cart/add"] [type="submit"]',
+    'button[name="add"]',
+    '.product-form__submit',
+    '[data-add-to-cart]',
+    'a[href*="/cart/add"]',
+    '.shopify-payment-button__button',
+    'button[name="plus"]'
+  ].join(', ');
+
+  window.vpnDetectionState = window.vpnDetectionState || {
+    checked: false,
+    blocked: false,
+    isVpn: false,
+    isProxy: false,
+    isTor: false,
+    isRelay: false,
+    isDatacenter: false,
+    heuristicMatch: false,
+    providerSignals: [],
+    source: null,
+    checkedAt: null
+  };
+
+  function parseBooleanFlag(value) {
+    if (value === true || value === 1) return true;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'y';
+    }
+    return false;
+  }
+
+  function getPathFromUrl(url) {
+    if (!url) return '';
+    try {
+      return new URL(url, window.location.origin).pathname.toLowerCase();
+    } catch (error) {
+      return String(url).toLowerCase();
+    }
+  }
+
+  function isCartAddPath(url) {
+    const path = getPathFromUrl(url);
+    return /\/cart\/add(\.js)?$/.test(path);
+  }
+
+  function isCartAddRequest(url) {
+    if (!url) return false;
+    return isCartAddPath(url);
+  }
+
+  function disableAddToCartElements(rootNode) {
+    if (!window.vpnDetectionState || !window.vpnDetectionState.blocked) return;
+    const root = rootNode && rootNode.querySelectorAll ? rootNode : document;
+    const elements = [];
+
+    if (root !== document && root.matches && root.matches(ADD_TO_CART_SELECTOR)) {
+      elements.push(root);
+    }
+
+    root.querySelectorAll(ADD_TO_CART_SELECTOR).forEach((element) => {
+      elements.push(element);
+    });
+
+    elements.forEach((element) => {
+      if (element.getAttribute('data-vpn-cart-disabled') === 'true') return;
+      element.setAttribute('data-vpn-cart-disabled', 'true');
+      element.setAttribute('aria-disabled', 'true');
+      element.setAttribute('title', BLOCKED_TITLE);
+      element.classList.add('vpn-cart-disabled');
+
+      if ('disabled' in element) {
+        element.disabled = true;
+      } else {
+        element.style.pointerEvents = 'none';
+      }
+
+      if (element.tagName === 'A') {
+        element.setAttribute('tabindex', '-1');
+      }
+    });
+  }
+
+  function ensureWarningStyles() {
+    if (document.getElementById('vpn-warning-strip-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'vpn-warning-strip-style';
+    style.textContent = `
+      #vpn-warning-strip {
+        background: #9a1111;
+        color: #ffffff;
+        text-align: center;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.35;
+        position: relative;
+        z-index: 9999;
+      }
+      .vpn-cart-disabled {
+        opacity: 0.55 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureWarningStrip() {
+    if (document.getElementById('vpn-warning-strip')) return;
+    ensureWarningStyles();
+
+    const strip = document.createElement('div');
+    strip.id = 'vpn-warning-strip';
+    strip.setAttribute('role', 'alert');
+    strip.textContent = BLOCKED_MESSAGE;
+
+    const header = document.querySelector('#shopify-section-header, .header-wrapper, header');
+    if (header && header.parentNode) {
+      header.parentNode.insertBefore(strip, header);
+    } else if (document.body) {
+      document.body.insertAdjacentElement('afterbegin', strip);
+    }
+  }
+
+  let observerAttached = false;
+  function attachMutationObserver() {
+    if (observerAttached || !document.documentElement) return;
+    observerAttached = true;
+
+    const observer = new MutationObserver((mutations) => {
+      if (!window.vpnDetectionState || !window.vpnDetectionState.blocked) return;
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType !== 1) return;
+          disableAddToCartElements(node);
+        });
+      });
+    });
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  function dispatchDetectionEvent() {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('vpn-detection-complete', {
+          detail: Object.assign({}, window.vpnDetectionState)
+        })
+      );
+    } catch (error) {
+      console.warn('[VPN Guard] Failed to dispatch detection event', error);
+    }
+  }
+
+  function activateBlockedMode() {
+    ensureWarningStrip();
+    disableAddToCartElements(document);
+    attachMutationObserver();
+  }
+
+  function readCachedState() {
+    return null;
+  }
+
+  function writeCachedState(result) {
+    try {
+      // Avoid stale false negatives when users toggle VPN between page loads.
+      localStorage.removeItem(CACHE_KEY);
+    } catch (error) {
+      // Ignore storage failures
+    }
+  }
+
+  function applyDetectionResult(result, sourceLabel) {
+    const nextState = {
+      checked: true,
+      blocked: !!result.blocked,
+      isVpn: !!result.isVpn,
+      isProxy: !!result.isProxy,
+      isTor: !!result.isTor,
+      isRelay: !!result.isRelay,
+      isDatacenter: !!result.isDatacenter,
+      heuristicMatch: !!result.heuristicMatch,
+      providerSignals: Array.isArray(result.providerSignals) ? result.providerSignals : [],
+      source: sourceLabel || result.source || null,
+      checkedAt: Date.now()
+    };
+
+    window.vpnDetectionState = Object.assign(window.vpnDetectionState || {}, nextState);
+    writeCachedState(window.vpnDetectionState);
+
+    if (window.vpnDetectionState.blocked) {
+      activateBlockedMode();
+    }
+
+    dispatchDetectionEvent();
+    return window.vpnDetectionState;
+  }
+
+  function parseDetectionPayload(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    const security = payload.security || (payload.data && payload.data.security) || {};
+
+    const isVpn = parseBooleanFlag(payload.is_vpn) || parseBooleanFlag(security.is_vpn) || parseBooleanFlag(security.vpn);
+    const isProxy = parseBooleanFlag(payload.is_proxy) || parseBooleanFlag(security.is_proxy) || parseBooleanFlag(security.proxy);
+    const isTor = parseBooleanFlag(payload.is_tor) || parseBooleanFlag(security.is_tor) || parseBooleanFlag(security.tor);
+    const isRelay = parseBooleanFlag(payload.is_relay) || parseBooleanFlag(security.relay);
+    const isDatacenter =
+      parseBooleanFlag(payload.is_datacenter) ||
+      parseBooleanFlag(payload.is_hosting) ||
+      parseBooleanFlag(payload.hosting) ||
+      parseBooleanFlag(payload.datacenter) ||
+      (typeof payload.company?.type === 'string' && payload.company.type.toLowerCase() === 'hosting') ||
+      (typeof payload.asn?.type === 'string' && ['hosting', 'business'].includes(payload.asn.type.toLowerCase()));
+
+    const providerFingerprint = [
+      payload.org,
+      payload.isp,
+      payload.as,
+      payload.company?.name,
+      payload.company?.domain,
+      payload.asn?.org,
+      payload.asn?.descr,
+      payload.asn?.domain
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const vpnProviderPattern = /\b(proton|protonvpn|nordvpn|surfshark|mullvad|expressvpn|cyberghost|private internet access|pia|ipvanish|windscribe|tunnelbear|purevpn|hide\.?me|hidemyass|hma|ivpn|torguard)\b/i;
+    const vpnDatacenterPattern = /\b(m247|datacamp|choopa|vultr|leaseweb|worldstream|ovh|digitalocean|linode|hetzner|contabo|webzilla|serverius|gcore)\b/i;
+
+    const hasVpnProviderKeyword = providerFingerprint !== '' && vpnProviderPattern.test(providerFingerprint);
+    const hasVpnDatacenterKeyword = providerFingerprint !== '' && vpnDatacenterPattern.test(providerFingerprint);
+    const heuristicMatch = hasVpnProviderKeyword || hasVpnDatacenterKeyword || isDatacenter;
+
+    const hasAnySignal =
+      payload.is_vpn != null ||
+      payload.is_proxy != null ||
+      payload.is_tor != null ||
+      payload.is_relay != null ||
+      payload.is_datacenter != null ||
+      payload.hosting != null ||
+      payload.datacenter != null ||
+      security.is_vpn != null ||
+      security.is_proxy != null ||
+      security.is_tor != null ||
+      security.vpn != null ||
+      security.proxy != null ||
+      security.tor != null ||
+      security.relay != null ||
+      providerFingerprint !== '';
+
+    if (!hasAnySignal) return null;
+
+    return {
+      blocked: isVpn || isProxy || isTor || isRelay || heuristicMatch,
+      isVpn,
+      isProxy,
+      isTor,
+      isRelay,
+      isDatacenter,
+      heuristicMatch
+    };
+  }
+
+  function fetchJsonWithTimeout(url, timeoutMs) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeout = setTimeout(() => {
+      if (controller) controller.abort();
+    }, timeoutMs);
+
+    return fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'omit',
+      headers: {
+        Accept: 'application/json'
+      },
+      signal: controller ? controller.signal : undefined
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+      });
+  }
+
+  let detectionPromise = null;
+  function runVpnDetection() {
+    if (detectionPromise) return detectionPromise;
+
+    detectionPromise = (async () => {
+      const cached = readCachedState();
+      if (cached) {
+        window.vpnDetectionState = Object.assign(window.vpnDetectionState || {}, cached, {
+          source: `${cached.source || 'cache'} (cache)`
+        });
+        if (window.vpnDetectionState.blocked) {
+          activateBlockedMode();
+        }
+        dispatchDetectionEvent();
+        return window.vpnDetectionState;
+      }
+
+      const providers = [
+        { name: 'ipapi.is', url: 'https://api.ipapi.is/?output=json', timeoutMs: 4000 },
+        { name: 'ipwho.is', url: 'https://ipwho.is/?output=json&security=1', timeoutMs: 2500 },
+        { name: 'ipwhois.app', url: 'https://ipwhois.app/json/', timeoutMs: 2500 }
+      ];
+
+      const checks = await Promise.all(
+        providers.map(async (provider) => {
+          try {
+            const payload = await fetchJsonWithTimeout(provider.url, provider.timeoutMs);
+            const parsed = parseDetectionPayload(payload);
+            if (!parsed) return null;
+            return {
+              provider: provider.name,
+              parsed
+            };
+          } catch (error) {
+            console.warn(`[VPN Guard] ${provider.name} detection failed`, error);
+            return null;
+          }
+        })
+      );
+
+      const parsedResults = checks.filter(Boolean);
+
+      if (parsedResults.length > 0) {
+        const merged = parsedResults.reduce(
+          (acc, item) => {
+            acc.blocked = acc.blocked || !!item.parsed.blocked;
+            acc.isVpn = acc.isVpn || !!item.parsed.isVpn;
+            acc.isProxy = acc.isProxy || !!item.parsed.isProxy;
+            acc.isTor = acc.isTor || !!item.parsed.isTor;
+            acc.isRelay = acc.isRelay || !!item.parsed.isRelay;
+            acc.isDatacenter = acc.isDatacenter || !!item.parsed.isDatacenter;
+            acc.heuristicMatch = acc.heuristicMatch || !!item.parsed.heuristicMatch;
+            return acc;
+          },
+          {
+            blocked: false,
+            isVpn: false,
+            isProxy: false,
+            isTor: false,
+            isRelay: false,
+            isDatacenter: false,
+            heuristicMatch: false
+          }
+        );
+
+        merged.providerSignals = parsedResults.map((item) => ({
+          provider: item.provider,
+          blocked: item.parsed.blocked,
+          isVpn: item.parsed.isVpn,
+          isProxy: item.parsed.isProxy,
+          isTor: item.parsed.isTor,
+          isRelay: item.parsed.isRelay,
+          isDatacenter: item.parsed.isDatacenter,
+          heuristicMatch: item.parsed.heuristicMatch
+        }));
+
+        applyDetectionResult(merged, parsedResults.map((item) => item.provider).join(', '));
+        console.log('[VPN Guard] Detection result:', window.vpnDetectionState);
+        return window.vpnDetectionState;
+      }
+
+      // Fail open when providers are unavailable.
+      applyDetectionResult(
+        {
+          blocked: false,
+          isVpn: false,
+          isProxy: false,
+          isTor: false,
+          isRelay: false,
+          isDatacenter: false,
+          heuristicMatch: false,
+          providerSignals: []
+        },
+        'unavailable'
+      );
+      return window.vpnDetectionState;
+    })();
+
+    return detectionPromise;
+  }
+
+  function installFetchGuard() {
+    if (!window.fetch || window.__vpnFetchGuardInstalled) return;
+    window.__vpnFetchGuardInstalled = true;
+
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function (resource, init) {
+      try {
+        const requestUrl =
+          typeof resource === 'string'
+            ? resource
+            : resource && resource.url
+              ? resource.url
+              : '';
+
+        if (window.vpnDetectionState && window.vpnDetectionState.blocked && isCartAddRequest(requestUrl)) {
+          console.warn('[VPN Guard] Blocked fetch add-to-cart request:', requestUrl);
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                status: 'blocked',
+                message: BLOCKED_MESSAGE
+              }),
+              {
+                status: 403,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            )
+          );
+        }
+      } catch (error) {
+        console.warn('[VPN Guard] Fetch guard error', error);
+      }
+
+      return originalFetch(resource, init);
+    };
+  }
+
+  function installXhrGuard() {
+    if (!window.XMLHttpRequest || window.__vpnXhrGuardInstalled) return;
+    window.__vpnXhrGuardInstalled = true;
+
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function (method, url) {
+      this.__vpnGuardUrl = url;
+      return originalOpen.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.send = function () {
+      if (window.vpnDetectionState && window.vpnDetectionState.blocked && isCartAddRequest(this.__vpnGuardUrl)) {
+        console.warn('[VPN Guard] Blocked XHR add-to-cart request:', this.__vpnGuardUrl);
+        this.abort();
+        return;
+      }
+      return originalSend.apply(this, arguments);
+    };
+  }
+
+  function installDomSubmitGuard() {
+    if (window.__vpnSubmitGuardInstalled) return;
+    window.__vpnSubmitGuardInstalled = true;
+
+    document.addEventListener(
+      'submit',
+      function (event) {
+        if (!window.vpnDetectionState || !window.vpnDetectionState.blocked) return;
+        const form = event.target;
+        if (!form || form.nodeName !== 'FORM') return;
+        const action = form.getAttribute('action') || '';
+        if (isCartAddRequest(action)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          event.stopPropagation();
+        }
+      },
+      true
+    );
+  }
+
+  function installDomClickGuard() {
+    if (window.__vpnClickGuardInstalled) return;
+    window.__vpnClickGuardInstalled = true;
+
+    document.addEventListener(
+      'click',
+      function (event) {
+        if (!window.vpnDetectionState || !window.vpnDetectionState.blocked) return;
+        const trigger = event.target && event.target.closest ? event.target.closest(ADD_TO_CART_SELECTOR) : null;
+        if (!trigger) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+      },
+      true
+    );
+  }
+
+  window.runVpnDetection = runVpnDetection;
+  window.isVpnCartBlocked = function () {
+    return !!(window.vpnDetectionState && window.vpnDetectionState.blocked);
+  };
+  window.debugVpnDetection = async function () {
+    detectionPromise = null;
+    try {
+      localStorage.removeItem(CACHE_KEY);
+    } catch (error) {
+      // Ignore storage failures
+    }
+    return runVpnDetection();
+  };
+
+  installFetchGuard();
+  installXhrGuard();
+  installDomSubmitGuard();
+  installDomClickGuard();
+
+  runVpnDetection().catch((error) => {
+    console.warn('[VPN Guard] Unexpected detection error', error);
+  });
+})();
+
 // Ensure URL-provided location/date always override stored values (highest priority).
 (() => {
   const initialParams = getQueryParams();
