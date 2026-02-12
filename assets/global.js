@@ -683,6 +683,9 @@ document.addEventListener('DOMContentLoaded', function () {
         element.style.display = 'none';
       });
 
+      // Capture location before clearing
+      const currentLocation = queryParams.get('location') || sessionStorage.getItem('location');
+
       // Clear session storage to avoid adding different dates against the products to the cart.
       sessionStorage.clear();
       $.ajax({
@@ -697,9 +700,15 @@ document.addEventListener('DOMContentLoaded', function () {
         },
       });
 
+      // Build new URL
+      let bestellenUrl = "/pages/bestellen";
+      if (currentLocation) {
+        bestellenUrl += "?location=" + encodeURIComponent(currentLocation);
+      }
+
       // Update the innerHTML of the button elements
       buttonElements.forEach(function (element) {
-        element.innerHTML = '<a class="product-form__submit button button--full-width button--primary" href="/pages/bestellen">Bitte bestellen Sie hier</a>';
+        element.innerHTML = '<a class="product-form__submit button button--full-width button--primary" href="' + bestellenUrl + '">Bitte bestellen Sie hier</a>';
       });
     } else {
       // Console log the parameters if they exist
@@ -794,6 +803,7 @@ function updateLocationBar() {
   if (strLocation || strDate) {
     // Make sure the location bar exists before trying to update it.
     if ($(".location_bar").length > 0) {
+      $(".location_bar").css("display", "block");
       $(".location_bar_text").html(`&nbsp;${strLocation}&nbsp;${strDate}`);
     }
   } else {
