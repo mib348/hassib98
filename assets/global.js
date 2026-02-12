@@ -1349,6 +1349,7 @@ function updateLocationBar() {
   if (strLocation || strDate) {
     // Make sure the location bar exists before trying to update it.
     if ($(".location_bar").length > 0) {
+      $(".location_bar").css("display", "block");
       $(".location_bar_text").html(`&nbsp;${strLocation}&nbsp;${strDate}`);
     }
   } else {
