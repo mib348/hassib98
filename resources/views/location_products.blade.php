@@ -268,6 +268,24 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/js/solid.min.js" integrity="sha512-L2znesU64H/rvdnaD4WBaRAmEcGvhBsVLXygPkhpgpUwcgjymD4amy68shdgZgLiIvyvV/vHRXAM4mTV8xqp+Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script type="text/javascript">
         $(function(){
+            const resolveAjaxErrorMessage = window.getAjaxErrorMessage || function(xhr, fallbackMessage) {
+                const response = xhr && xhr.responseJSON ? xhr.responseJSON : null;
+
+                if (response && response.message) {
+                    return response.message;
+                }
+
+                if (response && response.error) {
+                    return response.error;
+                }
+
+                if (xhr && xhr.statusText) {
+                    return xhr.statusText;
+                }
+
+                return fallbackMessage;
+            };
+
             $(document).on('change', '#strFilterLocation', function(e){
                 LoadList(); // Load data for both inventory types
             });
@@ -436,8 +454,9 @@
                         $(".remove-product-btn").attr('disabled', false);
                     },
                     error: function(error) {
-                        console.error(`Error saving ${inventoryType} Data for ${day}:`, error);
-                        alert(`Error saving ${inventoryType} Data for ${day}`);
+                        const errorMessage = resolveAjaxErrorMessage(error, `Unable to save ${inventoryType} data for ${day}.`);
+                        console.error(`Error saving ${inventoryType} Data for ${day}:`, errorMessage, error);
+                        alert(`Error saving ${inventoryType} Data for ${day}: ` + errorMessage);
 
                         // Hide the loading icon on error as well
                         $(`.loading-icon[data-day="${day}"][data-inventory-type="${inventoryType}"]`).removeClass('show');
@@ -515,8 +534,9 @@
                         $(".remove-product-btn").attr('disabled', false);
                     },
                     error: function(error) {
-                        console.error(`Error saving ${inventoryType} Data for all days:`, error.responseJSON.message);
-                        alert(`Error saving ${inventoryType} Data for all days: ` + error.responseJSON.message);
+                        const errorMessage = resolveAjaxErrorMessage(error, `Unable to save ${inventoryType} data for all days.`);
+                        console.error(`Error saving ${inventoryType} Data for all days:`, errorMessage, error);
+                        alert(`Error saving ${inventoryType} Data for all days: ` + errorMessage);
 
                         // Hide the loading icon on error as well
 
@@ -597,8 +617,9 @@
 
                     },
                     error: function(error) {
-                        console.error(`Error importing ${inventoryType} Data for all days:`, error);
-                        alert(`Error importing ${inventoryType} Data for all days`);
+                        const errorMessage = resolveAjaxErrorMessage(error, `Unable to import ${inventoryType} data for all days.`);
+                        console.error(`Error importing ${inventoryType} Data for all days:`, errorMessage, error);
+                        alert(`Error importing ${inventoryType} Data for all days: ` + errorMessage);
 
                         // Hide the loading icon on error as well
                         $(`.loading-icon[data-inventory-type="${inventoryType}"]`).removeClass('show');
@@ -652,8 +673,9 @@
                         }
                     },
                     error: function (request, status, error) {
-                        console.error('Error fetching data:', error);
-                        alert("An error occurred while loading data.");
+                        const errorMessage = resolveAjaxErrorMessage(request, "An error occurred while loading data.");
+                        console.error('Error fetching data:', errorMessage, request);
+                        alert(errorMessage);
                     }
                 });
             }
@@ -733,7 +755,14 @@
 
 
             // Load data for both inventory types initially
-            LoadList();
+            if (typeof window.waitForShopifySessionToken === 'function') {
+                window.waitForShopifySessionToken(function() {
+                    LoadList();
+                });
+            } else {
+                // Fallback for safety if shared helper is unavailable for any reason.
+                LoadList();
+            }
         });
     </script>
 @endsection

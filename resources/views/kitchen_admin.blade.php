@@ -64,6 +64,7 @@
     <s-button slot="secondary-actions" onclick="navigateToPage('/drivers/ADMIN?menu=1')">Drivers</s-button>
     <s-button slot="secondary-actions" onclick="navigateToPage('/orders')">Location Order Overview</s-button>
     <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button>
+    <s-button slot="secondary-actions" onclick="navigateToPage('/order_details_for_rpi/ADMIN?menu=1')">RPI Order Details</s-button>
 </s-page>
 
 <div class="container-fluid p-2">

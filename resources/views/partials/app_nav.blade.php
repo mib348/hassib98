@@ -16,4 +16,5 @@
     <s-link href="/kitchen/ADMIN?menu=1">Kitchen</s-link>
     <s-link href="/drivers/ADMIN?menu=1">Drivers</s-link>
     <s-link href="/home_delivery">Home Delivery Overview</s-link>
+    <s-link href="/order_details_for_rpi/ADMIN?menu=1">RPI Order Details</s-link>
 </s-app-nav>
