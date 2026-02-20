@@ -137,6 +137,47 @@ if (window.location && window.location.pathname === "/pages/bestellen") {
 document.addEventListener('DOMContentLoaded', function () {
   console.log('[Cart Manager] Page loaded:', window.location.pathname);
 
+  // Validate cart items against current location
+  const validateCartLocation = () => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const urlLocation = queryParams.get('location');
+    const sessionLocation = sessionStorage.getItem('location');
+    const currentLocation = urlLocation || sessionLocation;
+
+    if (!currentLocation) return;
+
+    $.ajax({
+      type: "GET",
+      url: window.Shopify.routes.root + "cart.js",
+      dataType: "json",
+      success: function(cart) {
+        if (cart.item_count === 0) return;
+
+        const mismatch = cart.items.some(item => {
+          // Check if item has a location property and if it differs from current location
+          return item.properties && item.properties.location && item.properties.location !== currentLocation;
+        });
+
+        if (mismatch) {
+          console.warn('[Cart Manager] Location mismatch detected. Cart has items from different location. Clearing cart.');
+          $.ajax({
+            type: "POST",
+            url: window.Shopify.routes.root + "cart/clear.js",
+            dataType: "json",
+            success: function() {
+              console.log('[Cart Manager] Cart cleared due to location mismatch');
+              // Optionally reload to reflect empty cart
+              window.location.reload();
+            }
+          });
+        }
+      }
+    });
+  };
+
+  // Run validation on load
+  validateCartLocation();
+
   // Define critical paths that need cart preservation
   const CRITICAL_PATHS = ['/pages/order-menue', '/cart', '/checkout'];
   const currentPath = window.location.pathname;
@@ -221,6 +262,46 @@ document.addEventListener('DOMContentLoaded', function () {
     const effectiveImmediate = (immediate_inventory != null) ? immediate_inventory : sessionStorage.getItem("immediate_inventory");
     const isSameDayPreorder = effectiveImmediate === "N" && !!effectiveDate && effectiveDate === getFormattedDate();
     let shouldPreventCheckout = false;
+
+    // Validate location consistency
+    if (effectiveLocation) {
+      let locationMismatch = false;
+      $.ajax({
+        type: "GET",
+        url: window.Shopify.routes.root + "cart.js",
+        async: false,
+        dataType: "json",
+        success: function (cartData) {
+          if (cartData.items.length > 0) {
+            locationMismatch = cartData.items.some(item => {
+              // Check if item has a location property and if it differs from current location
+              // Note: item.properties values are strings
+              return item.properties && item.properties.location && item.properties.location !== effectiveLocation;
+            });
+            if (locationMismatch) {
+               console.warn('[Cart Manager] Checkout blocked: Location mismatch detected.', {
+                   cartLocation: cartData.items[0].properties.location,
+                   effectiveLocation: effectiveLocation
+               });
+            }
+          }
+        }
+      });
+
+      if (locationMismatch) {
+        alert("Ihr Warenkorb enthält Artikel von einem anderen Standort. Der Warenkorb wird aktualisiert.");
+        $.ajax({
+          type: "POST",
+          url: window.Shopify.routes.root + "cart/clear.js",
+          async: false,
+          dataType: "json",
+          success: function () {
+            window.location.reload();
+          }
+        });
+        return;
+      }
+    }
 
     // First, get the cart to check if it contains only snacks_and_drinks items
     let cartHasOnlySnacks = false;

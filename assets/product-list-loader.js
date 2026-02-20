@@ -139,6 +139,27 @@
     var currentParams = new URLSearchParams(window.location.search || '');
 
     // Merge missing params from sessionStorage (and uuid from localStorage)
+    // CRITICAL FIX: If location is in URL, update sessionStorage IMMEDIATELY.
+    // This is required because this script runs before global.js (which has defer),
+    // so we must ensure sessionStorage is consistent with the URL for this page load.
+    var urlLocation = currentParams.get('location');
+    if (urlLocation && urlLocation.trim() !== '') {
+      try {
+        sessionStorage.setItem('location', urlLocation.trim());
+        console.log('[PF Loader] Updated sessionStorage location from URL:', urlLocation);
+      } catch (e) {
+        console.error('[PF Loader] Failed to update sessionStorage:', e);
+      }
+    } else {
+        // If NO location in URL, check sessionStorage immediately
+        var sessionLoc = sessionStorage.getItem('location');
+        if (sessionLoc) {
+             console.log('[PF Loader] No location in URL, using sessionStorage:', sessionLoc);
+        } else {
+             console.log('[PF Loader] No location in URL or sessionStorage');
+        }
+    }
+
     requiredKeys.forEach(function (key) {
       if (!currentParams.has(key)) {
         var value = null;
