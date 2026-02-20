@@ -13,6 +13,7 @@ use App\Http\Controllers\OperationDaysController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\KitchenController;
+use App\Http\Controllers\OrderDetailsForRpiController;
 use App\Http\Controllers\PersonalNotepadController;
 use App\Http\Controllers\StoresController;
 use App\Livewire\Stores\StoresList;
@@ -47,6 +48,10 @@ use Illuminate\Support\Facades\Route;
     Route::resource('drivers', DriverController::class);
     Route::resource('drivers_additional', DriverAdditionalController::class);
 
+    // RPI Order Details — public UUID-based routes (same pattern as kitchen/drivers)
+    Route::get('/order_details_for_rpi/{uuid}', [OrderDetailsForRpiController::class, 'display'])->name('order_details_for_rpi.display');
+    Route::resource('order_details_for_rpi', OrderDetailsForRpiController::class);
+
     Route::post('/delivery/fulfilled/{order_id}', [DeliveryController::class, 'MarkAsDelivered'])->name('delivery.MarkAsDelivered');
     Route::resource('delivery', DeliveryController::class);
 
@@ -61,6 +66,14 @@ Route::get('/queue/stop', [ArtisanController::class, 'queue_stop']);
 Route::get('/queue/clear', [ArtisanController::class, 'queue_clear']);
 Route::get('/queue/retry', [ArtisanController::class, 'queue_retry']);
 
+// Public routes — called by storefront JS (no Shopify session token available),
+// these methods have their own Auth::user() fallback to User::find(env('db_shop_id', 1))
+Route::get('/getLocations/{location?}', [ShopifyController::class, 'getLocations'])->name('getLocations');
+Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelectedDate'])->name('updateSelectedDate');
+Route::any('/deliverySelectedDate/{date}', [ShopifyController::class, 'deliverySelectedDate'])->name('deliverySelectedDate');
+Route::get('/getImmediateInventoryByLocation/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocation'])->name('getImmediateInventoryByLocation');
+Route::get('/getImmediateInventoryByLocationForYesterday/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocationForYesterday'])->name('getImmediateInventoryByLocationForYesterday');
+
 Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/', [ShopifyController::class, 'index'])->name('home');
     Route::get('/metafields', [ShopifyController::class, 'getMetafields'])->name('metafields');
@@ -71,12 +84,9 @@ Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/setWebhooks', [ShopifyController::class, 'setWebhooks'])->name('setWebhooks');
     Route::get('/testmail', [ShopifyController::class, 'testmail'])->name('testmail');
     Route::get('/getTheme', [ShopifyController::class, 'getTheme'])->name('getTheme');
-    Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelectedDate'])->name('updateSelectedDate');
-    Route::any('/deliverySelectedDate/{date}', [ShopifyController::class, 'deliverySelectedDate'])->name('deliverySelectedDate');
     Route::resource('shopify', ShopifyController::class);
 
     // locations
-    Route::get('/getLocations/{location?}', [ShopifyController::class, 'getLocations'])->name('getLocations');
     Route::get('/getLocationsTextList', [LocationsTextController::class, 'getLocationsTextList'])->name('getLocationsTextList');
     Route::post('/locations_text/addLocation', [LocationsTextController::class, 'addLocation'])->name('locations_text.addLocation');
     // Excel export route — must be before the resource route so /export/excel isn't caught by {locations_text}
@@ -113,9 +123,6 @@ Route::middleware(['verify.shopify'])->group(function () {
 
     // personal notepad
     Route::resource('personal_notepad', PersonalNotepadController::class);
-
-    Route::get('/getImmediateInventoryByLocation/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocation'])->name('getImmediateInventoryByLocation');
-    Route::get('/getImmediateInventoryByLocationForYesterday/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocationForYesterday'])->name('getImmediateInventoryByLocationForYesterday');
 
     // store
     Route::get('/getStoresList', [StoresList::class, 'getStoresList'])->name('getStoresList');
