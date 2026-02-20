@@ -3,6 +3,7 @@
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\LoyaltyController;
+use App\Http\Controllers\OrderDetailsForRpiController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\TokenController;
 use Illuminate\Http\Request;
@@ -47,6 +48,13 @@ Route::middleware('auth:sanctum')->resource('/order/fulfillment', FulfillmentCon
 Route::middleware('auth:sanctum')->post('/generate-token', [TokenController::class, 'generateToken']);
 Route::post('/contact-handler', [ContactController::class, 'store'])
     ->name('contact.store');
+
+// RPI Order Details — endpoints for Raspberry Pi devices to POST/GET/PUT pickup data
+Route::get('/order_details_for_rpi', [OrderDetailsForRpiController::class, 'apiIndex']);
+Route::post('/order_details_for_rpi', [OrderDetailsForRpiController::class, 'apiStore']);
+Route::put('/order_details_for_rpi', [OrderDetailsForRpiController::class, 'apiUpdate']);
+Route::patch('/order_details_for_rpi', [OrderDetailsForRpiController::class, 'apiUpdate']);
+Route::get('/order_details_for_rpi/{id}', [OrderDetailsForRpiController::class, 'apiShow']);
 
 
 

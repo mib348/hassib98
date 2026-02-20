@@ -79,4 +79,38 @@ class ShopifyBladeTemplateTest extends TestCase
             'Bootstrap CSS does not contain expected class definitions.'
         );
     }
+
+    /**
+     * Regression test for embedded navigation loads where Shopify sends a session token
+     * but there is no authenticated Laravel user yet.
+     */
+    public function test_shopify_layout_renders_with_token_when_auth_user_is_null()
+    {
+        $token = $this->buildUnsignedJwt([
+            'dest' => 'https://sushi2024.myshopify.com',
+            'iss' => 'https://sushi2024.myshopify.com/admin',
+        ]);
+
+        $request = Request::create('/', 'GET', ['token' => $token, 'menu' => 1]);
+        $this->app->instance('request', $request);
+
+        // The layout must render without touching Auth::user()->name.
+        Auth::shouldReceive('user')->never();
+
+        $content = View::make('shopify-app::layouts.default')->render();
+
+        $this->assertStringContainsString('name="shopify-api-key"', $content);
+    }
+
+    private function buildUnsignedJwt(array $payload): string
+    {
+        $header = ['alg' => 'HS256', 'typ' => 'JWT'];
+
+        return $this->base64UrlEncode($header).'.'.$this->base64UrlEncode($payload).'.signature';
+    }
+
+    private function base64UrlEncode(array $data): string
+    {
+        return rtrim(strtr(base64_encode((string) json_encode($data)), '+/', '-_'), '=');
+    }
 }
