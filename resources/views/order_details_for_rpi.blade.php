@@ -34,7 +34,8 @@
     <s-button slot="secondary-actions" onclick="navigateToPage('/locations_revenue')">Locations Revenue</s-button>
     <s-button slot="secondary-actions" onclick="navigateToPage('/locations_text')">Location Settings</s-button>
     <s-button slot="secondary-actions" onclick="navigateToPage('/orders')">Location Order Overview</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button>
+    {{-- Temporarily hidden --}}
+    {{-- <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button> --}}
 </s-page>
 @endif
 
