@@ -9,9 +9,9 @@
  */
 {
   "current": {
-    "logo": "shopify://shop_images/Gruppe_4437.png",
-    "logo_width": 110,
-    "favicon": "shopify://shop_images/klein-icon.png",
+    "logo": "shopify://shop_images/sushi.catering.png",
+    "logo_width": 150,
+    "favicon": "shopify://shop_images/sushi-catering-icon.png",
     "type_header_font": "mono",
     "heading_scale": 100,
     "type_body_font": "assistant_n4",
@@ -153,6 +153,11 @@
     "blocks": {
       "16278478101612877664": {
         "type": "shopify://apps/pagefly-page-builder/blocks/app-embed/83e179f7-59a0-4589-8c66-c0dddf959200",
+        "disabled": false,
+        "settings": {}
+      },
+      "consentmo-gdpr-4fbe573f-a377-4fea-9801-3ee0858cae41": {
+        "type": "shopify://apps/consentmo-gdpr/blocks/gdpr_cookie_consent/4fbe573f-a377-4fea-9801-3ee0858cae41",
         "disabled": false,
         "settings": {}
       }
