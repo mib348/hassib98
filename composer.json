@@ -20,6 +20,7 @@
         "mailchimp/marketing": "^3.0",
         "mailchimp/transactional": "^1.0",
         "opcodesio/log-viewer": "^3.4",
+        "php-mqtt/laravel-client": "^1.7",
         "phpoffice/phpspreadsheet": "^5.4",
         "simplesoftwareio/simple-qrcode": "~4"
     },

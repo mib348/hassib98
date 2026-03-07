@@ -1,0 +1,147 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "8883:8883"   # MQTT over TLS (production)
+      - "1883:1883"   # Plain MQTT (temporary/migration)
+      - "9001:9001"   # MQTT over WebSocket (WS)
+      - "9002:9002"   # MQTT over Secure WebSocket (WSS)
+    environment:
+      # Use one shared credential source for all services.
+      MQTT_USER: ${MQTT_USER:-mqtt_12342026}
+      MQTT_PASS: ${MQTT_PASSWORD:-mqtt_12342026}
+      # aaPanel cert defaults. Change only if your cert file names differ.
+      MQTT_TLS_CERT_FILE: /tls/fullchain.pem
+      MQTT_TLS_KEY_FILE: /tls/privkey.pem
+    volumes:
+      - mosquitto_config:/mosquitto/config
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - /www/server/panel/vhost/cert/app.sushi.catering:/tls:ro
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        set -eu
+
+        [ -n "$$MQTT_USER" ] || { echo "ERROR: MQTT_USER is required"; exit 1; }
+        [ -n "$$MQTT_PASS" ] || { echo "ERROR: MQTT_PASS is required"; exit 1; }
+        [ -n "$$MQTT_TLS_CERT_FILE" ] || { echo "ERROR: MQTT_TLS_CERT_FILE is required"; exit 1; }
+        [ -n "$$MQTT_TLS_KEY_FILE" ] || { echo "ERROR: MQTT_TLS_KEY_FILE is required"; exit 1; }
+
+        if [ ! -s "$$MQTT_TLS_CERT_FILE" ]; then
+          echo "ERROR: TLS cert file not found or empty: $$MQTT_TLS_CERT_FILE"
+          echo "Check aaPanel cert mount: /www/server/panel/vhost/cert/app.sushi.catering:/tls:ro"
+          exit 1
+        fi
+
+        if [ ! -s "$$MQTT_TLS_KEY_FILE" ]; then
+          echo "ERROR: TLS key file not found or empty: $$MQTT_TLS_KEY_FILE"
+          echo "Check aaPanel cert mount: /www/server/panel/vhost/cert/app.sushi.catering:/tls:ro"
+          exit 1
+        fi
+
+        mkdir -p /mosquitto/config /mosquitto/data /mosquitto/log
+        touch /mosquitto/log/mosquitto.log
+        chown -R mosquitto:mosquitto /mosquitto/data /mosquitto/log
+        chmod 750 /mosquitto/data /mosquitto/log
+        chmod 640 /mosquitto/log/mosquitto.log
+
+        # Copy TLS files into Mosquitto config path with stable permissions.
+        install -m 644 "$$MQTT_TLS_CERT_FILE" /mosquitto/config/server.crt
+        install -m 640 "$$MQTT_TLS_KEY_FILE" /mosquitto/config/server.key
+        chown mosquitto:mosquitto /mosquitto/config/server.crt /mosquitto/config/server.key
+
+        # Always recreate password file from scratch every boot.
+        # Avoids known Mosquitto 2.x bug where appended/updated passwords
+        # produce incompatible hashes (eclipse-mosquitto #1953).
+        # Using -c (create) flag ensures a fresh, working password file.
+        mosquitto_passwd -b -c /mosquitto/config/passwd "$$MQTT_USER" "$$MQTT_PASS"
+
+        # Always regenerate broker config so stale volume state cannot override TLS listeners.
+        # Using printf to avoid any heredoc indentation issues inside YAML block scalars.
+        printf '%s\n' \
+          "persistence true" \
+          "persistence_location /mosquitto/data/" \
+          "autosave_interval 30" \
+          "log_dest stdout" \
+          "log_dest file /mosquitto/log/mosquitto.log" \
+          "log_timestamp true" \
+          "log_type error" \
+          "log_type warning" \
+          "log_type notice" \
+          "log_type information" \
+          "" \
+          "allow_anonymous false" \
+          "password_file /mosquitto/config/passwd" \
+          "" \
+          "listener 8883" \
+          "protocol mqtt" \
+          "certfile /mosquitto/config/server.crt" \
+          "keyfile /mosquitto/config/server.key" \
+          "tls_version tlsv1.2" \
+          "" \
+          "listener 1883" \
+          "protocol mqtt" \
+          "" \
+          "listener 9001" \
+          "protocol websockets" \
+          "" \
+          "listener 9002" \
+          "protocol websockets" \
+          "certfile /mosquitto/config/server.crt" \
+          "keyfile /mosquitto/config/server.key" \
+          "tls_version tlsv1.2" \
+          > /mosquitto/config/mosquitto.conf
+
+        # In this container flow, keep passwd readable by the mosquitto runtime user.
+        chown mosquitto:mosquitto /mosquitto/config/passwd
+        chmod 600 /mosquitto/config/passwd
+        exec mosquitto -c /mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pidof mosquitto >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  mqtt-web-client:
+    image: nodered/node-red:latest
+    container_name: mqtt-web-client
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    ports:
+      - "8884:1880"   # Node-RED web UI
+    volumes:
+      - node_red_data:/data
+
+  mqttui:
+    image: terdia07/mqttui:v1.3.2
+    container_name: mqttui
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    environment:
+      MQTT_BROKER: mosquitto
+      MQTT_PORT: 1883
+      # Reuse the exact same credentials used by the broker service.
+      MQTT_USERNAME: ${MQTT_USER:-mqtt_12342026}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-mqtt_12342026}
+      MQTT_TOPICS: "#"
+    ports:
+      - "8885:5000"   # MQTT Web UI
+
+volumes:
+  mosquitto_config:
+  mosquitto_data:
+  mosquitto_log:
+  node_red_data:
