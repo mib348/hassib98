@@ -80,12 +80,36 @@ class OrdersController extends Controller
     {
         $html = '';
 
-        // Calculate the date range once
-        $startDate = date('Y-m-d', strtotime('-14 days'));
-        $endDate = date('Y-m-d', strtotime('+7 days'));
+        // =====================================================================
+        // DATE RANGE: use custom range from daterangepicker if provided,
+        // otherwise fall back to the default -14 days / +7 days window.
+        // The front-end sends dates in DD.MM.YYYY (German) format, matching
+        // the pattern used in LocationRevenueController.
+        // =====================================================================
+        $strFilterFromDate = $request->input('strFilterFromDate');
+        $strFilterToDate = $request->input('strFilterToDate');
+
+        if (! empty($strFilterFromDate) && ! empty($strFilterToDate)) {
+            // Convert the picker's DD.MM.YYYY strings into Y-m-d for DB queries
+            $startDate = Carbon::createFromFormat('d.m.Y', $strFilterFromDate, 'Europe/Berlin')->format('Y-m-d');
+            $endDate = Carbon::createFromFormat('d.m.Y', $strFilterToDate, 'Europe/Berlin')->format('Y-m-d');
+        } else {
+            // Default: 14 days in the past through 7 days into the future
+            $startDate = date('Y-m-d', strtotime('-14 days'));
+            $endDate = date('Y-m-d', strtotime('+7 days'));
+        }
+
+        // Build the $dates array dynamically from the resolved start/end dates.
+        // Each entry is keyed by a sequential index and holds 'dd.mm.YYYY' strings
+        // that the rest of the method (row rendering, inventory lookup) depends on.
         $dates = [];
-        for ($i = -14; $i <= 7; $i++) {
-            $dates[$i] = date('d.m.Y', strtotime("$i day"));
+        $current = Carbon::parse($startDate, 'Europe/Berlin');
+        $end = Carbon::parse($endDate, 'Europe/Berlin');
+        $index = 0;
+        while ($current->lte($end)) {
+            $dates[$index] = $current->format('d.m.Y');
+            $current->addDay();
+            $index++;
         }
 
         $strFilterLocation = $request->input('strFilterLocation');
@@ -135,9 +159,11 @@ class OrdersController extends Controller
         $batchedImmediateInventory = $this->formatImmediateInventoryForOrdersView($locationsToProcess, $dates);
         // dd($locationsToProcess, $batchedImmediateInventory);
 
-        for ($i = -14; $i <= 7; $i++) {
-            $date = $dates[$i];
-            $currentDateFormattedForLookup = date('Y-m-d', strtotime("$i day")); // Used for fetching orders and images
+        // Iterate over the dynamically built dates array (works for both
+        // the default 21-day window and any custom date range from the picker)
+        foreach ($dates as $dateIndex => $date) {
+            // Convert the dd.mm.YYYY display string back to Y-m-d for DB lookups
+            $currentDateFormattedForLookup = Carbon::createFromFormat('d.m.Y', $date, 'Europe/Berlin')->format('Y-m-d');
             $ordersForDate = $orders->get($currentDateFormattedForLookup, collect());
 
             $html .= '<tr>';

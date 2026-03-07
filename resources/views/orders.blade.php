@@ -3,6 +3,7 @@
 @section('styles')
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/fontawesome.min.css" integrity="sha512-v8QQ0YQ3H4K6Ic3PJkym91KoeNT5S3PnDKvqnwqFD1oiqIl653crGZplPdU5KKtHjO0QKcQ2aUlQZYjHczkmGw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/solid.min.css" integrity="sha512-DzC7h7+bDlpXPDQsX/0fShhf1dLxXlHuhPBkBo/5wJWRoTU6YL7moeiNoej6q3wh5ti78C57Tu1JwTNlcgHSjg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css" />
 <style>
     .order_counter, .items_created_counter, .items_counter, .view_images{cursor: pointer;}
     /* Lightbox styles */
@@ -148,7 +149,10 @@
     </div> --}}
     <div class="row">
         <div class="col-md-12">
-            Location
+    <div class="row g-3 mb-3">
+        {{-- Location filter dropdown - filters orders by a specific store location --}}
+        <div class="col-12 col-md-6 col-lg-3">
+            <label for="strFilterLocation" class="form-label fw-bold">Location</label>
             <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                 <option value="" selected>--- Select Location ---</option>
                 @foreach($locations as $location)
@@ -158,7 +162,16 @@
                 <option value="{{ $location }}">{{ $location }}</option>
                 @endforeach
             </select>
-            <br>
+        </div>
+        {{-- Date range picker - allows querying any date range instead of the default 21-day window --}}
+        <div class="col-12 col-md-6 col-lg-3">
+            <label for="strFilterDate" class="form-label fw-bold">Date Range</label>
+            <input type="text" name="strFilterDate" id="strFilterDate" class="form-control" placeholder="Select Date Range">
+            {{-- Hidden fields store the actual start/end dates sent to the server in DD.MM.YYYY format --}}
+            <input type="hidden" name="strFilterFromDate" id="strFilterFromDate">
+            <input type="hidden" name="strFilterToDate" id="strFilterToDate">
+        </div>
+    </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
@@ -241,6 +254,10 @@
     @parent
     @include('partials.app_navigation')
 
+    {{-- Moment.js and daterangepicker - same libraries used on locations_revenue page --}}
+    <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js"></script>
+
     <script type="text/javascript">
     	$(function(){
 
@@ -289,10 +306,58 @@
                     console.log('Hidden Driver Images column at index:', driverImagesColumnIndex);
                 }
 
+                // =====================================================================
+                // DATE RANGE PICKER SETUP
+                // Same config as locations_revenue page for consistency.
+                // Opens left, does not auto-fill the input, uses DD.MM.YYYY (German)
+                // format, and provides convenient preset ranges.
+                // =====================================================================
+                $('#strFilterDate').daterangepicker({
+                    opens: 'left',
+                    autoUpdateInput: false,
+                    locale: {
+                        format: 'DD.MM.YYYY',
+                        cancelLabel: 'Clear'
+                    },
+                    ranges: {
+                        'Today': [moment(), moment()],
+                        'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                        'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                        'Last 14 Days': [moment().subtract(13, 'days'), moment()],
+                        'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                        'This Month': [moment().startOf('month'), moment().endOf('month')],
+                        'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                    }
+                });
+
+                // When a date range is selected: populate hidden fields and trigger reload
+                $('#strFilterDate').on('apply.daterangepicker', function(ev, picker) {
+                    var start = picker.startDate.format('DD.MM.YYYY');
+                    var end = picker.endDate.format('DD.MM.YYYY');
+                    $(this).val(start + ' - ' + end);
+                    $('#strFilterFromDate').val(start);
+                    $('#strFilterToDate').val(end);
+                    $(this).trigger('change');
+                });
+
+                // When the picker is cleared: reset hidden fields and revert to default range
+                $('#strFilterDate').on('cancel.daterangepicker', function(ev, picker) {
+                    $(this).val('');
+                    $('#strFilterFromDate').val('');
+                    $('#strFilterToDate').val('');
+                    $(this).trigger('change');
+                });
 
 
 
+
+              // Reload the table when location filter changes
               $(document).on('change', '#strFilterLocation', function(e){
+                LoadList();
+              });
+
+              // Reload the table when date range filter changes
+              $(document).on('change', '#strFilterDate', function(e){
                 LoadList();
               });
 
@@ -441,7 +506,9 @@
             	type:"GET",
             	data: {
                     "_token": "{{ csrf_token() }}",
-                    "strFilterLocation": $("#strFilterLocation").val()
+                    "strFilterLocation": $("#strFilterLocation").val(),
+                    "strFilterFromDate": $("#strFilterFromDate").val(),
+                    "strFilterToDate": $("#strFilterToDate").val()
             	},
             	cache:false,
             	dataType:"html",
