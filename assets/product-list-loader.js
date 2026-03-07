@@ -347,6 +347,8 @@
             '.cart-notification-product__image{flex-shrink:0}' +
             '.cart-item{display:flex!important;align-items:center!important;gap:1rem!important;width:100%!important}' +
             '.cart-item > div:last-child{flex:1!important}' +
+            /* Add to cart button background color */
+            '.add_to_cart{background-color:#ff045e!important}' +
             /* Sold out styles */
             '.sold-out-btn{cursor:not-allowed!important;opacity:0.7!important}' +
             '.sold-out .product_details{opacity:0.8}' +
