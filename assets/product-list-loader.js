@@ -10,7 +10,7 @@
   // Expose cache-clearing utilities globally for debugging
   window.PF_CACHE_UTILS = {
     // Clear all session storage cache keys
-    clearSessionCache: function () {
+    clearSessionCache: function() {
       try {
         sessionStorage.removeItem('pf_cache_counter');
         console.log('[PF Cache] Session cache cleared');
@@ -22,10 +22,10 @@
     },
 
     // Clear browser cache via cache API if available
-    clearBrowserCache: function () {
+    clearBrowserCache: function() {
       if ('caches' in window) {
-        caches.keys().then(function (names) {
-          names.forEach(function (name) {
+        caches.keys().then(function(names) {
+          names.forEach(function(name) {
             caches.delete(name);
             console.log('[PF Cache] Deleted cache:', name);
           });
@@ -39,11 +39,11 @@
     },
 
     // Full cache reset (session + browser + reload)
-    hardReset: function () {
+    hardReset: function() {
       this.clearSessionCache();
       this.clearBrowserCache();
       console.log('[PF Cache] Performing hard reset - reloading page...');
-      setTimeout(function () {
+      setTimeout(function() {
         window.location.reload(true); // Force reload from server
       }, 100);
     }
@@ -54,7 +54,7 @@
 
   /* ---------- Browser back/forward cache (bfcache) detection ---------- */
   // Only reload from bfcache if we haven't already reloaded recently
-  window.addEventListener('pageshow', function (event) {
+  window.addEventListener('pageshow', function(event) {
     if (event.persisted) {
       var lastBfcacheReload = sessionStorage.getItem('pf_bfcache_reload');
       var now = Date.now();
@@ -124,42 +124,10 @@
     // Mark container as being processed
     container.classList.add('ajax_fetched');
 
-    /* ---------- Extract and merge parameters (URL > sessionStorage > uuid from localStorage) ---------- */
-    var requiredKeys = [
-      'location',
-      'date',
-      'immediate_inventory',
-      'no_station',
-      'additional_inventory',
-      'additional_inventory_time',
-      'snacks_and_drinks',
-      'uuid'
-    ];
-
-    var currentParams = new URLSearchParams(window.location.search || '');
-
-    // Merge missing params from sessionStorage (and uuid from localStorage)
-    requiredKeys.forEach(function (key) {
-      if (!currentParams.has(key)) {
-        var value = null;
-        if (key === 'uuid') {
-          try { value = localStorage.getItem('uuid'); } catch (e) { value = null; }
-        } else {
-          try { value = sessionStorage.getItem(key === 'additional_inventory' ? 'b_additional_inventory' : key); } catch (e) { value = null; }
-        }
-        if (value != null && value !== '') {
-          if (key === 'additional_inventory' && !currentParams.has('additional_inventory')) {
-            currentParams.set('additional_inventory', value);
-          } else {
-            currentParams.set(key, value);
-          }
-        }
-      }
-    });
-
+    /* ---------- Extract URL parameters ---------- */
+    var qs = window.location.search || '';
     var url = window.location.pathname + '?section_id=dynamic-location-inventory';
-    var qsMerged = currentParams.toString();
-    if (qsMerged) { url += '&' + qsMerged; }
+    if (qs && qs.length > 1) { url += '&' + qs.slice(1); }
 
     /* ---------- Robust cache busting strategy ---------- */
     // Combine multiple entropy sources to ensure unique requests:
@@ -180,15 +148,13 @@
 
     // Apply cache buster to URL
     url += '&_cache=' + cacheBuster;
-    // Also add a v param which Shopify often respects for section renders
-    url += '&v=' + encodeURIComponent(cacheBuster);
 
     // Add no-cache directive hint (some CDNs respect this)
     url += '&nocache=1';
 
     /* ---------- Extract snacks_and_drinks parameter for special handling ---------- */
-    var urlParams = currentParams; // use merged params above
-    var snacksAndDrinks = urlParams.get('snacks_and_drinks') || (function () { try { return sessionStorage.getItem('snacks_and_drinks') || ''; } catch (e) { return ''; } })();
+    var urlParams = new URLSearchParams(window.location.search);
+    var snacksAndDrinks = urlParams.get('snacks_and_drinks') || '';
 
     console.log('[PF Loader] Fetching:', url);
     console.log('[PF Loader] snacks_and_drinks parameter:', snacksAndDrinks);
@@ -203,8 +169,7 @@
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
-        'Expires': '0',
-        'X-Requested-With': 'XMLHttpRequest'
+        'Expires': '0'
       },
       cache: 'no-store' // Force browser to never use cached response
     })
@@ -365,7 +330,7 @@
 
           /* ---------- Final validation after render ---------- */
           // Log product count for debugging
-          setTimeout(function () {
+          setTimeout(function() {
             var renderedProducts = container.querySelectorAll('.pf-slide');
             console.log('[PF Loader] Post-render validation: DOM has', renderedProducts.length, 'products');
           }, 100);

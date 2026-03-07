@@ -281,12 +281,6 @@
     .yesterday-hidden {
       display: none !important;
     }
-
-    .vpn-action-disabled {
-      opacity: 0.55 !important;
-      cursor: not-allowed !important;
-      pointer-events: none !important;
-    }
   </style>
   
   {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
@@ -305,8 +299,7 @@
       locationData: null,
       jqueryReady: false,
       domReady: false,
-      strYStockOnlyCheck: "N",
-      vpnBlocked: false
+      strYStockOnlyCheck: "N"
     };
   
     // Initialize everything when ready
@@ -354,13 +347,6 @@
       // Sync badge counter height with buttons on small devices
       syncBadgeCounterHeight();
       wrapImmediateButtonsForMobile();
-
-      // Block this page's ordering actions when VPN/proxy is detected.
-      if (applyVpnRestrictionsToDeliveryDate()) {
-        window.deliveryDateState.isInitialized = true;
-        console.log('[Delivery Date] Initialization stopped due to VPN/proxy block');
-        return;
-      }
 
       // Process location and setup functionality
       processLocationAndSetup();
@@ -532,40 +518,6 @@
       }
     }
 
-    function isVpnBlockedForDeliveryDate() {
-      return !!(window.vpnDetectionState && window.vpnDetectionState.blocked);
-    }
-
-    function applyVpnRestrictionsToDeliveryDate() {
-      if (!isVpnBlockedForDeliveryDate()) {
-        return false;
-      }
-
-      window.deliveryDateState.vpnBlocked = true;
-      console.warn('[Delivery Date] VPN/proxy detected, disabling delivery date actions');
-
-      const buttonSelectors = ['.todayorderbtn', '.preorderbtn', '.yesterdayorderbtn', '.snacks_and_drinks_btn'];
-      buttonSelectors.forEach((selector) => {
-        document.querySelectorAll(selector).forEach((button) => {
-          button.classList.add('vpn-action-disabled');
-          button.setAttribute('aria-disabled', 'true');
-          button.setAttribute('title', 'VPN/Proxy erkannt. Bestellung ist deaktiviert.');
-          if ('disabled' in button) {
-            button.disabled = true;
-          }
-        });
-      });
-
-      const badgeCounter = document.getElementById('badge-counter');
-      if (badgeCounter) {
-        badgeCounter.style.display = 'none';
-      }
-
-      setYesterdayDisplay(false);
-      removeLoadingStates();
-      return true;
-    }
-
     // =========================================================================
     // UPDATE TODAY BADGE COUNTER
     // =========================================================================
@@ -603,7 +555,7 @@
       // The API now returns ONLY today's inventory (not combined with yesterday).
       // No calculation needed - just display the returned value directly.
       // =========================================================================
-      const todayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocation/${encodeURIComponent(location)}`;
+      const todayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocation/${location}`;
       console.log('[Delivery Date] Fetching today-only inventory from:', todayUrl);
 
       $.ajax({
@@ -625,11 +577,6 @@
   
     // Process location and setup all functionality
     function processLocationAndSetup() {
-      if (window.deliveryDateState.vpnBlocked || applyVpnRestrictionsToDeliveryDate()) {
-        console.log('[Delivery Date] processLocationAndSetup skipped due to VPN/proxy block');
-        return;
-      }
-
       const strLocation = window.deliveryDateState.location || "";
 
       console.log('[Delivery Date] processLocationAndSetup called with location:', strLocation);
@@ -642,7 +589,7 @@
 
       $("#badge-counter").html('<img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator_square_large.gif" height="21px" width="21px" class="loading_icon" />');
 
-      const ajaxUrl = `https://dev.sushi.catering/getLocations/${encodeURIComponent(strLocation)}`;
+      const ajaxUrl = `https://dev.sushi.catering/getLocations/${strLocation}`;
       console.log('[Delivery Date] Fetching location data from:', ajaxUrl);
 
       // Make AJAX call asynchronous to prevent UI blocking
@@ -809,7 +756,7 @@
 
           if (is48hFeatureEnabled) {
             // Fetch yesterday qty, then use it for both badges
-            const yesterdayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${encodeURIComponent(window.deliveryDateState.location)}`;
+            const yesterdayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
             console.log('[Delivery Date] Fetching yesterday inventory from:', yesterdayUrl);
 
             $.ajax({
@@ -957,7 +904,7 @@
           if (data.immediate_inventory_48h === 'Y' && data.immediate_inventory === 'Y') {
             console.log('[Delivery Date] Yesterday items feature enabled (today btn not shown)');
 
-            const yesterdayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${encodeURIComponent(window.deliveryDateState.location)}`;
+            const yesterdayUrl = `https://dev.sushi.catering/getImmediateInventoryByLocationForYesterday/${window.deliveryDateState.location}`;
 
             $.ajax({
               url: yesterdayUrl,
@@ -1062,11 +1009,6 @@
     // Setup button click handlers
     function setupButtonHandlers() {
       console.log('[Delivery Date] setupButtonHandlers called');
-
-      if (window.deliveryDateState.vpnBlocked || applyVpnRestrictionsToDeliveryDate()) {
-        console.log('[Delivery Date] setupButtonHandlers skipped due to VPN/proxy block');
-        return;
-      }
 
       if (!window.jQuery) {
         console.error('[Delivery Date] jQuery not available for button handlers');
@@ -1491,14 +1433,6 @@
       $('#badge-counter').css('display', 'inline-block');
     }
   
-    // React when VPN detection completes after this snippet has initialized.
-    window.addEventListener('vpn-detection-complete', function(event) {
-      const detail = event && event.detail ? event.detail : null;
-      if (detail && detail.blocked) {
-        applyVpnRestrictionsToDeliveryDate();
-      }
-    });
-
     // DOM Content Loaded - Handle location determination
     document.addEventListener('DOMContentLoaded', function() {
       window.deliveryDateState.domReady = true;
