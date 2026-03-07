@@ -172,6 +172,11 @@
             <input type="hidden" name="strFilterToDate" id="strFilterToDate">
         </div>
     </div>
+            {{-- Loading overlay - shown while AJAX fetches data for large date ranges --}}
+            <div id="loadingOverlay" style="display:none; text-align:center; padding:30px;">
+                <div class="loader" style="margin:0 auto;"></div>
+                <p class="mt-2 text-muted">Loading orders...</p>
+            </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
@@ -501,6 +506,10 @@
         });
 
         function LoadList(){
+            // Show loading spinner and hide the table while fetching
+            $('#loadingOverlay').show();
+            $('.table-responsive').hide();
+
         	$.ajax({
             	url:"{{ route('getOrdersList') }}",
             	type:"GET",
@@ -516,11 +525,17 @@
             		table.clear();
             		table.rows.add($(data)).draw(true);
 //                 	$(".table tbody").html(data);
+                    // Hide spinner and show the table with fresh data
+                    $('#loadingOverlay').hide();
+                    $('.table-responsive').show();
                 },
                 error: function(request, status, error) {
                     // var errorMessage = "Error: " + request.status + " " + request.statusText;
                     alert(request.responseText);
                     console.log('orders fetching error');
+                    // Hide spinner and show table even on error
+                    $('#loadingOverlay').hide();
+                    $('.table-responsive').show();
                 }
             });
         }
