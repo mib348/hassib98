@@ -70,6 +70,117 @@
     }
   });
 
+  function captureClassMap(container) {
+    var classMap = {};
+
+    container.querySelectorAll('[data-pf-type]').forEach(function (el) {
+      var type = el.getAttribute('data-pf-type');
+      if (type && !classMap[type]) {
+        classMap[type] = el.className;
+      }
+    });
+
+    var specialSelectors = {
+      'pf-slide': '.pf-slide',
+      'add_to_cart': '.add_to_cart',
+      'product_details': '.product_details',
+      'product_row': '.product_row',
+      'qty_portion': '.qty_portion',
+      'order_qty': '.order_qty',
+      'qty_list': '.qty_list'
+    };
+
+    Object.keys(specialSelectors).forEach(function (key) {
+      var el = container.querySelector(specialSelectors[key]);
+      if (el && !classMap[key]) {
+        classMap[key] = el.className;
+      }
+    });
+
+    return classMap;
+  }
+
+  function responseMatchesPageflySourceMarkup(root) {
+    var scopedRoot = root.querySelector('[data-pf-type="ProductList2"]') || root;
+
+    return Boolean(
+      scopedRoot.querySelector('[data-pf-type="ProductTitle"]') &&
+      scopedRoot.querySelector('[data-pf-type="ProductDescription"]') &&
+      (
+        scopedRoot.querySelector('[data-pf-type="ProductATC2"]') ||
+        scopedRoot.querySelector('.add_to_cart')
+      )
+    );
+  }
+
+  function applyFallbackClasses(container, classMap) {
+    console.log('[PF Loader] Applying fallback classes from the initial render');
+
+    Object.keys(classMap).forEach(function (key) {
+      var selector;
+      var specialSelectors = {
+        'pf-slide': '.pf-slide',
+        'add_to_cart': '.add_to_cart',
+        'product_details': '.product_details',
+        'product_row': '.product_row',
+        'qty_portion': '.qty_portion',
+        'order_qty': '.order_qty',
+        'qty_list': '.qty_list'
+      };
+
+      if (specialSelectors[key]) {
+        selector = specialSelectors[key];
+      } else {
+        selector = '[data-pf-type="' + key + '"]';
+      }
+
+      var elements = container.querySelectorAll(selector);
+      elements.forEach(function (el) {
+        classMap[key].split(/\s+/).forEach(function (cls) {
+          if (cls && cls.trim() && !el.classList.contains(cls)) {
+            el.classList.add(cls);
+          }
+        });
+      });
+    });
+  }
+
+  function condenseProductCardInfo(container) {
+    if (!container) {
+      return;
+    }
+
+    // Keep the source PageFly render and the AJAX render visually identical by
+    // merging the standalone price into the product title when the old markup
+    // still exists. The check prevents duplicate " - price" text on re-runs.
+    container.querySelectorAll('[data-pf-type="ProductTitle"]').forEach(function (titleEl) {
+      var cardScope = titleEl.closest('form') || titleEl.parentElement;
+      var priceItem = cardScope ? cardScope.querySelector('[data-pf-type="ProductPrice2Item"]') : null;
+      var priceWrapper = priceItem ? priceItem.closest('[data-pf-type="ProductPrice2"]') : null;
+      var titleText = (titleEl.textContent || '').trim();
+      var priceText = priceItem ? (priceItem.textContent || '').trim() : '';
+      var titleSuffix = priceText ? ' - ' + priceText : '';
+
+      if (priceText && titleText && !titleText.endsWith(titleSuffix)) {
+        titleEl.textContent = titleText + titleSuffix;
+      }
+
+      if (priceWrapper) {
+        priceWrapper.setAttribute('hidden', 'hidden');
+      }
+    });
+
+    // The quantity value should render as a plain number, not as a bulleted list.
+    container.querySelectorAll('.qty_list').forEach(function (qtyList) {
+      qtyList.style.listStyle = 'none';
+      qtyList.style.paddingLeft = '0';
+
+      qtyList.querySelectorAll('li').forEach(function (item) {
+        item.style.listStyle = 'none';
+      });
+    });
+  }
+
   function initializeLoader() {
     var container = document.querySelector('[data-pf-type="ProductList2"]');
     if (!container) {
@@ -90,39 +201,12 @@
     // Loading icon is visible by default, product list is hidden by default
     console.log('[PF Loader] Loading icon is visible by default, product list is hidden, starting AJAX call');
 
-    /* ---------- Snapshot PageFly-generated classes from original section ---------- */
-    var classMap = {};
-
-    // Get all elements with data-pf-type and capture their classes
-    container.querySelectorAll('[data-pf-type]').forEach(function (el) {
-      var type = el.getAttribute('data-pf-type');
-      if (type && !classMap[type]) {
-        classMap[type] = el.className;
-        console.log('[PF Loader] Captured classes for', type + ':', el.className);
-      }
-    });
-
-    // Capture special classes for elements that might not have data-pf-type
-    var specialSelectors = {
-      'pf-slide': '.pf-slide',
-      'add_to_cart': '.add_to_cart',
-      'product_details': '.product_details',
-      'product_row': '.product_row',
-      'qty_portion': '.qty_portion',
-      'order_qty': '.order_qty',
-      'qty_list': '.qty_list'
-    };
-
-    Object.keys(specialSelectors).forEach(function (key) {
-      var el = container.querySelector(specialSelectors[key]);
-      if (el && !classMap[key]) {
-        classMap[key] = el.className;
-        console.log('[PF Loader] Captured classes for', key + ':', el.className);
-      }
-    });
-
     // Mark container as being processed
     container.classList.add('ajax_fetched');
+
+    // Normalize the initial PageFly export immediately so users do not see a
+    // different title/price layout before the dynamic section replaces it.
+    condenseProductCardInfo(container);
 
     /* ---------- Extract and merge parameters (URL > sessionStorage > uuid from localStorage) ---------- */
     var requiredKeys = [
@@ -255,8 +339,15 @@
         /* ---------- Validate product count before rendering ---------- */
         var productSlides = tmp.querySelectorAll('.pf-slide');
         var actualProductCount = productSlides.length;
+        var shouldApplyFallbackClasses = actualProductCount > 0 && !responseMatchesPageflySourceMarkup(tmp);
+        var classMap = shouldApplyFallbackClasses ? captureClassMap(container) : null;
 
         console.log('[PF Loader] Product count validation: found', actualProductCount, 'products');
+        if (shouldApplyFallbackClasses) {
+          console.warn('[PF Loader] Response did not match pf-b9ef5afd card classes. Using defensive class fallback.');
+        } else {
+          console.log('[PF Loader] Response already matches pf-b9ef5afd card classes');
+        }
 
         if (newSlider && originalSlider) {
           console.log('[PF Loader] New slider content found. Replacing original slider element to preserve data attributes.');
@@ -266,40 +357,11 @@
           container.innerHTML = html;
         }
 
-        /* ---------- Re-apply captured PageFly classes to dynamic content ---------- */
-        console.log('[PF Loader] Applying classes from original to dynamic content');
+        if (classMap) {
+          applyFallbackClasses(container, classMap);
+        }
 
-        Object.keys(classMap).forEach(function (key) {
-          var selector;
-          var specialSelectors = {
-            'pf-slide': '.pf-slide',
-            'add_to_cart': '.add_to_cart',
-            'product_details': '.product_details',
-            'product_row': '.product_row',
-            'qty_portion': '.qty_portion',
-            'order_qty': '.order_qty',
-            'qty_list': '.qty_list'
-          };
-
-          if (specialSelectors[key]) {
-            selector = specialSelectors[key];
-          } else {
-            selector = '[data-pf-type="' + key + '"]';
-          }
-
-          var elements = container.querySelectorAll(selector);
-          console.log('[PF Loader] Applying', key, 'classes to', elements.length, 'elements');
-
-          elements.forEach(function (el) {
-            // Add all classes from the original element, but don't remove existing ones,
-            // as that can break styled-components classes.
-            classMap[key].split(/\s+/).forEach(function (cls) {
-              if (cls && cls.trim() && !el.classList.contains(cls)) {
-                el.classList.add(cls);
-              }
-            });
-          });
-        });
+        condenseProductCardInfo(container);
 
         /* ---------- Ensure images load on Android after dynamic replace ---------- */
         try {
@@ -340,30 +402,16 @@
         if (!document.getElementById('pf-dynamic-qty-style')) {
           var styleTag = document.createElement('style');
           styleTag.id = 'pf-dynamic-qty-style';
-          styleTag.textContent = '.qty_list ul{margin:0;padding:0}.qty_list ul li{list-style-type:none}.progress_bar{margin-top:0!important}.add_to_cart[disabled]{cursor:not-allowed!important}.order_qty{float:right}' +
+          styleTag.textContent =
             /* Cart notification styles to ensure full width */
             '.cart-notification__item .cart-item{width:100%!important;max-width:100%!important}' +
             '#cart-notification-product{width:100%!important}' +
             '.cart-notification-product__image{flex-shrink:0}' +
             '.cart-item{display:flex!important;align-items:center!important;gap:1rem!important;width:100%!important}' +
             '.cart-item > div:last-child{flex:1!important}' +
-            /* Add to cart button background color */
-            '.add_to_cart{background-color:#ff045e!important}' +
             /* Sold out styles */
             '.sold-out-btn{cursor:not-allowed!important;opacity:0.7!important}' +
-            '.sold-out .product_details{opacity:0.8}' +
-            /* Mobile responsive image styles */
-            '.product-media2-inner{display:block!important;visibility:visible!important}' +
-            '.product-media2-inner img{max-width:100%!important;height:auto!important;display:block!important}' +
-            '.pf-main-media{display:block!important}' +
-            '.pf-media-slider{display:block!important}' +
-            '.pf-slide-main-media{display:block!important}' +
-            '@media (max-width: 768px){' +
-            '.product-media2-inner{margin-bottom:15px!important}' +
-            '.pf-main-media img{width:100%!important;max-width:100%!important;height:auto!important}' +
-            '.pf-media-wrapper{width:100%!important;max-width:100%!important}' +
-            '.pf-list-media{display:none!important}' + // Hide thumbnail list on mobile for cleaner look
-            '}';
+            '.product_details.sold-out{opacity:0.8}';
           document.head.appendChild(styleTag);
         }
 

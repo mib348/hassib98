@@ -3733,3 +3733,38 @@ body {
 .order_qty{display:none !important;}
 div.pf-29_ p{margin:0 !important;}
 .location_bar{display:none;}
+
+/* Keep order-menu product card tweaks in theme-owned CSS so PageFly
+   republishes cannot remove the requested spacing, bullet, or button styles. */
+body.page-order-menue [data-pf-type='ProductDescription'] {
+  padding-top: 0 !important;
+  padding-right: 5px !important;
+  padding-bottom: 5px !important;
+  padding-left: 5px !important;
+  margin-bottom: 0 !important;
+}
+
+body.page-order-menue [data-pf-type='ProductTitle'] {
+  margin-bottom: 0 !important;
+}
+
+body.page-order-menue .qty_portion {
+  margin: 0 !important;
+}
+
+body.page-order-menue .qty_list,
+body.page-order-menue .qty_list li {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+body.page-order-menue .qty_list li::marker {
+  content: none;
+}
+
+body.page-order-menue .add_to_cart,
+body.page-order-menue [data-pf-type='ProductATC2'] {
+  background-color: #ff045e !important;
+  color: #fff !important;
+}
