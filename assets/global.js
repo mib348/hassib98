@@ -921,6 +921,12 @@ document.addEventListener('DOMContentLoaded', function () {
         let firstQuantityErrorElement = null;
 
         $.each(cart.items, function (index, item) {
+          // Skip Pfand (bottle deposit) items from all validation - auto-managed by Pfand Manager
+          if (item.variant_id === window.pfandConfig?.variantId) {
+            console.log('[Cart Manager] Pfand item, skipping validation:', item.product_title);
+            return;
+          }
+
           dates.push(item.properties.date);
 
           // Skip all quantity validation for snacks_and_drinks items - they have unlimited inventory
@@ -991,6 +997,9 @@ document.addEventListener('DOMContentLoaded', function () {
         let locationMismatchFound = false;
 
         $.each(cart.items, function (index, item) {
+          // Skip Pfand items from location mismatch validation
+          if (item.variant_id === window.pfandConfig?.variantId) return;
+
           const itemLocation = item.properties.location;
           const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
           locations.push(itemLocation);
@@ -1026,7 +1035,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const nonSnacksLocations = [];
         $.each(cart.items, function (index, item) {
           const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
-          if (!isSnacksAndDrinks && item.properties.location) {
+          // Skip both snacks_and_drinks and Pfand items from location uniqueness check
+          const isPfandItem = item.variant_id === window.pfandConfig?.variantId;
+          if (!isSnacksAndDrinks && !isPfandItem && item.properties.location) {
             nonSnacksLocations.push(item.properties.location);
           }
         });
@@ -1072,9 +1083,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // If NOT Delivery, then proceed to the final stock check
         console.log('[Cart Manager] All initial validations passed, proceeding to final stock check for non-delivery order.');
 
-        // Filter out snacks_and_drinks items - they don't need inventory validation
+        // Filter out snacks_and_drinks AND Pfand items - they don't need inventory validation
         const nonSnacksItems = cart.items.filter(function (item) {
-          return item.properties.snacks_and_drinks !== "Y";
+          return item.properties.snacks_and_drinks !== "Y" && item.variant_id !== window.pfandConfig?.variantId;
         });
 
         console.log('[Cart Manager] Stock check - total items:', cart.items.length, 'non-snacks items:', nonSnacksItems.length);
@@ -3378,3 +3389,217 @@ class ProductRecommendations extends HTMLElement {
 }
 
 customElements.define("product-recommendations", ProductRecommendations);
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PFAND MANAGER (Bottle Deposit Auto-Add)
+   ═══════════════════════════════════════════════════════════════════════════════
+   German law requires a 0.25 EUR deposit ("Pfand") per drink bottle.
+   This IIFE automatically keeps a "Pfand" line item in the cart whose quantity
+   always matches the total number of drink bottles (items with _pfand_eligible=Y).
+
+   How it works:
+   1. On every cart change (add/remove/update), syncPfand() fetches the cart
+   2. It counts all drink bottle quantities and compares to the existing Pfand item
+   3. It adds, updates, or removes the Pfand line item to stay in sync
+   4. After modifying Pfand, it publishes a cartUpdate event so the cart UI refreshes
+
+   Re-entrancy protection:
+   - pfandUpdateInProgress flag prevents syncPfand from running while already updating
+   - The PUB_SUB_EVENTS.cartUpdate subscriber ignores events with source='pfand-manager'
+   - The fetch interceptor ignores calls made while pfandUpdateInProgress is true
+   ═══════════════════════════════════════════════════════════════════════════════ */
+(function PfandManager() {
+  // Only run if Pfand product is configured and available in the store
+  if (!window.pfandConfig || !window.pfandConfig.enabled || !window.pfandConfig.variantId) {
+    console.log('[Pfand Manager] Pfand not configured or unavailable, skipping initialization');
+    return;
+  }
+
+  var PFAND_VARIANT_ID = window.pfandConfig.variantId;
+
+  // Re-entrancy guard: prevents infinite loops when our own cart changes
+  // trigger the interceptors/subscribers again
+  var pfandUpdateInProgress = false;
+
+  // Debounce timer reference - ensures we only run syncPfand once even if
+  // multiple cart events fire in quick succession (e.g., rapid qty changes)
+  var syncTimeout = null;
+
+  /**
+   * Schedules a syncPfand call after a short delay (300ms).
+   * If called multiple times within 300ms, only the last call executes.
+   * This prevents hammering the cart API when multiple events fire together.
+   */
+  function debouncedSync() {
+    if (syncTimeout) clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(syncPfand, 300);
+  }
+
+  /**
+   * Core sync function - fetches the current cart, counts drink bottles,
+   * and ensures the Pfand line item quantity matches.
+   *
+   * Flow:
+   *   1. GET /cart.js to read current cart contents
+   *   2. Loop through items: count drink bottles (_pfand_eligible=Y) and find Pfand item
+   *   3. Compare totalDrinkQty vs Pfand item quantity
+   *   4. Add / update / remove Pfand as needed
+   *   5. Publish cartUpdate so the cart drawer and cart page re-render
+   */
+  function syncPfand() {
+    // If already in the middle of a Pfand update, skip to avoid double-fire
+    if (pfandUpdateInProgress) {
+      console.log('[Pfand Manager] Update already in progress, skipping');
+      return;
+    }
+    pfandUpdateInProgress = true;
+
+    fetch('/cart.js', { credentials: 'same-origin' })
+      .then(function (response) { return response.json(); })
+      .then(function (cart) {
+        // Count total quantity of drink bottles in the cart
+        var totalDrinkQty = 0;
+        // Reference to the existing Pfand line item (if any)
+        var pfandItem = null;
+
+        cart.items.forEach(function (item) {
+          if (item.variant_id === PFAND_VARIANT_ID) {
+            // This is the Pfand line item itself
+            pfandItem = item;
+          } else if (item.properties && item.properties._pfand_eligible === 'Y') {
+            // This is a drink item - add its quantity to the total
+            totalDrinkQty += item.quantity;
+          }
+        });
+
+        console.log('[Pfand Manager] Drink qty:', totalDrinkQty, '| Pfand exists:', !!pfandItem,
+          pfandItem ? '(qty: ' + pfandItem.quantity + ')' : '');
+
+        // CASE 1: No drinks in cart but Pfand exists → remove it
+        if (totalDrinkQty === 0 && pfandItem) {
+          console.log('[Pfand Manager] Removing Pfand (no drinks in cart)');
+          return fetch('/cart/change.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id: pfandItem.key, quantity: 0 })
+          })
+          .then(function (r) { return r.json(); })
+          .then(refreshCart);
+        }
+
+        // CASE 2: Drinks in cart but no Pfand yet → add it
+        if (totalDrinkQty > 0 && !pfandItem) {
+          console.log('[Pfand Manager] Adding Pfand with qty:', totalDrinkQty);
+          return fetch('/cart/add.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              items: [{
+                id: PFAND_VARIANT_ID,
+                quantity: totalDrinkQty,
+                properties: {
+                  _pfand: 'Y',      // Marks this as a Pfand item (hidden from cart display)
+                  _pfand_auto: 'Y'   // Marks this as auto-managed (visible on order for merchant)
+                }
+              }]
+            })
+          })
+          .then(function (r) { return r.json(); })
+          .then(refreshCart);
+        }
+
+        // CASE 3: Both drinks and Pfand exist but quantities don't match → update
+        if (totalDrinkQty > 0 && pfandItem && pfandItem.quantity !== totalDrinkQty) {
+          console.log('[Pfand Manager] Updating Pfand qty from', pfandItem.quantity, 'to', totalDrinkQty);
+          return fetch('/cart/change.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id: pfandItem.key, quantity: totalDrinkQty })
+          })
+          .then(function (r) { return r.json(); })
+          .then(refreshCart);
+        }
+
+        // CASE 4: Already in sync (no drinks + no Pfand, or quantities match)
+        console.log('[Pfand Manager] Already in sync, no action needed');
+        pfandUpdateInProgress = false;
+      })
+      .catch(function (err) {
+        console.error('[Pfand Manager] Error syncing Pfand:', err);
+        pfandUpdateInProgress = false;
+      });
+  }
+
+  /**
+   * Called after any Pfand cart modification succeeds.
+   * Resets the re-entrancy guard and publishes a cartUpdate event
+   * with source='pfand-manager' so the cart UI (drawer + page) re-renders
+   * but our own subscriber knows to ignore this event.
+   */
+  function refreshCart(cartData) {
+    pfandUpdateInProgress = false;
+    console.log('[Pfand Manager] Cart refreshed after Pfand update');
+    // Publish cartUpdate so the cart drawer and cart page re-render
+    publish(PUB_SUB_EVENTS.cartUpdate, { source: 'pfand-manager', cartData: cartData });
+  }
+
+  /* ── TRIGGER 1: Theme PubSub ──
+     Listen for cart updates published by product-form.js, cart.js, quick-order-list.js.
+     Skip events that we ourselves fired (source === 'pfand-manager'). */
+  subscribe(PUB_SUB_EVENTS.cartUpdate, function (event) {
+    if (event && event.source === 'pfand-manager') return;
+    debouncedSync();
+  });
+
+  /* ── TRIGGER 2: Fetch Interceptor ──
+     Catches any fetch-based cart operations (including PageFly's add-to-cart)
+     that don't go through the theme's PubSub system.
+     Skips interception when pfandUpdateInProgress is true (our own requests). */
+  var originalFetch = window.fetch;
+  window.fetch = function () {
+    var url = arguments[0];
+    // Handle both string URLs and Request objects
+    var urlStr = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var isCartChange = /\/cart\/(add|change|update)\.js/.test(urlStr);
+
+    var result = originalFetch.apply(this, arguments);
+
+    // Only trigger sync for cart-modifying calls that aren't from Pfand Manager itself
+    if (isCartChange && !pfandUpdateInProgress) {
+      result.then(function () {
+        debouncedSync();
+      }).catch(function () { /* ignore errors - the original caller handles them */ });
+    }
+
+    return result;
+  };
+
+  /* ── TRIGGER 3: jQuery AJAX Interceptor ──
+     Catches jQuery $.ajax cart operations (some PageFly forms use $.ajax).
+     Uses jQuery's global ajaxComplete event to detect completed cart requests. */
+  if (window.jQuery) {
+    jQuery(document).ajaxComplete(function (event, xhr, settings) {
+      if (settings && /\/cart\/(add|change|update)\.js/.test(settings.url || '')) {
+        // Don't trigger if Pfand Manager is already handling an update
+        if (!pfandUpdateInProgress) {
+          debouncedSync();
+        }
+      }
+    });
+  }
+
+  /* ── TRIGGER 4: Initial Page Load ──
+     Run syncPfand on page load to handle returning visitors who already
+     have drinks in their cart (e.g., coming back to /cart from another page). */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncPfand);
+  } else {
+    // DOM already loaded (script loaded with defer or at bottom of page)
+    syncPfand();
+  }
+
+  console.log('[Pfand Manager] Initialized with variant ID:', PFAND_VARIANT_ID);
+})();
