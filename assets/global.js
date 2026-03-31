@@ -19,6 +19,67 @@ function getQueryParams() {
   return new URLSearchParams(window.location.search);
 }
 
+// This marker is set only when the customer leaves the storefront for Shopify checkout.
+// We use it later on the storefront to decide whether a stale order session should be cleaned up.
+const CHECKOUT_RETURN_MARKER = 'sushi_checkout_in_progress';
+
+// These keys describe the active ordering session that powers the red top bar and menu flow.
+// We remove only these keys after a completed checkout so other browser storage remains untouched.
+const ORDER_SESSION_STORAGE_KEYS = [
+  'location',
+  'date',
+  'no_station',
+  'immediate_inventory',
+  'b_additional_inventory',
+  'additional_inventory',
+  'additional_inventory_time',
+  'strYStockOnlyCheck',
+  'snacks_and_drinks',
+  'time_slot',
+  CHECKOUT_RETURN_MARKER
+];
+
+function clearOrderSessionState() {
+  ORDER_SESSION_STORAGE_KEYS.forEach(function (key) {
+    sessionStorage.removeItem(key);
+  });
+}
+
+function reconcileCheckoutReturnState(onComplete) {
+  const complete = typeof onComplete === 'function' ? onComplete : function () {};
+  const activeCheckoutMarker = sessionStorage.getItem(CHECKOUT_RETURN_MARKER);
+  const excludedPaths = ['/pages/bestellen', '/pages/datum', '/pages/order-menue', '/cart'];
+
+  if (!activeCheckoutMarker || excludedPaths.includes(window.location.pathname)) {
+    complete();
+    return;
+  }
+
+  const rootUrl =
+    window.Shopify && window.Shopify.routes && window.Shopify.routes.root
+      ? window.Shopify.routes.root
+      : '/';
+
+  fetch(rootUrl + 'cart.js', { credentials: 'same-origin' })
+    .then(function (response) {
+      return response.json();
+    })
+    .then(function (cart) {
+      if (cart && cart.item_count === 0) {
+        clearOrderSessionState();
+        document.querySelectorAll('.location_bar').forEach(function (element) {
+          element.remove();
+        });
+      }
+    })
+    .catch(function (error) {
+      console.error('[Checkout Return] Failed to reconcile checkout return state:', error);
+    })
+    .finally(function () {
+      complete();
+    });
+}
+
 // VPN/Proxy guard: show warning strip and block add-to-cart actions.
 (function initializeVpnCartGuard() {
   if (window.__vpnCartGuardInitialized) return;
@@ -1076,6 +1137,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // 6. Special Delivery Redirect OR Final Stock Check
         if (sessionStorage.getItem("location") === "Delivery") {
           console.log('[Cart Manager] Location is Delivery, proceeding directly to checkout after initial checks.');
+          sessionStorage.setItem(CHECKOUT_RETURN_MARKER, 'Y');
           window.location.href = "/checkout";
           return;
         }
@@ -1093,6 +1155,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // If cart contains only snacks items, skip stock check and proceed to checkout
         if (nonSnacksItems.length === 0) {
           console.log('[Cart Manager] Cart contains only snacks and drinks, skipping stock check, proceeding to checkout');
+          sessionStorage.setItem(CHECKOUT_RETURN_MARKER, 'Y');
           window.location.href = "/checkout";
           return;
         }
@@ -1160,6 +1223,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             console.log('[Cart Manager] All validations (including final stock) passed, proceeding to checkout.');
+            sessionStorage.setItem(CHECKOUT_RETURN_MARKER, 'Y');
             window.location.href = "/checkout";
           },
           error: function (xhr, status, error) { // Added xhr, status, error params
@@ -1817,8 +1881,8 @@ if (window.jQuery) {
       }
     }
 
-    // This function will now run for all pages after the DOM is ready
-    updateLocationBar();
+    // Reconcile a completed checkout first, then render the location bar from the remaining session state.
+    reconcileCheckoutReturnState(updateLocationBar);
   });
 
   // Delegated event handlers can remain outside the ready block
