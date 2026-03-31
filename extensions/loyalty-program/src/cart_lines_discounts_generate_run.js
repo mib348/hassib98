@@ -190,7 +190,9 @@ function getEligibleCartLines(cartLines) {
       // Gift cards and credits
       'gift card', 'geschenkkarte', 'store credit', 'gutschein',
       // Discounts and special offers
-      'discount', 'rabatt', 'sale'
+      'discount', 'rabatt', 'sale',
+      // Deposit items (German bottle deposit law - Pfand is not discountable)
+      'pfand', 'deposit'
     ];
 
     // Check if any exclusion pattern matches in title, type, or variant title
