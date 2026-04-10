@@ -277,6 +277,9 @@
                                         <input type="hidden" name="properties[timeslot]" value="{{ timeslot }}">
                                         <input type="hidden" name="properties[snacks_and_drinks]" value="{{ snacks_and_drinks }}">
                                         <input type="hidden" name="properties[yesterday_item]" value="{% if strYStockOnlyCheck == 'Y' %}Y{% else %}N{% endif %}">
+                                        {%- comment -%} Check if product is in 'getranke' (drinks) collection for Pfand deposit eligibility {%- endcomment -%}
+                                        {% assign is_drink = false %}{% for col in product.collections %}{% if col.handle == 'getranke' %}{% assign is_drink = true %}{% break %}{% endif %}{% endfor %}
+                                        <input type="hidden" name="properties[_pfand_eligible]" value="{% if is_drink %}Y{% else %}N{% endif %}">
                                         <input type="hidden" name="order_date" value="{{ date }}">
                                         <input type="hidden" name="location" value="{{ location }}">
                                         <input type="hidden" name="day" value="{{ day_name }}">

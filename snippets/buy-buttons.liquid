@@ -121,6 +121,15 @@
         <input type="hidden" name="properties[date]" value="{{ date }}" />
         <input type="hidden" name="properties[day]" value="{{ day_name }}" />
 
+        {%- comment -%} Check if product belongs to 'getranke' (drinks) collection for Pfand eligibility {%- endcomment -%}
+        {% assign is_drink_product = false %}
+        {% for col in product.collections %}
+          {% if col.handle == 'getranke' %}
+            {% assign is_drink_product = true %}{% break %}
+          {% endif %}
+        {% endfor %}
+        <input type="hidden" name="properties[_pfand_eligible]" value="{% if is_drink_product %}Y{% else %}N{% endif %}" />
+
         {%- if gift_card_recipient_feature_active -%}
           {%- render 'gift-card-recipient-form', product: product, form: form, section: section -%}
         {%- endif -%}

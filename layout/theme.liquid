@@ -882,6 +882,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         predictive_search_url: '{{ routes.predictive_search_url }}',
       };
 
+      /* ── Pfand (Bottle Deposit) Configuration ──
+         Looks up the hidden "pfand" product (handle = 'pfand') and exposes its
+         variant ID so the Pfand Manager in global.js can auto-add/remove/update
+         the deposit line item whenever drinks are in the cart. */
+      {%- assign pfand_product = all_products['pfand'] -%}
+      window.pfandConfig = {
+        enabled: {{ pfand_product.available | default: false }},
+        variantId: {{ pfand_product.selected_or_first_available_variant.id | default: 'null' }},
+      };
+
       window.cartStrings = {
         error: `{{ 'sections.cart.cart_error' | t }}`,
         quantityError: `{{ 'sections.cart.cart_quantity_error_html' | t: quantity: '[quantity]' }}`,

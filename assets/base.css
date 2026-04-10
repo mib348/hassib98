@@ -3768,3 +3768,13 @@ body.page-order-menue [data-pf-type='ProductATC2'] {
   background-color: #ff045e !important;
   color: #fff !important;
 }
+
+/* ── Pfand (Bottle Deposit) read-only quantity display ──
+   Used in cart drawer and cart page for the auto-managed Pfand line item.
+   Shows quantity without +/- buttons since the Pfand Manager controls it. */
+.cart-item__pfand-qty {
+  font-size: 1.4rem;
+  color: rgba(var(--color-foreground), 0.6);
+  text-align: center;
+  padding: 10px 0;
+}
