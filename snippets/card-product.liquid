@@ -279,6 +279,19 @@
                     class="product-variant-id"
                     disabled
                   >
+                  {%- comment -%} Mark drink quick-add forms so the global Pfand sync can count bottle deposits correctly. {%- endcomment -%}
+                  {% assign is_drink_product = false %}
+                  {% for col in card_product.collections %}
+                    {% if col.handle == 'getranke' %}
+                      {% assign is_drink_product = true %}
+                      {% break %}
+                    {% endif %}
+                  {% endfor %}
+                  <input
+                    type="hidden"
+                    name="properties[_pfand_eligible]"
+                    value="{% if is_drink_product %}Y{% else %}N{% endif %}"
+                  >
                   <button
                     id="{{ product_form_id }}-submit"
                     type="submit"

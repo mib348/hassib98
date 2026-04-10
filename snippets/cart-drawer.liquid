@@ -286,22 +286,6 @@
                           role="cell"
                           headers="CartDrawer-ColumnQuantity"
                         >
-                          {% comment %}
-                            PFAND ITEM DETECTION (Cart Drawer)
-                            Check if this line item is the auto-managed Pfand (bottle deposit).
-                            Pfand items have the hidden property _pfand=Y set by the Pfand Manager.
-                            If it's Pfand, show a read-only quantity (no +/- buttons, no remove button)
-                            because the Pfand Manager controls this item's quantity automatically.
-                          {% endcomment %}
-                          {% assign is_pfand_item = false %}
-                          {% for prop in item.properties %}
-                            {% if prop.first == '_pfand' and prop.last == 'Y' %}
-                              {% assign is_pfand_item = true %}{% break %}
-                            {% endif %}
-                          {% endfor %}
-                          {% if is_pfand_item %}
-                            <div class="cart-item__pfand-qty">{{ item.quantity }}x</div>
-                          {% else %}
                           <quantity-popover>
                             <div class="cart-item__quantity-wrapper quantity-popover-wrapper">
                               <div class="quantity-popover-container{% if has_qty_rules or has_vol_pricing %} quantity-popover-container--hover{% endif %}">
@@ -460,7 +444,6 @@
                               </svg>
                             </div>
                           </quantity-popover>
-                          {% endif %}
                         </td>
                       </tr>
                     {%- endfor -%}

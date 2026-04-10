@@ -110,6 +110,47 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
       window.__pagefly_page_setting__ = {"pageTitle":"order-menue","pageType":"page","pageId":"b9ef5afd-7e2f-49da-a7c0-7e9682f0ec5b","lazyLoad":true,"forceByPassGoogleLightHouse":false,"imageLazyLoad":true,"nativeImageLazyLoad":true,"useThemeJQ":false,"sectionRootType":"Section","trackingIDs":[]};
       window.__pagefly_setting__&&(window.__pagefly_setting2__=window.__pagefly_setting__),window.__pagefly_setting__={"baseURL":"https://apps.pagefly.io","analyticsURL":"https://analytics.pagefly.io","isBackend":false,"cdnURL":"https://cdn.pagefly.io","pageflyVersion":"4.23.9.0","shopDomain":"dc9ef9.myshopify.com","elementData":{"pf-12_":{"hoverAction":0,"onHover":0,"clickAction":1,"navStyle":"none","paginationStyle":"none","slidesToShow":{"all":1,"laptop":1,"tablet":1,"mobile":1},"slidesToScroll":{"all":1,"laptop":1,"tablet":1,"mobile":1},"id":"34d79c59-18f8-4bcf-b8c0-5ab6876bc0c0","_type":"MediaMain"},"pf-13_":{"slidesToShow":{"all":5,"laptop":5,"tablet":5,"mobile":5},"slidesToScroll":{"all":1,"laptop":1,"tablet":1,"mobile":1},"displayPartialItems":{"all":false,"laptop":false,"tablet":false,"mobile":false},"navStyle":"none","listLayout":{"all":1,"laptop":1,"tablet":1,"mobile":1},"id":"d79c5918-f85b-4fb8-805a-b6876bc0c075","_type":"MediaList2"},"pf-15_":{"applyCondition":false,"collectionSource":"all","collectionIds":[],"tags":"","id":"5918f85b-cfb8-405a-b687-6bc0c075c1df","_type":"ProductBadge"},"pf-11_":{"listPosition":{"all":2,"laptop":2,"tablet":2,"mobile":2},"hoverAction":0,"onHover":0,"clickAction":0,"imageSource":"featured","id":"8434d79c-5918-485b-8fb8-c05ab6876bc0","_type":"ProductMedia2"},"pf-28_":{"iconPos":"left","id":"75c1df2a-3d9b-45b4-9ed5-f1ea1827935f","_type":"ProductATC2"}},"shopifyProxyPath":"/apps/pagefly"},window.__pagefly_setting2__&&(window.__pagefly_setting__=function _(d,b){let c={...d||{}};for(let a of Object.keys(b))b[a]instanceof Object&&(Array.isArray(b[a])&&c[a]?Object.assign(b[a],[...b[a],...c[a]]):Object.assign(b[a],_(c[a],b[a])));return Object.assign(c||{},b),c}(__pagefly_setting2__,__pagefly_setting__),delete window.__pagefly_setting2__),window.__pagefly_setting__.moneyFormat={{shop.money_format|json}}}();
     </script>
+    <script>
+      (function () {
+        function normalizeHeading(value) {
+          return (value || '')
+            .toString()
+            .toLowerCase()
+            .replace(/ä/g, 'a')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        function markDrinkForms() {
+          document.querySelectorAll('[data-section-id]').forEach(function (section) {
+            var heading = section.querySelector('[data-pf-type="Heading2"], [data-pf-type="Heading3"], h2, h3');
+            if (normalizeHeading(heading && heading.textContent) !== 'getranke') {
+              return;
+            }
+
+            section.querySelectorAll('form.pf-product-form').forEach(function (form) {
+              if (form.querySelector('input[name="properties[_pfand_eligible]"]')) {
+                return;
+              }
+
+              var input = document.createElement('input');
+              input.type = 'hidden';
+              input.name = 'properties[_pfand_eligible]';
+              input.value = 'Y';
+              form.appendChild(input);
+            });
+          });
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', markDrinkForms);
+        } else {
+          markDrinkForms();
+        }
+
+        document.addEventListener('pf:products:replaced', markDrinkForms);
+      })();
+    </script>
 {% schema %}
 {
   "name": "PageFly Page b9ef5afd",

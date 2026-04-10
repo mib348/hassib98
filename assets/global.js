@@ -2881,27 +2881,46 @@ customElements.define("product-recommendations", ProductRecommendations);
   var syncTimeout = null;
 
   /**
+   * Clears any pending delayed sync.
+   * This is important when we already have the fresh cart payload from cart.js
+   * and want Pfand to update immediately instead of waiting for the old timer.
+   */
+  function clearPendingSync() {
+    if (syncTimeout) {
+      clearTimeout(syncTimeout);
+      syncTimeout = null;
+    }
+  }
+
+  /**
    * Schedules a syncPfand call after a short delay (300ms).
    * If called multiple times within 300ms, only the last call executes.
    * This prevents hammering the cart API when multiple events fire together.
    */
   function debouncedSync() {
-    if (syncTimeout) clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(syncPfand, 300);
+    clearPendingSync();
+    syncTimeout = setTimeout(function () {
+      syncTimeout = null;
+      syncPfand();
+    }, 300);
   }
 
   /**
-   * Core sync function - fetches the current cart, counts drink bottles,
-   * and ensures the Pfand line item quantity matches.
+   * Core sync function - counts drink bottles and ensures the Pfand line item
+   * quantity matches.
+   *
+   * When cart.js already gives us the updated cart payload after a quantity
+   * change, we reuse that payload immediately so the Pfand row reacts faster.
+   * For all other cart entry points we fall back to fetching /cart.js.
    *
    * Flow:
-   *   1. GET /cart.js to read current cart contents
+   *   1. Reuse the provided cart payload, or GET /cart.js if none was provided
    *   2. Loop through items: count drink bottles (_pfand_eligible=Y) and find Pfand item
    *   3. Compare totalDrinkQty vs Pfand item quantity
    *   4. Add / update / remove Pfand as needed
    *   5. Publish cartUpdate so the cart drawer and cart page re-render
    */
-  function syncPfand() {
+  function syncPfand(cartData) {
     // If already in the middle of a Pfand update, skip to avoid double-fire
     if (pfandUpdateInProgress) {
       console.log('[Pfand Manager] Update already in progress, skipping');
@@ -2909,8 +2928,11 @@ customElements.define("product-recommendations", ProductRecommendations);
     }
     pfandUpdateInProgress = true;
 
-    fetch('/cart.js', { credentials: 'same-origin' })
-      .then(function (response) { return response.json(); })
+    Promise.resolve(
+      cartData && Array.isArray(cartData.items)
+        ? cartData
+        : fetch('/cart.js', { credentials: 'same-origin' }).then(function (response) { return response.json(); })
+    )
       .then(function (cart) {
         // Count total quantity of drink bottles in the cart
         var totalDrinkQty = 0;
@@ -3006,6 +3028,11 @@ customElements.define("product-recommendations", ProductRecommendations);
      Skip events that we ourselves fired (source === 'pfand-manager'). */
   subscribe(PUB_SUB_EVENTS.cartUpdate, function (event) {
     if (event && event.source === 'pfand-manager') return;
+    if (event && event.source === 'cart-items' && event.cartData && Array.isArray(event.cartData.items)) {
+      clearPendingSync();
+      syncPfand(event.cartData);
+      return;
+    }
     debouncedSync();
   });
 

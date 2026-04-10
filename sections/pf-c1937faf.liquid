@@ -69,6 +69,47 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
 
   }
 }</script>
+<script>
+  (function () {
+    function normalizeHeading(value) {
+      return (value || '')
+        .toString()
+        .toLowerCase()
+        .replace(/ä/g, 'a')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function markDrinkForms() {
+      document.querySelectorAll('[data-section-id]').forEach(function (section) {
+        var heading = section.querySelector('[data-pf-type="Heading2"], [data-pf-type="Heading3"], h2, h3');
+        if (normalizeHeading(heading && heading.textContent) !== 'getranke') {
+          return;
+        }
+
+        section.querySelectorAll('form.pf-product-form').forEach(function (form) {
+          if (form.querySelector('input[name="properties[_pfand_eligible]"]')) {
+            return;
+          }
+
+          var input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'properties[_pfand_eligible]';
+          input.value = 'Y';
+          form.appendChild(input);
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', markDrinkForms);
+    } else {
+      markDrinkForms();
+    }
+
+    document.addEventListener('pf:products:replaced', markDrinkForms);
+  })();
+</script>
 {% schema %}
 {
   "name": "PageFly Page b9ef5afd",
