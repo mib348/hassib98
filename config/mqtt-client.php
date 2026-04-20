@@ -40,7 +40,9 @@ return [
         // =====================================================================
         'default' => [
 
-            'host' => env('MQTT_HOST'),
+            // Laravel should talk to the broker over the internal/plain endpoint
+            // on the same host or Docker network. External devices keep using 8883.
+            'host' => env('MQTT_HOST', '127.0.0.1'),
             'port' => (int) env('MQTT_PORT', 1883),
 
             'protocol' => MqttClient::MQTT_3_1,
@@ -105,7 +107,7 @@ return [
         // =====================================================================
         'subscriber' => [
 
-            'host' => env('MQTT_HOST'),
+            'host' => env('MQTT_HOST', '127.0.0.1'),
             'port' => (int) env('MQTT_PORT', 1883),
 
             'protocol' => MqttClient::MQTT_3_1,
@@ -156,11 +158,11 @@ return [
 
                 'keep_alive_interval' => env('MQTT_KEEP_ALIVE_INTERVAL', 10),
 
-                // Auto-reconnect enabled with unlimited retries for the subscriber
+                // Auto-reconnect enabled with high retry count for the subscriber
                 // so the long-running process recovers from broker restarts/network blips
                 'auto_reconnect' => [
                     'enabled' => true,
-                    'max_reconnect_attempts' => 0, // 0 = unlimited retries
+                    'max_reconnect_attempts' => 999999, // effectively unlimited retries
                     'delay_between_reconnect_attempts' => 5, // wait 5 seconds between attempts
                 ],
             ],
