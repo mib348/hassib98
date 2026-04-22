@@ -217,6 +217,10 @@
                 {% # theme-check-disable %}
                 {%- assign cart_qty = cart | item_count_for_variant: product.selected_or_first_available_variant.id -%}
                 {% # theme-check-enable %}
+                {% assign is_voucher_template = false %}
+                {% if product.template_suffix == 'gutschein' %}
+                  {% assign is_voucher_template = true %}
+                {% endif %}
 
                 {% comment %}mib348{% endcomment %}
                     {% assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  %}
@@ -277,6 +281,23 @@
                           {% assign productToShow = true %} 
                       {% endif %}
                   {% endfor %} 
+                  {% if is_voucher_template %}
+                    {% assign productToShow = true %}
+                  {% endif %}
+
+                  {%- liquid
+                    assign quantity_min = 1
+                    assign quantity_step = 1
+                    assign quantity_value = 1
+                    assign quantity_max = qtyValue
+
+                    if is_voucher_template
+                      assign quantity_min = product.selected_or_first_available_variant.quantity_rule.min
+                      assign quantity_step = product.selected_or_first_available_variant.quantity_rule.increment
+                      assign quantity_value = product.selected_or_first_available_variant.quantity_rule.min
+                      assign quantity_max = product.selected_or_first_available_variant.quantity_rule.max
+                    endif
+                  -%}
 
                 {% if productToShow == true %}
                 <label class="quantity__label form__label" for="Quantity-{{ section.id }}">
@@ -316,12 +337,14 @@
                       name="quantity"
                       id="Quantity-{{ section.id }}"
                       data-cart-quantity="{{ cart_qty }}"
-                      data-min="1"
-                      min="1"
-                        data-max="{{ qtyValue }}"
-                        max="{{ qtyValue }}"
-                      step="1"
-                      value="1"
+                      data-min="{{ quantity_min }}"
+                      min="{{ quantity_min }}"
+                      {% if quantity_max != blank %}
+                        data-max="{{ quantity_max }}"
+                        max="{{ quantity_max }}"
+                      {% endif %}
+                      step="{{ quantity_step }}"
+                      value="{{ quantity_value }}"
                       form="{{ product_form_id }}"
                     />
                     <button class="quantity__button no-js-hidden" name="plus" type="button">
