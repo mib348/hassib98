@@ -145,8 +145,10 @@ class OrdersCreateJob implements ShouldQueue
 
     protected function updateProductMetafieldForOrder($shop, $productId, $lineItem, $orderData)
     {
+        $location = $this->getLineItemPropertyValue($lineItem, 'location');
+
         //skip inventory handling for Orders of Location: Delivery
-        if($lineItem['properties'][1]['value'] == "Delivery"){
+        if ($location === 'Delivery') {
             return true;
         }
 
@@ -161,7 +163,7 @@ class OrdersCreateJob implements ShouldQueue
         }
 
         // Define the metafield details
-        $inventoryType = ($lineItem['properties'][6]['value'] == "Y") ? 'immediate' : 'preorder';
+        $inventoryType = $this->determineInventoryType($lineItem);
         $key = ($inventoryType == 'preorder') ? 'preorder_inventory' : 'json';
 
         $namespace = 'custom';
@@ -277,20 +279,13 @@ class OrdersCreateJob implements ShouldQueue
         }
 
         $newQuantity = 0;
+        $lineItemLocation = $this->getLineItemPropertyValue($lineItem, 'location');
 
         // =========================================================================
         // Extract yesterday_item property to determine inventory deduction date
         // =========================================================================
-        $yesterdayItem = 'N'; // Default: today's item
-        $orderDate = null; // The date from line item properties
-
-        foreach ($lineItem['properties'] as $property) {
-            if ($property['name'] === 'yesterday_item') {
-                $yesterdayItem = $property['value'];
-            } elseif ($property['name'] === 'date') {
-                $orderDate = $property['value'];
-            }
-        }
+        $yesterdayItem = $this->getLineItemPropertyValue($lineItem, 'yesterday_item', 'N'); // Default: today's item
+        $orderDate = $this->getLineItemPropertyValue($lineItem, 'date'); // The date from line item properties
 
         // =========================================================================
         // Calculate the inventory deduction date
@@ -334,7 +329,7 @@ class OrdersCreateJob implements ShouldQueue
 
         foreach ($values as $value) {
             // Split the value into location, date, and quantity parts
-            list($location, $date, $quantity) = explode(':', $value);
+            list($valueLocation, $date, $quantity) = explode(':', $value);
 
             // =====================================================================
             // Check if ordered quantity exceeds available inventory
@@ -345,7 +340,8 @@ class OrdersCreateJob implements ShouldQueue
             if (
                 $inventoryDate &&
                 ($inventoryDate == $date) &&
-                $location == $lineItem['properties'][1]['value'] &&
+                $lineItemLocation !== null &&
+                $valueLocation == $lineItemLocation &&
                 (isset($lineItem['quantity']) && $lineItem['quantity'] > 0) &&
                 isset($quantity) &&
                 ($lineItem['quantity'] > $quantity) &&
@@ -434,12 +430,12 @@ class OrdersCreateJob implements ShouldQueue
             if (
                 $inventoryDate &&
                 $date == $inventoryDate &&
-                isset($lineItem['properties'][1]['value']) &&
-                $location == $lineItem['properties'][1]['value']
+                $lineItemLocation !== null &&
+                $valueLocation == $lineItemLocation
             ) {
                 $orderedQuantity = $lineItem['quantity'] ?? 0;
-                $newQuantity = max(0, $quantity - $orderedQuantity); // Ensure quantity doesn't go negative
-                $value = $location . ":" . $date . ':' . $newQuantity;
+                $newQuantity = max(0, (int) $quantity - (int) $orderedQuantity); // Ensure quantity doesn't go negative
+                $value = $valueLocation . ":" . $date . ':' . $newQuantity;
             }
 
             // Add to updated values
@@ -450,27 +446,53 @@ class OrdersCreateJob implements ShouldQueue
         return json_encode($updatedValues);
     }
 
+    /**
+     * Read a line-item property by its Shopify property name instead of relying on array indexes.
+     * This is important because the storefront can add/remove properties over time, which shifts
+     * numeric positions and can make immediate orders look like preorder orders by mistake.
+     */
+    protected function getLineItemPropertyValue(array $lineItem, string $propertyName, $default = null)
+    {
+        $properties = $lineItem['properties'] ?? [];
+
+        if (isset($properties[$propertyName])) {
+            return $properties[$propertyName];
+        }
+
+        foreach ($properties as $property) {
+            if (
+                is_array($property) &&
+                ($property['name'] ?? null) === $propertyName
+            ) {
+                return $property['value'] ?? $default;
+            }
+        }
+
+        return $default;
+    }
+
+    /**
+     * Decide which Shopify metafield bucket the order should update.
+     * Immediate orders must always use the `json` metafield, while preorder orders
+     * use `preorder_inventory`. Reading the property by name avoids false cancellations
+     * when the storefront payload order changes.
+     */
+    protected function determineInventoryType(array $lineItem): string
+    {
+        return $this->getLineItemPropertyValue($lineItem, 'immediate_inventory', 'N') === 'Y'
+            ? 'immediate'
+            : 'preorder';
+    }
+
 
 
 
 
     protected function updateOrder($shop, $productId, $lineItem, $orderData)
     {
-        $location = null;
-        $pickUpDate = null;
-        $yesterdayItem = 'N'; // Default to N (today's item)
-
-        // Extract properties from line item
-        // Properties array structure: [name => value]
-        foreach ($lineItem['properties'] as $property) {
-            if ($property['name'] === 'location') {
-                $location = $property['value'];
-            } elseif ($property['name'] === 'date') {
-                $pickUpDate = $property['value'];
-            } elseif ($property['name'] === 'yesterday_item') {
-                $yesterdayItem = $property['value'];
-            }
-        }
+        $location = $this->getLineItemPropertyValue($lineItem, 'location');
+        $pickUpDate = $this->getLineItemPropertyValue($lineItem, 'date');
+        $yesterdayItem = $this->getLineItemPropertyValue($lineItem, 'yesterday_item', 'N'); // Default to N (today's item)
 
         // =========================================================================
         // YESTERDAY ITEMS SPECIAL HANDLING
@@ -490,7 +512,7 @@ class OrdersCreateJob implements ShouldQueue
             Log::info("Yesterday item detected - using TODAY's date for pick_up_date", [
                 'order_id' => $orderData['id'],
                 'order_number' => $orderData['order_number'],
-                'original_date' => $lineItem['properties'][2]['value'] ?? 'unknown',
+                'original_date' => $this->getLineItemPropertyValue($lineItem, 'date', 'unknown'),
                 'pickup_date_set_to' => $pickUpDate,
                 'product_id' => $productId
             ]);
