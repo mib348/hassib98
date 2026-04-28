@@ -1279,17 +1279,21 @@ class ShopifyController extends Controller
             if ($location->immediate_inventory == 'Y') {
                 $shouldSkipToday = false;
 
-                // Check if we should skip today's inventory due to 48h limit
-                if ($includeTimeChecks && $location->immediate_inventory_48h == 'Y') {
-                    $immediate_inventory_quantity_check_time = Carbon::parse($location->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
-                    
-                    if (
-                        self::getImmediateInventoryByLocationForYesterday($location->name) > $location->immediate_inventory_order_quantity_limit &&
-                        $currentTime >= $immediate_inventory_quantity_check_time
-                    ) {
-                        $shouldSkipToday = true;
-                    }
-                }
+                // TEMPORARILY DISABLED: 48h qty limit feature
+                // Was skipping today's inventory when yesterday's qty exceeded the limit
+                // after a certain check time — but NULL check times caused locations
+                // to be permanently hidden. Re-enable once all locations have proper
+                // immediate_inventory_quantity_check_time values set.
+                // if ($includeTimeChecks && $location->immediate_inventory_48h == 'Y') {
+                //     $immediate_inventory_quantity_check_time = Carbon::parse($location->immediate_inventory_quantity_check_time, 'Europe/Berlin')->format('H:i');
+                //
+                //     if (
+                //         self::getImmediateInventoryByLocationForYesterday($location->name) > $location->immediate_inventory_order_quantity_limit &&
+                //         $currentTime >= $immediate_inventory_quantity_check_time
+                //     ) {
+                //         $shouldSkipToday = true;
+                //     }
+                // }
 
                 $enabledLocationNames[] = $location->name;
                 $locationSettings[$location->name] = $location;
