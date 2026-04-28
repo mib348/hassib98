@@ -30,15 +30,24 @@
 </s-page>
 
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Stores group one or more locations together for admin workflows. Maintain the store list here so grouped views like Drivers can organize locations correctly.'])
+    </div>
     <div class="row">
         <div class="col-6">
             <button type="button" class="btn btn-success" onclick="Livewire.dispatch('resetAndOpenModal')">
                 <i class="fas fa-plus"></i> Add Store
             </button>
+            @include('partials.admin_help_tooltip', ['text' => 'Create a store group or edit one later to control which locations appear together in admin dashboards that support store-based grouping.'])
         </div>
         <div class="col-6"></div>
     </div>
     <br>
+    <div class="admin-help-row">
+        <span class="fw-semibold">Stores table</span>
+        @include('partials.admin_help_tooltip', ['text' => 'The list shows each store UUID, its name, linked locations, and row actions for editing, deleting, and copying operational links where available.'])
+    </div>
     <div class="table-responsive" wire:ignore>
         <table id="storesTable" class="table table-bordered table-striped table-hover js-dataTable-full">
             <thead>

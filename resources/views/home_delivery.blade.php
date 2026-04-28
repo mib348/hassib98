@@ -28,6 +28,16 @@
 <div class="container-fluid p-2">
     <div class="row">
         <div class="col-md-12">
+            @if((int) request('menu') === 1)
+            <div class="admin-help-row">
+                <span class="fw-semibold">Page help</span>
+                @include('partials.admin_help_tooltip', ['text' => 'Use this overview to compare home delivery demand across each configured timezone slot and to inspect the orders counted in each bucket.'])
+            </div>
+            <div class="admin-help-row">
+                <span class="fw-semibold">Delivery table</span>
+                @include('partials.admin_help_tooltip', ['text' => 'Each column represents one configured delivery timezone. Click the order counters to open the matching orders for that slot.'])
+            </div>
+            @endif
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>

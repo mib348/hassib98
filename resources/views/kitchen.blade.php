@@ -100,9 +100,19 @@
 <div class="container-fluid p-2">
     <div class="row">
         <div class="col-12">
-            <h5>PreOrders</h5>
+            <h5 @if((int) request('menu') === 1) class="admin-help-label" @endif>PreOrders
+                @if((int) request('menu') === 1)
+                @include('partials.admin_help_tooltip', ['text' => 'Kitchen staff use this page to review preorder quantities, location totals, and immediate-order totals for each service date.'])
+                @endif
+            </h5>
         </div>
     </div>
+    @if((int) request('menu') === 1)
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Tables are grouped by location first, then by system-wide totals. Badge counts help the kitchen compare packed quantities against total orders for each date.'])
+    </div>
+    @endif
     <div class="row">
         <div class="col-12">
             @foreach($arrData as $location => $days)

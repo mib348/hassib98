@@ -54,6 +54,10 @@
 </s-page>
 
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Use this report to compare revenue and inventory-driven order counts by location, date range, and store grouping.'])
+    </div>
     {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
         <div class="col-6">
@@ -67,7 +71,9 @@
     </div> --}}
     <div class="row g-3">
         <div class="col-12 col-md-6 col-lg-3">
-            <label for="strFilterLocation" class="form-label fw-bold">Location</label>
+            <label for="strFilterLocation" class="form-label fw-bold admin-help-label">Location
+                @include('partials.admin_help_tooltip', ['text' => 'Limit the report to one location. When a store filter is also selected, the location filter narrows the results inside that store grouping.'])
+            </label>
             <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                 <option value="" selected>--- Select Location ---</option>
                 @foreach($arrLocations as $location)
@@ -76,13 +82,17 @@
             </select>
         </div>
         <div class="col-12 col-md-6 col-lg-3">
-            <label for="strFilterDate" class="form-label fw-bold">Date Range</label>
+            <label for="strFilterDate" class="form-label fw-bold admin-help-label">Date Range
+                @include('partials.admin_help_tooltip', ['text' => 'Choose the reporting window used to calculate revenue totals and operational counts in the table and export.'])
+            </label>
             <input type="text" name="strFilterDate" id="strFilterDate" class="form-control" placeholder="Select Date Range">
             <input type="hidden" name="strFilterFromDate" id="strFilterFromDate">
             <input type="hidden" name="strFilterToDate" id="strFilterToDate">
         </div>
         <div class="col-12 col-md-6 col-lg-3">
-            <label for="strFilterStore" class="form-label fw-bold">Store</label>
+            <label for="strFilterStore" class="form-label fw-bold admin-help-label">Store
+                @include('partials.admin_help_tooltip', ['text' => 'Use store grouping when you want revenue totals consolidated for the locations assigned to one store.'])
+            </label>
             <select id="strFilterStore" name="strFilterStore" class="form-select">
                 <option value="" selected>--- Select Store ---</option>
                 @foreach($arrStores as $store)
@@ -90,16 +100,18 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-12 col-md-6 col-lg-3 d-flex align-items-end">
+        <div class="col-12 col-md-6 col-lg-3 d-flex align-items-end gap-2">
             <button type="button" class="btn btn-primary w-100" id="export_pdf_btn">Export PDF</button>
+            @include('partials.admin_help_tooltip', ['text' => 'Export the currently filtered revenue table, including the selected date range and totals, into a PDF snapshot for sharing or review.'])
         </div>
     </div>
     <br>
     <div class="row">
         <div class="col-12 col-md-6 col-lg-3">
             <input class="form-check-input" type="checkbox" value="Y" id="chkFilterSnacksAndDrinks" name="chkFilterSnacksAndDrinks">
-            <label class="form-check-label" for="chkFilterSnacksAndDrinks">
+            <label class="form-check-label admin-help-label" for="chkFilterSnacksAndDrinks">
                 Show only Snacks and Drinks
+                @include('partials.admin_help_tooltip', ['text' => 'Limit the revenue table to locations and rows related to snacks and drinks activity only.'])
             </label>
         </div>
     </div>
@@ -107,6 +119,10 @@
     <div class="row">
         <div class="col-md-12">
             <form id="locations_revenue_form">
+            <div class="admin-help-row">
+                <span class="fw-semibold">Revenue table</span>
+                @include('partials.admin_help_tooltip', ['text' => 'Rows summarize revenue and order activity for the active filters. Expanded detail rows and grand totals help compare location performance without leaving the page.'])
+            </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>

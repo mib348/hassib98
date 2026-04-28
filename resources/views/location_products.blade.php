@@ -163,6 +163,10 @@
 </s-page>
 
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Manage preorder and immediate inventory quantities by location. Changes here control what each location can sell or prepare on each weekday block.'])
+    </div>
     <div class="row">
         <div class="col-md-12">
             {{-- Keep the quick-set entry next to the location selector so both
@@ -170,7 +174,9 @@
             <div class="row g-3 mb-3 align-items-end">
                 <div class="col-12 col-lg-6">
                     <div class="form-group mb-0">
-                        <h5 for="strFilterLocation">Location</h5>
+                        <h5 for="strFilterLocation" class="admin-help-label">Location
+                            @include('partials.admin_help_tooltip', ['text' => 'Choose the location whose inventory tables you want to edit. All visible quantity inputs below refresh for this selection.'])
+                        </h5>
                         <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                             <option value="" selected>--- Select Location ---</option>
                             @foreach($arrLocations as $location)
@@ -179,7 +185,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="col-12 col-lg-6 d-flex justify-content-lg-end">
+                <div class="col-12 col-lg-6 d-flex justify-content-lg-end align-items-center gap-2">
                     <button
                         type="button"
                         class="btn btn-primary"
@@ -187,21 +193,26 @@
                     >
                         Location Products Quick Set
                     </button>
+                    @include('partials.admin_help_tooltip', ['text' => 'Open the same-day quick cleanup screen for immediate inventory. Use it when admins need to remove today-only inventory fast across locations.'])
                 </div>
             </div>
 
             <br>
             <!-- Preorders Table -->
             <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 10px;">
-                <h5 class="mb-0">PreOrder Inventory</h5>
+                <h5 class="mb-0 admin-help-label">PreOrder Inventory
+                    @include('partials.admin_help_tooltip', ['text' => 'Preorder inventory controls planned quantities by weekday. Save All writes all visible weekday changes, while Import Default Menu repopulates the table from the default menu setup for the selected location.'])
+                </h5>
                 <button type="button" class="btn btn-primary btn-sm save-all-days_btn" data-inventory-type="preorder">
                     Save All
                     <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
                 </button>
+                @include('partials.admin_help_tooltip', ['text' => 'Save every visible preorder weekday change for the selected location in one request.'])
                 <button type="button" class="btn btn-info btn-sm import_default_menu_btn text-white" data-inventory-type="preorder">
                     Import Default Menu
                     <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="preorder"></div>
                 </button>
+                @include('partials.admin_help_tooltip', ['text' => 'Replace the selected location\'s preorder product rows with the current default menu setup.'])
             </div>
             <form id="location_products_form_preorder" class="clearfix">
                 <input type="hidden" name="inventory_type" value="preorder">
@@ -217,15 +228,19 @@
 
             <!-- Immediate Orders Table -->
             <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 10px;">
-                <h5 class="mb-0">Immediate Inventory</h5>
+                <h5 class="mb-0 admin-help-label">Immediate Inventory
+                    @include('partials.admin_help_tooltip', ['text' => 'Immediate inventory is the fast-changing stock used for short-notice sales. Save All stores edited quantities, and Import Default Menu restores the current default product list for this inventory type.'])
+                </h5>
                 <button type="button" class="btn btn-primary btn-sm save-all-days_btn" data-inventory-type="immediate">
                     Save All
                     <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
                 </button>
+                @include('partials.admin_help_tooltip', ['text' => 'Save every visible immediate-inventory weekday change for the selected location in one request.'])
                 <button type="button" class="btn btn-info btn-sm import_default_menu_btn text-white" data-inventory-type="immediate">
                     Import Default Menu
                     <div class="spinner-border spinner-border-sm text-danger loading-icon" role="status" data-inventory-type="immediate"></div>
                 </button>
+                @include('partials.admin_help_tooltip', ['text' => 'Replace the selected location\'s immediate-inventory product rows with the current default menu setup.'])
             </div>
             <form id="location_products_form_immediate">
                 <input type="hidden" name="inventory_type" value="immediate">

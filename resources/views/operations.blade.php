@@ -27,6 +27,10 @@
 </s-page>
 
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Set which weekdays are operational for each location. This matrix is used to decide when a location should accept or block service.'])
+    </div>
     {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
         <div class="col-6">
@@ -41,6 +45,10 @@
     <div class="row">
         <div class="col-md-12">
             <form id="operation_days_form">
+            <div class="admin-help-row">
+                <span class="fw-semibold">Operation days table</span>
+                @include('partials.admin_help_tooltip', ['text' => 'Mark the weekdays that should stay active for each location row, then save the full matrix once your updates are complete.'])
+            </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
@@ -63,6 +71,7 @@
                 </table>
             </div>
             <button type="button" class="btn btn-primary" id="save_btn">Save</button>
+            @include('partials.admin_help_tooltip', ['text' => 'Save the current weekday availability selections shown in the table above.'])
             </form>
         </div>
     </div>

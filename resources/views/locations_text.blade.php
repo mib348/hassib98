@@ -60,15 +60,22 @@
     <div class="row">
         <div class="col-md-12">
             <form id="locations_text_form">
+                <div class="admin-help-row">
+                    <span class="fw-semibold">Page help</span>
+                    @include('partials.admin_help_tooltip', ['text' => 'Maintain each location\'s operational settings, public-facing notes, delivery behavior, coordinates, and schedule fields from this screen.'])
+                </div>
                 <div class="row align-items-center mb-2">
                     <div class="col-12 col-md-6 mb-2 mb-md-0">
-                        <label class="label fw-bold font-bold" for="strFilterLocation">Filter Location</label>
+                        <label class="label fw-bold font-bold admin-help-label" for="strFilterLocation">Filter Location
+                            @include('partials.admin_help_tooltip', ['text' => 'Load one location record into the editable form below. All textareas, toggles, and timing fields update when you switch the selection.'])
+                        </label>
                     </div>
                     {{-- On mobile: buttons stack full-width (d-grid). On md+: buttons sit inline right-aligned (d-md-flex). --}}
                     <div class="col-12 col-md-6 d-grid d-md-flex justify-content-md-end gap-2">
                         <button type="button" class="btn btn-primary" id="exportExcelBtn">
                             <i class="fas fa-file-excel"></i> Export Excel
                         </button>
+                        @include('partials.admin_help_tooltip', ['text' => 'Export the current location settings dataset to Excel for review, backup, or offline edits.'])
                         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addLocationModal">
                             <i class="fas fa-plus"></i> Add Location
                         </button>
@@ -84,6 +91,10 @@
                 </div>
 
                 <div class="table-responsive">
+                    <div class="admin-help-row">
+                        <span class="fw-semibold">Operating hours table</span>
+                        @include('partials.admin_help_tooltip', ['text' => 'Edit the visible start and end times for the selected location. These rows define the core time windows used by related admin and storefront workflows.'])
+                    </div>
                     <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                         <thead>
                             <tr>
@@ -140,48 +151,54 @@
                     <div class="col-12 col-sm-6 col-md-4 col-lg-2">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" id="location_toggle" name="location_toggle">
-                            <label class="form-check-label" for="location_toggle">
+                            <label class="form-check-label admin-help-label" for="location_toggle">
                                 Location Active
+                                @include('partials.admin_help_tooltip', ['text' => 'Turn the selected location on or off for operational use. Inactive locations stay in the data but should not be treated as live.'])
                             </label>
                         </div>
                     </div>
                     <div class="col-12 col-sm-6 col-md-4 col-lg-2 accept_only_preorders_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="accept_only_preorders" name="accept_only_preorders">
-                            <label class="form-check-label" for="accept_only_preorders">
+                            <label class="form-check-label admin-help-label" for="accept_only_preorders">
                                 Accept only PreOrders
+                                @include('partials.admin_help_tooltip', ['text' => 'Allow the location to accept preorder sales only, without normal immediate-order availability.'])
                             </label>
                         </div>
                     </div>
                     <div class="col-12 col-sm-6 col-md-4 col-lg-2 no_station_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="no_station" name="no_station">
-                            <label class="form-check-label" for="no_station">
+                            <label class="form-check-label admin-help-label" for="no_station">
                                 No Station
+                                @include('partials.admin_help_tooltip', ['text' => 'Mark this location as not operating as a standard catering station in flows that distinguish station-based locations.'])
                             </label>
                         </div>
                     </div>
                     <div class="col-12 col-sm-6 col-md-4 col-lg-2 additional_inventory_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="additional_inventory" name="additional_inventory">
-                            <label class="form-check-label" for="additional_inventory">
+                            <label class="form-check-label admin-help-label" for="additional_inventory">
                                 Additional Inventory
+                                @include('partials.admin_help_tooltip', ['text' => 'Flag the location for additional inventory handling instead of the regular standard inventory path.'])
                             </label>
                         </div>
                     </div>
                     <div class="col-12 col-sm-6 col-md-4 col-lg-2 immediate_inventory_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="N" id="immediate_inventory" name="immediate_inventory">
-                            <label class="form-check-label" for="immediate_inventory">
+                            <label class="form-check-label admin-help-label" for="immediate_inventory">
                                 Immediate Inventory
+                                @include('partials.admin_help_tooltip', ['text' => 'Enable the immediate-inventory workflow for this location so same-day stock can be managed and sold.'])
                             </label>
                         </div>
                     </div>
                     <div class="col-12 col-sm-6 col-md-4 col-lg-2 location_public_private_portion">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="PUBLIC" id="location_public_private" name="location_public_private">
-                            <label class="form-check-label" for="location_public_private">
+                            <label class="form-check-label admin-help-label" for="location_public_private">
                                 Public Location
+                                @include('partials.admin_help_tooltip', ['text' => 'Mark the location as public-facing instead of keeping it restricted to private or internal workflows.'])
                             </label>
                         </div>
                     </div>
@@ -191,8 +208,9 @@
                     <div class="col-12 col-md-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" id="immediate_inventory_48h" name="immediate_inventory_48h">
-                            <label class="form-check-label" for="immediate_inventory_48h">
+                            <label class="form-check-label admin-help-label" for="immediate_inventory_48h">
                                 Yesterdays Items
+                                @include('partials.admin_help_tooltip', ['text' => 'Keep yesterday\'s immediate-inventory items available under the 48-hour handling rule for this location.'])
                             </label>
                         </div>
                     </div>
@@ -211,15 +229,18 @@
                     <div class="col-12 col-sm-6 col-md-4 col-lg-2">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Y" id="snacks_and_drinks" name="snacks_and_drinks">
-                            <label class="form-check-label" for="snacks_and_drinks">
+                            <label class="form-check-label admin-help-label" for="snacks_and_drinks">
                                 Snacks & Drinks
+                                @include('partials.admin_help_tooltip', ['text' => 'Enable snacks and drinks behavior for this location so related items can be managed and reported separately.'])
                             </label>
                         </div>
                     </div>
                 </div>
                 <div class="row location_order_portion mt-3">
-                    <div class="col-12">
-                        <label class="label fw-bold font-bold" for="location_order">Order</label>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label class="label fw-bold font-bold admin-help-label mb-1" for="location_order">Order
+                            @include('partials.admin_help_tooltip', ['text' => 'Set the selected location\'s display order in location lists. Lower numbers appear earlier where this ordering is used.'])
+                        </label>
                         <select name="location_order" id="location_order" class="form-control">
                             <option value="">--- Select ---</option>
                             @foreach($arrLocations as $loc)
@@ -230,6 +251,7 @@
                 </div>
                 <br>
                 <button type="button" class="btn btn-primary w-100 w-md-auto" id="save_btn">Save</button>
+                @include('partials.admin_help_tooltip', ['text' => 'Save all changes for the selected location, including text fields, checkboxes, coordinates, time windows, and order settings shown on this page.'])
             </form>
             <br>
             @php

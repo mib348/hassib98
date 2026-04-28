@@ -288,9 +288,19 @@
 <div class="container-full p-2">
     <div class="row">
         <div class="col-12">
-            <h5>PreOrders & Immediate Inventory</h5>
+            <h5 @if((int) request('menu') === 1) class="admin-help-label" @endif>PreOrders & Immediate Inventory
+                @if((int) request('menu') === 1)
+                @include('partials.admin_help_tooltip', ['text' => 'Drivers use this view to see each location\'s active orders, open maps directions, mark fulfillment, and confirm cleaning when a location is finished.'])
+                @endif
+            </h5>
         </div>
     </div>
+    @if((int) request('menu') === 1)
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Accordion cards group locations by store in admin mode. Open a location to access the operational buttons and order details for that stop.'])
+    </div>
+    @endif
 
     {{-- Check if this is ADMIN view with store grouping --}}
     @if(isset($isAdminView) && $isAdminView && !empty($storesData))

@@ -4,6 +4,48 @@
     Include this partial before your scripts section: @include('partials.app_navigation')
 --}}
 
+<style>
+    /* Shared admin help icon style so every page gets the same marker
+       without having to repeat CSS inside each Blade template. */
+    .admin-help-tooltip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        margin-left: 0.35rem;
+        border: 1px solid #6c757d;
+        border-radius: 50%;
+        background-color: #ffffff;
+        color: #495057;
+        font-size: 0.72rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: help;
+        vertical-align: middle;
+    }
+
+    .admin-help-tooltip:hover,
+    .admin-help-tooltip:focus {
+        border-color: #0d6efd;
+        color: #0d6efd;
+        outline: none;
+    }
+
+    .admin-help-label {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .admin-help-row {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-bottom: 0.75rem;
+    }
+</style>
+
 <script>
     /**
      * Navigate to a page while preserving Shopify embed context
@@ -108,6 +150,35 @@
     window.getAjaxErrorMessage = getAjaxErrorMessage;
     window.waitForShopifySessionToken = waitForShopifySessionToken;
 
+    /**
+     * Turn any inline admin help marker into a Bootstrap tooltip once.
+     * This is called again after AJAX updates so newly rendered help icons
+     * become interactive without duplicating existing tooltip instances.
+     */
+    function initializeAdminHelpTooltips(root) {
+        if (!window.bootstrap || !window.bootstrap.Tooltip) {
+            return;
+        }
+
+        const scope = root instanceof Element ? root : document;
+        const tooltipElements = scope.querySelectorAll('.admin-help-tooltip[data-bs-toggle="tooltip"]');
+
+        tooltipElements.forEach(function (element) {
+            if (window.bootstrap.Tooltip.getInstance(element)) {
+                return;
+            }
+
+            new window.bootstrap.Tooltip(element, {
+                trigger: 'hover focus',
+                container: 'body'
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initializeAdminHelpTooltips();
+    });
+
     // Ensure jQuery requests carry Shopify bearer token for verify.shopify middleware.
     if (window.jQuery) {
         window.jQuery.ajaxSetup({
@@ -118,6 +189,10 @@
                     xhr.setRequestHeader('Authorization', `Bearer ${sessionToken}`);
                 }
             }
+        });
+
+        window.jQuery(document).ajaxComplete(function () {
+            initializeAdminHelpTooltips();
         });
     }
 
@@ -148,4 +223,6 @@
 
         window.__shopifyFetchTokenPatched = true;
     }
+
+    window.initializeAdminHelpTooltips = initializeAdminHelpTooltips;
 </script>

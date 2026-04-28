@@ -65,6 +65,14 @@
 {{-- Uses js-dataTable-full class so jQuery DataTable picks it up --}}
 {{-- Same pattern as orders.blade.php for pagination, sorting, and search --}}
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Review Raspberry Pi pickup detail records here, including timestamps, quantities, and the pre and post image filenames captured during each event.'])
+    </div>
+    <div class="admin-help-row">
+        <span class="fw-semibold">RPI details table</span>
+        @include('partials.admin_help_tooltip', ['text' => 'The table is ordered newest first and refreshes automatically so admins can monitor incoming device submissions without reopening the page.'])
+    </div>
     <div class="table-responsive">
         <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
             <thead>

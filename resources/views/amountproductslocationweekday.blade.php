@@ -27,6 +27,10 @@
 </s-page>
 
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Adjust product quantities for one location and weekday combination. This screen is useful when admins need a focused edit instead of the full inventory grid.'])
+    </div>
     {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
         <div class="col-6">
@@ -41,6 +45,10 @@
     <div class="row">
         <div class="col-md-12">
             <form id="amount_products_location_weekdays_form">
+            <div class="admin-help-row">
+                <span class="fw-semibold">Focused quantity table</span>
+                @include('partials.admin_help_tooltip', ['text' => 'Choose a location and day first, then edit the generated product quantities for that single combination before saving.'])
+            </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>
@@ -68,6 +76,7 @@
                 </table>
             </div>
             <button type="button" class="btn btn-primary" id="save_btn">Save</button>
+            @include('partials.admin_help_tooltip', ['text' => 'Save the currently loaded quantities for the selected location and weekday.'])
             </form>
         </div>
     </div>

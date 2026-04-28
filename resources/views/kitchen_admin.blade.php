@@ -71,8 +71,14 @@
 <div class="container-fluid p-2">
     <div class="row">
         <div class="col-12">
-            <h5>Sushi Catering PreOrders</h5>
+            <h5 class="admin-help-label">Sushi Catering PreOrders
+                @include('partials.admin_help_tooltip', ['text' => 'Kitchen Admin provides a consolidated preparation view for preorder and immediate-inventory totals across all configured locations.'])
+            </h5>
         </div>
+    </div>
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Use this admin summary when you need all location tables in one place for production planning, not just a single kitchen screen.'])
     </div>
     <div class="row">
         <div class="col-12">

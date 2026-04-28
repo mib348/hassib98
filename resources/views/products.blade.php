@@ -25,6 +25,10 @@
 </s-page>
 
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'This page lists products with their scheduled quantities and configured days so admins can inspect what inventory logic is attached to each product.'])
+    </div>
     {{-- <h5>Products <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
         <div class="col-6">
@@ -44,6 +48,10 @@
                 <option value="{{ $location }}">{{ $location }}</option>
                 @endforeach
             </select> --}}
+            <div class="admin-help-row">
+                <span class="fw-semibold">Products table</span>
+                @include('partials.admin_help_tooltip', ['text' => 'Review each product id, display title, stored date-and-quantity values, active weekday settings, and any row actions exposed in the final column.'])
+            </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">
                     <thead>

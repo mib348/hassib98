@@ -136,6 +136,10 @@
 </s-page>
 
 <div class="container-fluid p-2">
+    <div class="admin-help-row">
+        <span class="fw-semibold">Page help</span>
+        @include('partials.admin_help_tooltip', ['text' => 'Use this overview to track location order counts, status exceptions, preorder sales, immediate inventory usage, and driver image activity for the selected filters.'])
+    </div>
     {{-- <h5>Orders <div class="loader spinning_status"></div></h5> --}}
     {{-- <div class="row">
         <div class="col-6">
@@ -152,7 +156,9 @@
     <div class="row g-3 mb-3">
         {{-- Location filter dropdown - filters orders by a specific store location --}}
         <div class="col-12 col-md-6 col-lg-3">
-            <label for="strFilterLocation" class="form-label fw-bold">Location</label>
+            <label for="strFilterLocation" class="form-label fw-bold admin-help-label">Location
+                @include('partials.admin_help_tooltip', ['text' => 'Filter the entire order overview to one pickup location. Leave it blank to compare all active locations together.'])
+            </label>
             <select id="strFilterLocation" name="strFilterLocation" class="form-select">
                 <option value="" selected>--- Select Location ---</option>
                 @foreach($locations as $location)
@@ -165,7 +171,9 @@
         </div>
         {{-- Date range picker - allows querying any date range instead of the default 21-day window --}}
         <div class="col-12 col-md-6 col-lg-3">
-            <label for="strFilterDate" class="form-label fw-bold">Date Range</label>
+            <label for="strFilterDate" class="form-label fw-bold admin-help-label">Date Range
+                @include('partials.admin_help_tooltip', ['text' => 'Load any custom date window. Wider ranges take longer because the page recalculates totals and drilldown counts for every matching date.'])
+            </label>
             <input type="text" name="strFilterDate" id="strFilterDate" class="form-control" placeholder="Select Date Range">
             {{-- Hidden fields store the actual start/end dates sent to the server in DD.MM.YYYY format --}}
             <input type="hidden" name="strFilterFromDate" id="strFilterFromDate">
@@ -176,6 +184,10 @@
             <div id="loadingOverlay" style="display:none; text-align:center; padding:30px;">
                 <div class="loader" style="margin:0 auto;"></div>
                 <p class="mt-2 text-muted">Loading orders...</p>
+            </div>
+            <div class="admin-help-row">
+                <span class="fw-semibold">Overview table</span>
+                @include('partials.admin_help_tooltip', ['text' => 'Each row represents one service date. Click the counts in the table to open the underlying orders, images, or inventory drilldowns for that day.'])
             </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-vcenter table-condensed js-dataTable-full">

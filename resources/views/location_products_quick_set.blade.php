@@ -55,9 +55,15 @@
 
 <div class="container-fluid p-2">
     <div class="quick-set-summary p-3 p-md-4">
+        <div class="admin-help-row">
+            <span class="fw-semibold">Page help</span>
+            @include('partials.admin_help_tooltip', ['text' => 'This screen is for fast same-day cleanup of immediate inventory. Use it to inspect today totals by location and remove products or reset a location without editing the full weekday tables.'])
+        </div>
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
             <div>
-                <h5 class="mb-1">Today Immediate Inventory</h5>
+                <h5 class="mb-1 admin-help-label">Today Immediate Inventory
+                    @include('partials.admin_help_tooltip', ['text' => 'The badge totals show only today\'s immediate inventory quantities. Click a badge to inspect the product list behind that total for one location.'])
+                </h5>
                 <p class="text-muted mb-0">
                     Day: <strong id="quick_set_day_label">{{ $todayDay }}</strong>,
                     date: <strong id="quick_set_date_label">{{ $todayDate }}</strong>
@@ -68,6 +74,7 @@
                 <button type="button" class="btn btn-danger" id="quick_set_delete_all">
                     Delete All Today
                 </button>
+                @include('partials.admin_help_tooltip', ['text' => 'Delete every immediate inventory quantity stored for today across all locations shown in this quick-set screen.'])
                 <div class="spinner-border spinner-border-sm text-danger quick-set-loading" id="quick_set_loading" role="status"></div>
             </div>
         </div>
