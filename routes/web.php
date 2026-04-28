@@ -112,6 +112,8 @@ Route::middleware(['verify.shopify'])->group(function () {
     // Location Products Table
     Route::get('/getLocationsProductsJSON', [LocationProductsTableController::class, 'getLocationsProductsJSON'])->name('getLocationsProductsJSON');
     Route::post('/ImportDefaultMenu', [LocationProductsTableController::class, 'ImportDefaultMenu'])->name('ImportDefaultMenu');
+    Route::get('/location_products/quick-set', [LocationProductsTableController::class, 'quickSet'])->name('location_products.quick_set');
+    Route::post('/location_products/quick-set/reset-today', [LocationProductsTableController::class, 'resetTodayImmediateInventory'])->name('location_products.quick_set.reset_today');
     // Route::post('/location_products/updateDay', [LocationProductsTableController::class, 'updateDay'])->name('location_products.updateDay');
     Route::resource('location_products', LocationProductsTableController::class);
 

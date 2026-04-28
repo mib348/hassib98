@@ -165,15 +165,29 @@
 <div class="container-fluid p-2">
     <div class="row">
         <div class="col-md-12">
-            <!-- Location Dropdown -->
-            <div class="form-group">
-                <h5 for="strFilterLocation">Location</h5>
-                <select id="strFilterLocation" name="strFilterLocation" class="form-select">
-                    <option value="" selected>--- Select Location ---</option>
-                    @foreach($arrLocations as $location)
-                    <option value="{{ $location->name }}">{{ $location->name }}</option>
-                    @endforeach
-                </select>
+            {{-- Keep the quick-set entry next to the location selector so both
+                 location-specific editing and same-day bulk cleanup live in one place. --}}
+            <div class="row g-3 mb-3 align-items-end">
+                <div class="col-12 col-lg-6">
+                    <div class="form-group mb-0">
+                        <h5 for="strFilterLocation">Location</h5>
+                        <select id="strFilterLocation" name="strFilterLocation" class="form-select">
+                            <option value="" selected>--- Select Location ---</option>
+                            @foreach($arrLocations as $location)
+                            <option value="{{ $location->name }}">{{ $location->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-6 d-flex justify-content-lg-end">
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="navigateToPage('/location_products/quick-set')"
+                    >
+                        Location Products Quick Set
+                    </button>
+                </div>
             </div>
 
             <br>

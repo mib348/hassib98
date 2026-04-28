@@ -7,6 +7,7 @@ use App\Models\Locations;
 use App\Models\PersonalNotepad;
 use App\Models\Products;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +74,102 @@ class LocationProductsTableController extends Controller
             'arrProducts' => $arrProducts,
             'arrLocations' => $arrLocations,
             'personal_notepad' => optional($personal_notepad)->note
+        ]);
+    }
+
+    /**
+     * Show a fast reset screen for today's immediate inventory.
+     * This view is intentionally small and action-focused so large weekday-holiday
+     * cleanups can be done in one pass without opening each location manually.
+     */
+    public function quickSet()
+    {
+        $todayContext = $this->getTodayContext();
+        $locations = $this->getQuickSetLocationsQuery()->get(['name']);
+
+        return view('location_products_quick_set', [
+            'rows' => $this->buildQuickSetRows($locations, $todayContext['day']),
+            'todayDate' => $todayContext['date'],
+            'todayDay' => $todayContext['day'],
+        ]);
+    }
+
+    /**
+     * Delete only today's immediate inventory for one quick-set location or for
+     * every quick-set location when no location is supplied.
+     *
+     * We do not reuse store() here because store() replaces the full location
+     * schedule for the inventory type, which would wipe other weekdays too.
+     */
+    public function resetTodayImmediateInventory(Request $request)
+    {
+        $validated = $request->validate([
+            'location' => ['nullable', 'string'],
+        ]);
+
+        $todayContext = $this->getTodayContext();
+        $locationsQuery = $this->getQuickSetLocationsQuery();
+
+        if (!empty($validated['location'])) {
+            $locationsQuery->where('name', $validated['location']);
+        }
+
+        $locations = $locationsQuery->get(['name']);
+
+        if ($locations->isEmpty()) {
+            return response()->json([
+                'message' => 'The selected location is not available in Location Products Quick Set.',
+            ], 404);
+        }
+
+        $locationNames = $locations->pluck('name')->all();
+        $rowsToDelete = LocationProductsTable::query()
+            ->whereIn('location', $locationNames)
+            ->where('inventory_type', 'immediate')
+            ->where('day', $todayContext['day'])
+            ->get(['id', 'product_id', 'location']);
+
+        if ($rowsToDelete->isNotEmpty()) {
+            DB::beginTransaction();
+
+            try {
+                $affectedProductIds = $rowsToDelete->pluck('product_id')->unique()->values()->all();
+
+                LocationProductsTable::whereIn('id', $rowsToDelete->pluck('id')->all())->delete();
+
+                $this->syncImmediateInventoryRemovalForToday(
+                    $locationNames,
+                    $todayContext['date'],
+                    $affectedProductIds
+                );
+
+                DB::commit();
+            } catch (\Throwable $exception) {
+                DB::rollBack();
+
+                Log::error('Error resetting today immediate inventory: ' . $exception->getMessage(), [
+                    'location' => $validated['location'] ?? null,
+                    'date' => $todayContext['date'],
+                    'day' => $todayContext['day'],
+                ]);
+
+                return response()->json([
+                    'message' => 'Unable to delete today immediate inventory right now.',
+                ], 500);
+            }
+        }
+
+        $allQuickSetLocations = $this->getQuickSetLocationsQuery()->get(['name']);
+        $message = $rowsToDelete->isEmpty()
+            ? 'No immediate inventory was found for the selected quick-set scope today.'
+            : 'Today immediate inventory was deleted successfully.';
+
+        return response()->json([
+            'message' => $message,
+            'date' => $todayContext['date'],
+            'day' => $todayContext['day'],
+            'affected_locations' => $locationNames,
+            'rows' => $this->buildQuickSetRows($allQuickSetLocations, $todayContext['day']),
         ]);
     }
 
@@ -573,6 +670,175 @@ class LocationProductsTableController extends Controller
     }
 
     /**
+     * Re-sync the Shopify metafields for products touched by a quick-set delete.
+     * Only the matching location/date entries are removed from custom.json, while
+     * other locations and other dates stay exactly as they are.
+     */
+    protected function syncImmediateInventoryRemovalForToday(array $locationNames, string $todayDate, array $affectedProductIds): void
+    {
+        if (empty($affectedProductIds)) {
+            return;
+        }
+
+        $shop = Auth::user();
+        if (!isset($shop) || !$shop) {
+            $shop = User::find(env('db_shop_id', 1));
+        }
+
+        $api = $shop->api();
+        $existingMetafields = $this->fetchExistingMetafields($api, $affectedProductIds, 'json');
+        $metafieldMutations = [];
+
+        foreach ($affectedProductIds as $productId) {
+            $currentMetafield = $existingMetafields[$productId] ?? null;
+            if (!$currentMetafield) {
+                continue;
+            }
+
+            $existingData = json_decode($currentMetafield['value'] ?? '[]', true);
+            if (!is_array($existingData)) {
+                $existingData = [];
+            }
+
+            $updatedData = $this->removeImmediateInventoryEntriesForToday(
+                $existingData,
+                $locationNames,
+                $todayDate
+            );
+
+            if ($updatedData === $existingData) {
+                continue;
+            }
+
+            $metafieldMutations[] = [
+                'ownerId' => "gid://shopify/Product/{$productId}",
+                'namespace' => 'custom',
+                'key' => 'json',
+                'value' => json_encode($updatedData),
+                'type' => 'json',
+            ];
+        }
+
+        $availableOnMutations = [];
+        foreach ($affectedProductIds as $productId) {
+            $availableOnMutations[] = [
+                'productId' => $productId,
+                'availableDays' => json_encode($this->fetchAvailableDays($productId)),
+            ];
+        }
+
+        $metafieldMutations = array_merge(
+            $metafieldMutations,
+            $this->buildUpdateAvailableOnMetafields($api, $availableOnMutations)
+        );
+
+        foreach (array_chunk($metafieldMutations, 25) as $chunk) {
+            if (!empty($chunk)) {
+                $this->batchUpdateMetafields($api, $chunk);
+            }
+        }
+    }
+
+    /**
+     * Remove only the exact location/date entries that belong to the quick-set
+     * delete action. Everything else is preserved so other weekdays remain safe.
+     */
+    protected function removeImmediateInventoryEntriesForToday(array $existingData, array $locationNames, string $todayDate): array
+    {
+        return array_values(array_filter($existingData, function ($entry) use ($locationNames, $todayDate) {
+            if (!is_string($entry)) {
+                return true;
+            }
+
+            $parts = explode(':', $entry);
+            if (count($parts) !== 3) {
+                return true;
+            }
+
+            [$entryLocation, $entryDate] = $parts;
+
+            return !(in_array($entryLocation, $locationNames, true) && $entryDate === $todayDate);
+        }));
+    }
+
+    /**
+     * The quick-set screen uses the same location scope the operations pages use:
+     * active operational locations only, without the helper/system locations.
+     */
+    protected function getQuickSetLocationsQuery()
+    {
+        return Locations::query()
+            ->where('is_active', 'Y')
+            ->whereNotIn('name', ['Default Menu', 'Additional Inventory', 'Delivery'])
+            ->orderBy('name', 'asc');
+    }
+
+    /**
+     * Build one row per location so the view always shows the full operational list,
+     * even when a location currently has zero immediate inventory for today.
+     */
+    protected function buildQuickSetRows($locations, string $day): array
+    {
+        $locationNames = collect($locations)->pluck('name')->values()->all();
+
+        if (empty($locationNames)) {
+            return [];
+        }
+
+        // Group inventory by location + product first so the UI can show both the
+        // location total badge and the exact product drilldown for the modal.
+        $groupedInventory = LocationProductsTable::query()
+            ->select('location', 'product_id', DB::raw('SUM(quantity) as total_quantity'))
+            ->whereIn('location', $locationNames)
+            ->where('inventory_type', 'immediate')
+            ->where('day', $day)
+            ->groupBy('location', 'product_id')
+            ->get();
+
+        $productTitles = Products::query()
+            ->whereIn('product_id', $groupedInventory->pluck('product_id')->filter()->unique()->values()->all())
+            ->pluck('title', 'product_id');
+
+        $inventoryByLocation = $groupedInventory->groupBy('location');
+
+        return collect($locationNames)->map(function ($locationName) use ($inventoryByLocation, $productTitles) {
+            $products = collect($inventoryByLocation->get($locationName, []))
+                ->map(function ($inventoryRow) use ($productTitles) {
+                    $productId = (int) $inventoryRow->product_id;
+                    $productTitle = trim((string) ($productTitles[$productId] ?? ''));
+
+                    return [
+                        'product_id' => $productId,
+                        'title' => $productTitle !== '' ? $productTitle : "Product #{$productId}",
+                        'quantity' => (int) $inventoryRow->total_quantity,
+                    ];
+                })
+                ->sortBy('title', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
+
+            return [
+                'location' => $locationName,
+                'total_quantity' => (int) $products->sum('quantity'),
+                'products' => $products->all(),
+            ];
+        })->all();
+    }
+
+    /**
+     * Keep the business date aligned with the rest of the immediate inventory
+     * logic, which already uses Europe/Berlin rather than the server timezone.
+     */
+    protected function getTodayContext(): array
+    {
+        $nowBerlin = Carbon::now('Europe/Berlin');
+
+        return [
+            'date' => $nowBerlin->format('d-m-Y'),
+            'day' => $nowBerlin->format('l'),
+        ];
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(LocationProductsTable $locationProductsTable)
@@ -699,4 +965,3 @@ class LocationProductsTableController extends Controller
         ]);
     }
 }
-
