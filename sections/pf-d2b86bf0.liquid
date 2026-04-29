@@ -144,29 +144,13 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
     display: flex !important;
   }
 
-  /*
-    Today is the main immediate action, so it gets the theme accent fill. The
-    other actions stay outlined to keep the row calm and easy to scan.
-  */
-  .__pf.__pf_KNrCd3e8 .datum-action-stack .todayorderbtn {
-    background: var(--datum-accent);
-    border-color: var(--datum-accent);
-    color: #111111;
-  }
-
   .__pf.__pf_KNrCd3e8 .datum-action-stack .preorderbtn:hover,
+  .__pf.__pf_KNrCd3e8 .datum-action-stack .todayorderbtn:hover,
   .__pf.__pf_KNrCd3e8 .datum-action-stack .yesterdayorderbtn:hover,
   .__pf.__pf_KNrCd3e8 .datum-action-stack .snacks_and_drinks_btn:hover {
     background: rgba(189, 158, 127, 0.18);
     border-color: var(--datum-accent);
     color: var(--datum-copy);
-    transform: translateY(-1px);
-  }
-
-  .__pf.__pf_KNrCd3e8 .datum-action-stack .todayorderbtn:hover {
-    background: #d1b18f;
-    border-color: #d1b18f;
-    color: #111111;
     transform: translateY(-1px);
   }
 
@@ -325,7 +309,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
                               <span class="datum-button-label">vorbestellen</span>
                             </a>
 
-                            <a href="/pages/order-menue" target="_self" data-pf-type="Button2" class="sc-emIqIH hFkfQE pf-21_ pf-button-3 todayorderbtn btn btn-primary btn-lg">
+                            <a href="/pages/order-menue" target="_self" data-pf-type="Button2" class="sc-emIqIH hFkfQE pf-21_ pf-button-3 todayorderbtn btn btn-outline-light btn-lg">
                               <span class="datum-button-label">sofortkauf-heute</span>
                               <span data-pf-type="Button2" id="badge-counter" class="sc-emIqIH hFkfQE pf-19_ pf-button-3 badge rounded-pill datum-count-badge">0</span>
                             </a>

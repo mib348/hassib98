@@ -21,7 +21,7 @@
       box-sizing: border-box;
       color: #fff;
       max-width: calc(100vw - 24px);
-      padding: 12px;
+      padding: clamp(12px, 3vw, 18px);
       width: auto;
     }
 
@@ -30,19 +30,29 @@
       border-spacing: 0;
       color: #fff;
       font-family: Faustina, serif;
+      font-size: clamp(15px, 3.8vw, 17px);
       margin: 0;
       table-layout: fixed;
-      width: 238px;
+      width: min(357px, calc(100vw - 60px));
     }
 
     .datum-datepicker-shell .datepicker table tr td,
     .datum-datepicker-shell .datepicker table tr th {
       border-radius: 6px;
-      height: 34px;
+      height: clamp(44px, calc((100vw - 60px) / 7), 51px);
       padding: 0;
       text-align: center;
       vertical-align: middle;
-      width: 34px;
+      width: calc(100% / 7);
+    }
+
+    .datum-datepicker-shell .datepicker table tr td.day {
+      font-size: clamp(19px, 5vw, 22px);
+      font-weight: 600;
+    }
+
+    .datum-datepicker-shell .datepicker table tr td.day:not(.disabled) {
+      color: #fff !important;
     }
 
     .datum-datepicker-shell .datepicker table tr td.day:hover,
@@ -54,14 +64,14 @@
     .datum-datepicker-shell .datepicker table tr td.active,
     .datum-datepicker-shell .datepicker table tr td.active:hover {
       background: #bd9e7f !important;
-      color: #111 !important;
+      color: #fff !important;
       text-shadow: none;
     }
 
     .datum-datepicker-shell .datepicker table tr td.disabled,
     .datum-datepicker-shell .datepicker table tr td.disabled:hover {
       background: transparent;
-      color: rgba(255, 255, 255, 0.28);
+      color: rgba(255, 255, 255, 0.28) !important;
       cursor: not-allowed;
     }
 
@@ -70,6 +80,7 @@
       color: #bd9e7f;
       cursor: pointer;
       font-family: "Bebas Neue", sans-serif;
+      font-size: clamp(18px, 4.4vw, 21px);
       font-weight: 500;
     }
 
@@ -77,24 +88,9 @@
       color: #fff;
       cursor: default;
       font-family: "Bebas Neue", sans-serif;
+      font-size: clamp(18px, 4.4vw, 21px);
       font-weight: 500;
       pointer-events: none;
-    }
-
-    @media (max-width: 420px) {
-      .datum-datepicker-shell .datepicker {
-        padding: 10px;
-      }
-
-      .datum-datepicker-shell .datepicker table {
-        width: 224px;
-      }
-
-      .datum-datepicker-shell .datepicker table tr td,
-      .datum-datepicker-shell .datepicker table tr th {
-        height: 32px;
-        width: 32px;
-      }
     }
 
     /* Loading states for buttons */
@@ -701,7 +697,7 @@
       const viewportPadding = 12;
       const verticalGap = 8;
       const maxOverlayWidth = window.innerWidth - (viewportPadding * 2);
-      const shellWidth = Math.min(shell.offsetWidth || 286, maxOverlayWidth);
+      const shellWidth = Math.min(shell.offsetWidth || 393, maxOverlayWidth);
 
       /*
         The calendar should feel attached to the preorder button, not the whole
@@ -1603,7 +1599,7 @@
           .datepicker({
             format: "dd-mm-yyyy",
             startDate: minDate === 1 ? "+1d" : "0d",
-            endDate: "+6d",
+            endDate: minDate === 1 ? "+7d" : "+6d",
             language: "de",
             weekStart: 1,
             todayHighlight: true,
