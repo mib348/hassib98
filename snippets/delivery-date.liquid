@@ -1,11 +1,101 @@
 <style>
-    .ui-datepicker {
+    .datum-datepicker-shell {
+      display: flex;
+      justify-content: flex-start;
+      margin: 0;
+      max-width: calc(100vw - 24px);
       position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000; /* Adjust z-index as needed */
+      width: max-content;
+      z-index: 1080;
     }
-    .ui-icon-circle-triangle-w, .ui-icon-circle-triangle-e{cursor:pointer;}
+
+    .datum-datepicker-shell.is-hidden {
+      display: none !important;
+    }
+
+    .datum-datepicker-shell .datepicker {
+      background: rgba(8, 8, 8, 0.96);
+      border: 1px solid rgba(189, 158, 127, 0.5);
+      border-radius: 8px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32);
+      box-sizing: border-box;
+      color: #fff;
+      max-width: calc(100vw - 24px);
+      padding: 12px;
+      width: auto;
+    }
+
+    .datum-datepicker-shell .datepicker table {
+      border-collapse: separate;
+      border-spacing: 0;
+      color: #fff;
+      font-family: Faustina, serif;
+      margin: 0;
+      table-layout: fixed;
+      width: 238px;
+    }
+
+    .datum-datepicker-shell .datepicker table tr td,
+    .datum-datepicker-shell .datepicker table tr th {
+      border-radius: 6px;
+      height: 34px;
+      padding: 0;
+      text-align: center;
+      vertical-align: middle;
+      width: 34px;
+    }
+
+    .datum-datepicker-shell .datepicker table tr td.day:hover,
+    .datum-datepicker-shell .datepicker table tr td.focused {
+      background: rgba(189, 158, 127, 0.18);
+      color: #fff;
+    }
+
+    .datum-datepicker-shell .datepicker table tr td.active,
+    .datum-datepicker-shell .datepicker table tr td.active:hover {
+      background: #bd9e7f !important;
+      color: #111 !important;
+      text-shadow: none;
+    }
+
+    .datum-datepicker-shell .datepicker table tr td.disabled,
+    .datum-datepicker-shell .datepicker table tr td.disabled:hover {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.28);
+      cursor: not-allowed;
+    }
+
+    .datum-datepicker-shell .datepicker .prev,
+    .datum-datepicker-shell .datepicker .next {
+      color: #bd9e7f;
+      cursor: pointer;
+      font-family: "Bebas Neue", sans-serif;
+      font-weight: 500;
+    }
+
+    .datum-datepicker-shell .datepicker .datepicker-switch {
+      color: #fff;
+      cursor: default;
+      font-family: "Bebas Neue", sans-serif;
+      font-weight: 500;
+      pointer-events: none;
+    }
+
+    @media (max-width: 420px) {
+      .datum-datepicker-shell .datepicker {
+        padding: 10px;
+      }
+
+      .datum-datepicker-shell .datepicker table {
+        width: 224px;
+      }
+
+      .datum-datepicker-shell .datepicker table tr td,
+      .datum-datepicker-shell .datepicker table tr th {
+        height: 32px;
+        width: 32px;
+      }
+    }
 
     /* Loading states for buttons */
     .btn-loading {
@@ -264,9 +354,24 @@
       Reduces opacity and prevents interaction while keeping button visible
     */
     .yesterdayorderbtn.disabled {
+      background: rgba(255, 255, 255, 0.04) !important;
+      border-color: rgba(201, 54, 54, 0.55) !important;
+      box-shadow: inset 0 0 0 1px rgba(201, 54, 54, 0.2);
+      filter: grayscale(0.35);
       opacity: 0.5;
       cursor: not-allowed;
       pointer-events: none;
+    }
+
+    .yesterdayorderbtn.disabled .datum-button-label::after {
+      content: "nicht verfügbar";
+      display: block;
+      font-family: Faustina, serif;
+      font-size: 10px;
+      font-weight: 400;
+      line-height: 1.1;
+      margin-top: 2px;
+      text-transform: none;
     }
 
     .yesterdayorderbtn.disabled:hover {
@@ -283,13 +388,13 @@
     }
   </style>
   
-  {{ '//code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css' | stylesheet_tag }}
-  <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
-  
-  <div id="datepicker"></div>
-  <br>
-  <br>
-  <br>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/css/bootstrap-datepicker.standalone.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/js/bootstrap-datepicker.min.js" defer="defer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/locales/bootstrap-datepicker.de.min.js" defer="defer"></script>
+
+  <div id="datepicker-shell" class="datum-datepicker-shell is-hidden" aria-hidden="true">
+    <div id="datepicker" data-date="" aria-label="Vorbestelldatum auswählen"></div>
+  </div>
   
   <script>
     // Global state management
@@ -298,16 +403,50 @@
       location: null,
       locationData: null,
       jqueryReady: false,
+      datepickerReady: false,
       domReady: false,
       strYStockOnlyCheck: "N"
     };
+
+    function waitForBootstrapDatepicker() {
+      if (!window.jQuery) return;
+
+      window.deliveryDateState.jqueryReady = true;
+
+      const markDatepickerReady = function() {
+        if (window.jQuery.fn && window.jQuery.fn.datepicker) {
+          window.deliveryDateState.datepickerReady = true;
+          console.log('[Delivery Date] Bootstrap datepicker is ready');
+          initializeDeliveryDate();
+          return true;
+        }
+        return false;
+      };
+
+      if (markDatepickerReady()) return;
+
+      const checkDatepicker = setInterval(function() {
+        if (markDatepickerReady()) {
+          clearInterval(checkDatepicker);
+        }
+      }, 100);
+
+      setTimeout(function() {
+        if (!window.deliveryDateState.datepickerReady) {
+          clearInterval(checkDatepicker);
+          console.error('[Delivery Date] Bootstrap datepicker failed to load within 10 seconds');
+          removeLoadingStates();
+        }
+      }, 10000);
+    }
   
     // Initialize everything when ready
     function initializeDeliveryDate() {
       console.log('[Delivery Date] initializeDeliveryDate called', {
         isInitialized: window.deliveryDateState.isInitialized,
         domReady: window.deliveryDateState.domReady,
-        jqueryReady: window.deliveryDateState.jqueryReady
+        jqueryReady: window.deliveryDateState.jqueryReady,
+        datepickerReady: window.deliveryDateState.datepickerReady
       });
 
       if (window.deliveryDateState.isInitialized) {
@@ -316,10 +455,11 @@
       }
 
       // Check if all dependencies are ready
-      if (!window.deliveryDateState.domReady || !window.deliveryDateState.jqueryReady) {
+      if (!window.deliveryDateState.domReady || !window.deliveryDateState.jqueryReady || !window.deliveryDateState.datepickerReady) {
         console.log('[Delivery Date] Dependencies not ready yet', {
           domReady: window.deliveryDateState.domReady,
-          jqueryReady: window.deliveryDateState.jqueryReady
+          jqueryReady: window.deliveryDateState.jqueryReady,
+          datepickerReady: window.deliveryDateState.datepickerReady
         });
         return;
       }
@@ -516,6 +656,156 @@
           badgeYesterday.classList.add('yesterday-hidden');
         }
       }
+    }
+
+    function setActionButtonDisabled(button, isDisabled, reason) {
+      if (!button) return;
+
+      button.classList.toggle('disabled', isDisabled);
+      button.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+
+      if (isDisabled) {
+        button.setAttribute('tabindex', '-1');
+        button.setAttribute('title', reason || 'Nicht verfügbar');
+        button.dataset.disabledReason = reason || 'Nicht verfügbar';
+      } else {
+        button.removeAttribute('tabindex');
+        button.removeAttribute('title');
+        delete button.dataset.disabledReason;
+      }
+    }
+
+    function isActionButtonDisabled(button) {
+      return !!button && (
+        button.classList.contains('disabled') ||
+        button.getAttribute('aria-disabled') === 'true'
+      );
+    }
+
+    let preorderDatepickerAnchor = null;
+
+    function movePreorderDatepickerShellToBody() {
+      const shell = document.getElementById('datepicker-shell');
+
+      if (shell && shell.parentNode !== document.body) {
+        document.body.appendChild(shell);
+      }
+    }
+
+    function positionPreorderDatepicker(anchorButton) {
+      const shell = document.getElementById('datepicker-shell');
+
+      if (!shell || !anchorButton || shell.classList.contains('is-hidden')) return;
+
+      const buttonRect = anchorButton.getBoundingClientRect();
+      const viewportPadding = 12;
+      const verticalGap = 8;
+      const maxOverlayWidth = window.innerWidth - (viewportPadding * 2);
+      const shellWidth = Math.min(shell.offsetWidth || 286, maxOverlayWidth);
+
+      /*
+        The calendar should feel attached to the preorder button, not the whole
+        card. Center it under the button first, then clamp it inside the viewport
+        so small screens never create horizontal scrolling.
+      */
+      const centeredLeft = window.scrollX + buttonRect.left + ((buttonRect.width - shellWidth) / 2);
+      const minLeft = window.scrollX + viewportPadding;
+      const maxLeft = window.scrollX + window.innerWidth - shellWidth - viewportPadding;
+      const clampedLeft = Math.min(Math.max(centeredLeft, minLeft), maxLeft);
+      const top = window.scrollY + buttonRect.bottom + verticalGap;
+
+      shell.style.left = Math.round(clampedLeft) + 'px';
+      shell.style.top = Math.round(top) + 'px';
+      shell.style.maxWidth = maxOverlayWidth + 'px';
+      shell.style.visibility = 'visible';
+    }
+
+    function showPreorderDatepicker(anchorButton) {
+      const shell = document.getElementById('datepicker-shell');
+      if (!shell) return;
+
+      preorderDatepickerAnchor = anchorButton;
+      movePreorderDatepickerShellToBody();
+
+      shell.style.visibility = 'hidden';
+      shell.classList.remove('is-hidden');
+      shell.setAttribute('aria-hidden', 'false');
+
+      positionPreorderDatepicker(anchorButton);
+      window.requestAnimationFrame(function() {
+        positionPreorderDatepicker(anchorButton);
+      });
+    }
+
+    function hidePreorderDatepicker() {
+      const $datepicker = $("#datepicker");
+      const $datepickerShell = $("#datepicker-shell");
+
+      if ($datepicker.data('datepicker')) {
+        $datepicker.datepicker('destroy');
+      }
+
+      preorderDatepickerAnchor = null;
+      $datepickerShell
+        .addClass('is-hidden')
+        .attr('aria-hidden', 'true')
+        .css({
+          left: '',
+          top: '',
+          visibility: ''
+        });
+    }
+
+    function selectPreorderDate(dateText, currentTimeInMinutes, randomNum) {
+      console.log('[Delivery Date] Date selected from Bootstrap datepicker:', dateText);
+
+      sessionStorage.setItem("date", dateText);
+
+      var today = new Date();
+      var todayDateStr = ('0' + today.getDate()).slice(-2) + '-' +
+                           ('0' + (today.getMonth() + 1)).slice(-2) + '-' +
+                           today.getFullYear();
+
+      const hasSameDayCutoff = typeof window.cutoffTimeInMinutes_samedayPreorderEndTime === 'number';
+
+      if (
+        hasSameDayCutoff &&
+        currentTimeInMinutes >= window.cutoffTimeInMinutes_samedayPreorderEndTime &&
+        window.b_additional_inventory === "Y" &&
+        dateText === todayDateStr
+      ) {
+        sessionStorage.setItem("additional_inventory_time", "Y");
+        console.log('[Delivery Date] Additional inventory time set to Y');
+      }
+
+      sessionStorage.setItem("immediate_inventory", "N");
+      sessionStorage.setItem("snacks_and_drinks", "N");
+
+      var newUrl = $(".preorderbtn").attr("href");
+      const updateDateUrl = "https://dev.sushi.catering/updateSelectedDate/" + dateText;
+
+      console.log('[Delivery Date] Updating selected preorder date at:', updateDateUrl);
+
+      $.ajax({
+        url: updateDateUrl,
+        type: "GET",
+        data: { "uuid": localStorage.getItem("uuid") },
+        cache: false,
+        async: true,
+        dataType: "json",
+        success: function(data) {
+          const redirectUrl = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
+          console.log('[Delivery Date] Redirecting to preorder:', redirectUrl);
+          window.location.href = redirectUrl;
+        },
+        error: function(request, status, error) {
+          console.error('[Delivery Date] Error setting selected date (preorder):', {
+            status,
+            error
+          });
+          alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
+        }
+      });
     }
 
     // =========================================================================
@@ -784,7 +1074,7 @@
                 if (yesterdayQty > 0) {
                   // Items available: enable button with green badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.remove('disabled');
+                    setActionButtonDisabled(buttonYesterdayOrder, false);
                   }
                   $('#badge-counter-yesterday')
                     .html(yesterdayQty)
@@ -796,7 +1086,7 @@
                 } else {
                   // No items: disable button but show red zero badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.add('disabled');
+                    setActionButtonDisabled(buttonYesterdayOrder, true, 'Keine Artikel verfügbar');
                   }
                   $('#badge-counter-yesterday')
                     .html(0)
@@ -826,7 +1116,7 @@
                       if (newYesterdayQty > 0) {
                         // Items available: enable button with green badge
                         if (buttonYesterdayOrder) {
-                          buttonYesterdayOrder.classList.remove('disabled');
+                          setActionButtonDisabled(buttonYesterdayOrder, false);
                         }
                         $('#badge-counter-yesterday')
                           .html(newYesterdayQty)
@@ -837,7 +1127,7 @@
                       } else {
                         // No items: disable button with red zero badge
                         if (buttonYesterdayOrder) {
-                          buttonYesterdayOrder.classList.add('disabled');
+                          setActionButtonDisabled(buttonYesterdayOrder, true, 'Keine Artikel verfügbar');
                         }
                         $('#badge-counter-yesterday')
                           .html(0)
@@ -858,7 +1148,7 @@
                 setYesterdayDisplay(true);
                 const buttonYesterdayOrder = document.querySelector('.yesterdayorderbtn');
                 if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.add('disabled');
+                  setActionButtonDisabled(buttonYesterdayOrder, true, 'Keine Artikel verfügbar');
                 }
                 $('#badge-counter-yesterday')
                   .html(0)
@@ -921,7 +1211,7 @@
                 if (yesterdayQty > 0) {
                   // Items available: enable button with green badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.remove('disabled');
+                    setActionButtonDisabled(buttonYesterdayOrder, false);
                   }
                   $('#badge-counter-yesterday')
                     .html(yesterdayQty)
@@ -933,7 +1223,7 @@
                 } else {
                   // No items: disable button but show red zero badge
                   if (buttonYesterdayOrder) {
-                    buttonYesterdayOrder.classList.add('disabled');
+                    setActionButtonDisabled(buttonYesterdayOrder, true, 'Keine Artikel verfügbar');
                   }
                   $('#badge-counter-yesterday')
                     .html(0)
@@ -950,7 +1240,7 @@
                 // On error: show button disabled with red zero badge
                 setYesterdayDisplay(true);
                 if (buttonYesterdayOrder) {
-                  buttonYesterdayOrder.classList.add('disabled');
+                  setActionButtonDisabled(buttonYesterdayOrder, true, 'Keine Artikel verfügbar');
                 }
                 $('#badge-counter-yesterday')
                   .html(0)
@@ -1056,8 +1346,7 @@
 
       console.log('[Delivery Date] Today\'s date:', today);
 
-      // Apply the calculated positions
-      $("#datepicker").datepicker('hide');
+      hidePreorderDatepicker();
 
       $(".todayorderbtn").click(function(e){
         e.preventDefault();
@@ -1133,6 +1422,11 @@
       // =========================================================================
       $(".yesterdayorderbtn").click(function(e){
         e.preventDefault();
+
+        if (isActionButtonDisabled(this)) {
+          console.log('[Delivery Date] Yesterday order button is disabled, click ignored');
+          return;
+        }
 
         console.log('[Delivery Date] Yesterday order button clicked');
 
@@ -1231,16 +1525,6 @@
 
         console.log('[Delivery Date] Preorder button clicked');
 
-        // Get the offset of the button
-        const buttonOffset = $(this).offset();
-        const buttonHeight = $(this).outerHeight();
-
-        // Calculate the new top and left positions for the datepicker
-        const newTop = buttonOffset.top + buttonHeight;
-        const newLeft = buttonOffset.left + 150;
-
-        console.log('[Delivery Date] Datepicker position calculated:', { newTop, newLeft });
-
         if (window.accept_only_preorders === "Y" && (typeof window.samedayPreorderEndTime === 'undefined' || !window.samedayPreorderEndTime)) {
           console.warn('[Delivery Date] Same-day preorder end time is not set');
           //return;
@@ -1304,76 +1588,59 @@
 
         console.log('[Delivery Date] Initializing datepicker with minDate:', minDate);
 
-        // Initialize the datepicker with the adjusted minDate
-        $("#datepicker").datepicker({
-          minDate: minDate,
-          maxDate: '+6d',
-          dateFormat: "dd-mm-yy",
-          onSelect: function(dateText, inst) {
-            console.log('[Delivery Date] Date selected from picker:', dateText);
+        const $datepicker = $("#datepicker");
+        const preorderButton = this;
 
-            sessionStorage.setItem("date", dateText);
+        hidePreorderDatepicker();
+        showPreorderDatepicker(preorderButton);
 
-            // Get today's date and format it as 'yyyy-mm-dd'
-            var today = new Date();
+        /*
+          bootstrap-datepicker uses startDate/endDate/format and emits changeDate.
+          This replaces the old jQuery UI minDate/maxDate/dateFormat/onSelect API
+          while keeping the same dd-mm-yyyy value that the order flow expects.
+        */
+        $datepicker
+          .datepicker({
+            format: "dd-mm-yyyy",
+            startDate: minDate === 1 ? "+1d" : "0d",
+            endDate: "+6d",
+            language: "de",
+            weekStart: 1,
+            todayHighlight: true,
+            autoclose: true,
+            startView: 0,
+            maxViewMode: 0,
+            zIndexOffset: 1080
+          })
+          .off('changeDate.deliveryDate')
+          .on('changeDate.deliveryDate', function() {
+            const dateText = $datepicker.datepicker('getFormattedDate');
+            hidePreorderDatepicker();
+            selectPreorderDate(dateText, currentTimeInMinutes, randomNum);
+          })
+          .datepicker('show');
 
-            var todayDateStr = ('0' + today.getDate()).slice(-2) + '-' +
-                                 ('0' + (today.getMonth() + 1)).slice(-2) + '-' +
-                                 today.getFullYear();
+        positionPreorderDatepicker(preorderButton);
+        window.requestAnimationFrame(function() {
+          positionPreorderDatepicker(preorderButton);
+          $('#datepicker-shell .datepicker-switch')
+            .attr('aria-disabled', 'true')
+            .attr('title', 'Jahreswechsel deaktiviert');
+        });
 
-            console.log('[Delivery Date] Today date string:', todayDateStr);
-
-            if (
-              currentTimeInMinutes >= cutoffTimeInMinutes_samedayPreorderEndTime &&
-              window.b_additional_inventory === "Y" &&
-              dateText === todayDateStr
-            ) {
-              sessionStorage.setItem("additional_inventory_time", "Y");
-              console.log('[Delivery Date] Additional inventory time set to Y');
-            }
-
-            sessionStorage.setItem("immediate_inventory", "N");
-            sessionStorage.setItem("snacks_and_drinks", "N");
-
-            var newUrl = $(".preorderbtn").attr("href");
-
-            const updateDateUrl = "https://dev.sushi.catering/updateSelectedDate/" + dateText;
-            console.log('[Delivery Date] Updating selected preorder date at:', updateDateUrl);
-
-            $.ajax({
-              url: updateDateUrl,
-              type: "GET",
-              data: { "uuid": localStorage.getItem("uuid") },
-              cache: false,
-              async: true, // Changed from false to true
-              dataType: "json",
-              success: function(data) {
-                const redirectUrl = newUrl + "?location=" + sessionStorage.getItem("location") + "&date=" + dateText + "&immediate_inventory=N&no_station=" + sessionStorage.getItem("no_station") + "&additional_inventory=" + sessionStorage.getItem("b_additional_inventory") + "&additional_inventory_time=" + sessionStorage.getItem("additional_inventory_time") + "&snacks_and_drinks=" + sessionStorage.getItem("snacks_and_drinks") + "&uuid=" + localStorage.getItem("uuid") + "&nocache=" + randomNum;
-                console.log('[Delivery Date] Redirecting to preorder:', redirectUrl);
-                window.location.href = redirectUrl;
-              },
-              error: function(request, status, error) {
-                console.error('[Delivery Date] Error setting selected date (preorder):', {
-                  status,
-                  error
-                });
-                alert('Fehler beim Einstellen des ausgewählten Datums. Bitte versuchen Sie es nach dem Aktualisieren der Seite erneut.');
-              }
-            });
-          }
-        }).datepicker('show');
-
-        console.log('[Delivery Date] Datepicker shown');
-
-        $('.ui-datepicker').addClass('notranslate');
+        console.log('[Delivery Date] Bootstrap datepicker shown');
       });
       
       // Add click handler to hide datepicker when clicking outside
       $(document).on('click', function(e) {
-        // If the click is outside the datepicker, the preorderbtn, and the jQuery UI datepicker widget
-        if (!$(e.target).closest('#datepicker, .preorderbtn, .ui-datepicker, .ui-datepicker-header').length && $('#datepicker').is(':visible')) {
-          // Destroy the datepicker instead of just hiding it
-          $("#datepicker").datepicker("destroy");
+        if (!$(e.target).closest('#datepicker-shell, .preorderbtn, .datepicker').length && !$('#datepicker-shell').hasClass('is-hidden')) {
+          hidePreorderDatepicker();
+        }
+      });
+
+      $(window).on('resize.deliveryDate orientationchange.deliveryDate scroll.deliveryDate', function() {
+        if (preorderDatepickerAnchor) {
+          positionPreorderDatepicker(preorderDatepickerAnchor);
         }
       });
     }
@@ -1484,17 +1751,15 @@
     window.addEventListener('load', function() {
       // Check if jQuery is available
       if (window.jQuery) {
-        window.deliveryDateState.jqueryReady = true;
         console.log('jQuery is ready');
-        initializeDeliveryDate();
+        waitForBootstrapDatepicker();
       } else {
         // Wait for jQuery to be available
         const checkJQuery = setInterval(function() {
           if (window.jQuery) {
-            window.deliveryDateState.jqueryReady = true;
             console.log('jQuery became available');
             clearInterval(checkJQuery);
-            initializeDeliveryDate();
+            waitForBootstrapDatepicker();
           }
         }, 100);
         
