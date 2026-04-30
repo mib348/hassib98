@@ -39,10 +39,54 @@ const ORDER_SESSION_STORAGE_KEYS = [
   CHECKOUT_RETURN_MARKER
 ];
 
+// Voucher product pages do not use the menu date/location/uuid flow.
+// The hidden _voucher_flow property is rendered by snippets/buy-buttons.liquid,
+// so this JS can recognize the standalone voucher page without hardcoding a product URL.
+const VOUCHER_FLOW_PROPERTY = '_voucher_flow';
+
 function clearOrderSessionState() {
   ORDER_SESSION_STORAGE_KEYS.forEach(function (key) {
     sessionStorage.removeItem(key);
   });
+}
+
+function getLineItemProperties(item) {
+  if (!item || typeof item !== 'object' || item.properties == null || typeof item.properties !== 'object') {
+    return {};
+  }
+
+  return item.properties;
+}
+
+function isVoucherFlowItem(item) {
+  return getLineItemProperties(item)[VOUCHER_FLOW_PROPERTY] === 'Y';
+}
+
+function isVoucherOnlyCart(items) {
+  const cartItems = Array.isArray(items) ? items : [];
+  const nonPfandItems = cartItems.filter(function (item) {
+    return item && item.variant_id !== window.pfandConfig?.variantId;
+  });
+
+  return nonPfandItems.length > 0 && nonPfandItems.every(isVoucherFlowItem);
+}
+
+function shouldSkipOrderSessionValidation(item) {
+  const properties = getLineItemProperties(item);
+
+  // Voucher, Pfand and snacks lines do not belong to the date/location menu session.
+  return item?.variant_id === window.pfandConfig?.variantId
+    || isVoucherFlowItem(item)
+    || properties.snacks_and_drinks === 'Y';
+}
+
+function isOrderSessionProduct(item) {
+  return !shouldSkipOrderSessionValidation(item);
+}
+
+function isVoucherProductPage() {
+  return window.location.pathname.includes('/products/')
+    && document.querySelector(`input[name="properties[${VOUCHER_FLOW_PROPERTY}]"][value="Y"]`) !== null;
 }
 
 function reconcileCheckoutReturnState(onComplete) {
@@ -805,28 +849,40 @@ document.addEventListener('DOMContentLoaded', function () {
     const effectiveImmediate = (immediate_inventory != null) ? immediate_inventory : sessionStorage.getItem("immediate_inventory");
     const isSameDayPreorder = effectiveImmediate === "N" && !!effectiveDate && effectiveDate === getFormattedDate();
     let shouldPreventCheckout = false;
+    let checkoutCart = null;
+
+    $.ajax({
+      type: "GET",
+      url: window.Shopify.routes.root + "cart.js",
+      async: false,
+      dataType: "json",
+      success: function (cartData) {
+        checkoutCart = cartData;
+      },
+      error: function (xhr, status, error) {
+        console.error('[Cart Manager] Failed to fetch cart for checkout:', error);
+      }
+    });
+
+    if (!checkoutCart) {
+      alert('Es gab einen Fehler bei der Überprüfung Ihres Warenkorbs. Bitte versuchen Sie es erneut.');
+      return;
+    }
+
+    if (isVoucherOnlyCart(checkoutCart.items)) {
+      clearOrderSessionState();
+      sessionStorage.setItem(CHECKOUT_RETURN_MARKER, 'Y');
+      window.location.href = "/checkout";
+      return;
+    }
 
     // First, get the cart to check if it contains only snacks_and_drinks items
     let cartHasOnlySnacks = false;
     if (isSameDayPreorder) {
-      $.ajax({
-        type: "GET",
-        url: window.Shopify.routes.root + "cart.js",
-        async: false,
-        dataType: "json",
-        success: function (cartData) {
-          // Check if all items are snacks_and_drinks
-          if (cartData.items.length > 0) {
-            cartHasOnlySnacks = cartData.items.every(function (item) {
-              return item.properties.snacks_and_drinks === "Y";
-            });
-            console.log('[Cart Manager] Cart contains only snacks:', cartHasOnlySnacks);
-          }
-        },
-        error: function (xhr, status, error) {
-          console.error('[Cart Manager] Failed to fetch cart for snacks check:', error);
-        }
-      });
+      if (checkoutCart.items.length > 0) {
+        cartHasOnlySnacks = !checkoutCart.items.some(isOrderSessionProduct);
+        console.log('[Cart Manager] Cart contains only non-order-flow items:', cartHasOnlySnacks);
+      }
     }
 
     // Only check time expiration if cart has non-snacks items
@@ -908,16 +964,16 @@ document.addEventListener('DOMContentLoaded', function () {
       url: window.Shopify.routes.root + "cart.js",
       dataType: "json",
       success: function (cart) {
+        const orderSessionItems = cart.items.filter(isOrderSessionProduct);
 
         // Server-side check for same-day preorder cutoff, leveraging existing API
         let timeExpired = false;
         const isPreorder = (sessionStorage.getItem("immediate_inventory") || "N") === "N";
-        const isToday = cart.items.length > 0 && cart.items[0].properties.date === getFormattedDate();
+        const firstOrderSessionItem = orderSessionItems[0];
+        const isToday = !!firstOrderSessionItem && getLineItemProperties(firstOrderSessionItem).date === getFormattedDate();
 
         // Check if cart contains any non-snacks items
-        const hasNonSnacksItems = cart.items.some(function (item) {
-          return item.properties.snacks_and_drinks !== "Y";
-        });
+        const hasNonSnacksItems = orderSessionItems.length > 0;
 
         // Only check time expiration if cart has non-snacks items
         if (isPreorder && isToday && hasNonSnacksItems) {
@@ -927,7 +983,7 @@ document.addEventListener('DOMContentLoaded', function () {
             async: false,
             cache: false,
             data: {
-              items: JSON.stringify(cart.items)
+              items: JSON.stringify(orderSessionItems)
             },
             dataType: "json",
             success: function (response) {
@@ -981,29 +1037,25 @@ document.addEventListener('DOMContentLoaded', function () {
         let quantityCheckFailed = false;
         let firstQuantityErrorElement = null;
 
-        $.each(cart.items, function (index, item) {
-          // Skip Pfand (bottle deposit) items from all validation - auto-managed by Pfand Manager
-          if (item.variant_id === window.pfandConfig?.variantId) {
-            console.log('[Cart Manager] Pfand item, skipping validation:', item.product_title);
-            return;
-          }
+        $.each(orderSessionItems, function (index, item) {
+          const itemProperties = getLineItemProperties(item);
 
-          dates.push(item.properties.date);
+          dates.push(itemProperties.date);
 
           // Skip all quantity validation for snacks_and_drinks items - they have unlimited inventory
-          const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
+          const isSnacksAndDrinks = itemProperties.snacks_and_drinks === "Y";
           if (isSnacksAndDrinks) {
             console.log('[Cart Manager] Snacks and drinks item, skipping quantity check:', item.product_title);
             return; // Skip to next item
           }
 
-          let stored_qty = parseInt(item.properties.max_quantity, 10);
+          let stored_qty = parseInt(itemProperties.max_quantity, 10);
           if (sessionStorage.getItem("location") === "Delivery") {
             stored_qty = 99; // For Delivery, max quantity is 99
           }
 
           //check if item properties are empty then gracefully clear the cart and ask the customer to add the item again
-          if (item.properties.length === 0) {
+          if (Object.keys(itemProperties).length === 0) {
             alert("Es gab einen Fehler bei der Überprüfung Ihres Warenkorbs. Bitte versuchen Sie es erneut, indem Sie das Produkt erneut hinzufügen.");
             $.ajax({
               type: "POST",
@@ -1045,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // 3. Date Validation
-        const allSameDate = dates.length > 0 && dates.every(date => date === dates[0]);
+        const allSameDate = dates.length === 0 || dates.every(date => date === dates[0]);
         if (!allSameDate) {
           console.log('[Cart Manager] Date validation failed:', dates);
           alert('Sie können nur Artikel hinzufügen, die das gleiche Vorbestellungsdatum haben.');
@@ -1057,12 +1109,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const locations = [];
         let locationMismatchFound = false;
 
-        $.each(cart.items, function (index, item) {
-          // Skip Pfand items from location mismatch validation
-          if (item.variant_id === window.pfandConfig?.variantId) return;
-
-          const itemLocation = item.properties.location;
-          const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
+        $.each(orderSessionItems, function (index, item) {
+          const itemProperties = getLineItemProperties(item);
+          const itemLocation = itemProperties.location;
+          const isSnacksAndDrinks = itemProperties.snacks_and_drinks === "Y";
           locations.push(itemLocation);
 
           // Skip location validation for snacks and drinks items
@@ -1094,12 +1144,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Additional check: Ensure all non-snacks items have the same location among themselves
         const nonSnacksLocations = [];
-        $.each(cart.items, function (index, item) {
-          const isSnacksAndDrinks = item.properties.snacks_and_drinks === "Y";
-          // Skip both snacks_and_drinks and Pfand items from location uniqueness check
-          const isPfandItem = item.variant_id === window.pfandConfig?.variantId;
-          if (!isSnacksAndDrinks && !isPfandItem && item.properties.location) {
-            nonSnacksLocations.push(item.properties.location);
+        $.each(orderSessionItems, function (index, item) {
+          const itemProperties = getLineItemProperties(item);
+          const isSnacksAndDrinks = itemProperties.snacks_and_drinks === "Y";
+          if (!isSnacksAndDrinks && itemProperties.location) {
+            nonSnacksLocations.push(itemProperties.location);
           }
         });
 
@@ -1146,8 +1195,8 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('[Cart Manager] All initial validations passed, proceeding to final stock check for non-delivery order.');
 
         // Filter out snacks_and_drinks AND Pfand items - they don't need inventory validation
-        const nonSnacksItems = cart.items.filter(function (item) {
-          return item.properties.snacks_and_drinks !== "Y" && item.variant_id !== window.pfandConfig?.variantId;
+        const nonSnacksItems = orderSessionItems.filter(function (item) {
+          return getLineItemProperties(item).snacks_and_drinks !== "Y";
         });
 
         console.log('[Cart Manager] Stock check - total items:', cart.items.length, 'non-snacks items:', nonSnacksItems.length);
@@ -1299,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const queryParams = getQueryParams();
 
     // Check if 'location', 'date', and 'uuid' parameters are missing in the URL
-    if (!queryParams.has('location') || !queryParams.has('date') || !queryParams.has('uuid')) {
+    if (!isVoucherProductPage() && (!queryParams.has('location') || !queryParams.has('date') || !queryParams.has('uuid'))) {
       // Get all elements with the specified class names and hide them
       var quantityElements = document.querySelectorAll('.product-form__quantity');
       var submitElements = document.querySelectorAll('.product-form__submit');
@@ -1353,13 +1402,14 @@ document.addEventListener('DOMContentLoaded', function () {
     sessionStorage.setItem("date", qp.get('date'));
   }
 
-  // Check if required parameters are missing and redirect accordingly
-  if (
-    (sessionStorage.getItem("location") == null ||
-      sessionStorage.getItem("date") == null ||
-      localStorage.getItem("uuid") == null) &&
-    (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart")
-  ) {
+  // Check if required menu-order parameters are missing and redirect accordingly.
+  // Voucher-only carts are intentionally excluded because vouchers do not use a date/location session.
+  const missingOrderSession =
+    sessionStorage.getItem("location") == null ||
+    sessionStorage.getItem("date") == null ||
+    localStorage.getItem("uuid") == null;
+
+  if (missingOrderSession && (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart")) {
     // Preserve any known location when redirecting so links with ?location keep working.
     const redirectParams = new URLSearchParams();
     const redirectLocation =
@@ -1375,7 +1425,33 @@ document.addEventListener('DOMContentLoaded', function () {
       ? `/pages/bestellen?${redirectParams.toString()}`
       : "/pages/bestellen";
 
-    window.location.href = redirectUrl;
+    if (window.location.pathname === "/cart") {
+      const rootUrl =
+        window.Shopify && window.Shopify.routes && window.Shopify.routes.root
+          ? window.Shopify.routes.root
+          : '/';
+
+      fetch(rootUrl + 'cart.js', { credentials: 'same-origin' })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (cart) {
+          if (cart && isVoucherOnlyCart(cart.items)) {
+            clearOrderSessionState();
+            document.querySelectorAll('.location_bar').forEach(function (element) {
+              element.remove();
+            });
+            return;
+          }
+
+          window.location.href = redirectUrl;
+        })
+        .catch(function () {
+          window.location.href = redirectUrl;
+        });
+    } else {
+      window.location.href = redirectUrl;
+    }
   } else if (window.location.pathname === "/pages/datum") {
     const queryParams = getQueryParams();
     if (queryParams.has('location')) {
@@ -1491,7 +1567,7 @@ if (window.location.pathname === "/pages/order-menue" || window.location.pathnam
       // Use a return or throw to stop further script execution in this context if necessary.
       // For now, the redirect will stop it.
     }
-  } else {
+  } else if (window.location.pathname !== "/cart") {
     // If 'date' does not exist in sessionStorage, set it to today's date
     sessionStorage.setItem("date", getFormattedDate());
   }
@@ -1735,14 +1811,23 @@ if (window.jQuery) {
         url: window.Shopify.routes.root + "cart.js",
         dataType: "json",
         success: function (response) {
+          if (isVoucherOnlyCart(response.items)) {
+            clearOrderSessionState();
+            $('.checkbox-wrapper').hide();
+            $('.incorrent_item_agree_cb_portion').hide();
+            document.querySelectorAll('.location_bar').forEach(function (element) {
+              element.remove();
+            });
+            return;
+          }
+
           removePastDateProducts(response);
 
           let items = response.items;
+          const orderSessionItems = items.filter(isOrderSessionProduct);
 
           // Check if cart contains any non-snacks items
-          const hasNonSnacksItems = items.some(function (item) {
-            return item.properties.snacks_and_drinks !== "Y";
-          });
+          const hasNonSnacksItems = orderSessionItems.length > 0;
 
           // Only check time expiration if cart has non-snacks items
           if (hasNonSnacksItems) {
@@ -1752,7 +1837,7 @@ if (window.jQuery) {
               async: false,
               cache: false,
               data: {
-                items: JSON.stringify(response.items)
+                items: JSON.stringify(orderSessionItems)
               },
               dataType: "json",
               success: function (response) {
@@ -1825,7 +1910,12 @@ if (window.jQuery) {
         var isImmediateInventory = sessionStorage.getItem("immediate_inventory") === "Y";
 
         $.each(response.items, function (index, product) {
-          var dateParts = product.properties.date.split('-');
+          var productProperties = getLineItemProperties(product);
+          if (shouldSkipOrderSessionValidation(product) || !productProperties.date) {
+            return;
+          }
+
+          var dateParts = productProperties.date.split('-');
           var productDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
           productDate.setHours(0, 0, 0, 0); // Normalize to midnight for accurate comparison
 
@@ -1883,6 +1973,26 @@ if (window.jQuery) {
 
     // Reconcile a completed checkout first, then render the location bar from the remaining session state.
     reconcileCheckoutReturnState(updateLocationBar);
+  });
+
+  $(document).on("submit", "#cart-notification-form", function (e) {
+    let notificationCart = null;
+
+    $.ajax({
+      type: "GET",
+      url: window.Shopify.routes.root + "cart.js",
+      async: false,
+      dataType: "json",
+      success: function (cartData) {
+        notificationCart = cartData;
+      }
+    });
+
+    // Menu products must pass cart validation first; voucher-only carts can go straight to Shopify checkout.
+    if (notificationCart && !isVoucherOnlyCart(notificationCart.items)) {
+      e.preventDefault();
+      window.location.href = "/cart";
+    }
   });
 
   // Delegated event handlers can remain outside the ready block

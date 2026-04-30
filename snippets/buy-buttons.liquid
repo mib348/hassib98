@@ -22,6 +22,11 @@
       if block.settings.show_dynamic_checkout and gift_card_recipient_feature_active == false
         assign show_dynamic_checkout = true
       endif
+
+      assign is_voucher_template = false
+      if product.template_suffix == 'gutschein'
+        assign is_voucher_template = true
+      endif
     -%}
 
     <product-form
@@ -115,18 +120,25 @@
                 {% assign productToShow = true %} 
             {% endif %}
         {% endfor %} 
+        {% if is_voucher_template %}
+          {% assign productToShow = true %}
+        {% endif %}
 
-        <input type="hidden" name="properties[max_quantity]" value="{{ qtyValue }}" />
-        <input type="hidden" name="properties[location]" value="{{ location }}" />
-        <input type="hidden" name="properties[date]" value="{{ date }}" />
-        <input type="hidden" name="properties[day]" value="{{ day_name }}" />
-
+        {% unless is_voucher_template %}
+          <input type="hidden" name="properties[max_quantity]" value="{{ qtyValue }}" />
+          <input type="hidden" name="properties[location]" value="{{ location }}" />
+          <input type="hidden" name="properties[date]" value="{{ date }}" />
+          <input type="hidden" name="properties[day]" value="{{ day_name }}" />
+        {% endunless %}
         {% comment %}
-          PFAND (BOTTLE DEPOSIT) ELIGIBILITY
-          Check if this product belongs to the 'getranke' (drinks) collection.
-          If yes, the Pfand Manager in global.js will auto-add a 0.25 EUR deposit
-          line item matching total drink quantity. Underscore prefix hides from cart display.
+          This hidden flag lets the storefront skip location/date rules only for the
+          dedicated voucher template while keeping the normal menu flow unchanged.
         {% endcomment %}
+        {% if is_voucher_template %}
+          <input type="hidden" name="properties[_voucher_flow]" value="Y" />
+        {% endif %}
+
+        {%- comment -%} Check if product belongs to 'getranke' (drinks) collection for Pfand eligibility {%- endcomment -%}
         {% assign is_drink_product = false %}
         {% for col in product.collections %}
           {% if col.handle == 'getranke' %}
