@@ -34,7 +34,16 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
     border-radius: 8px;
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
     color: var(--datum-copy);
+    /*
+      The Bootstrap column stays wide on desktop, but this card should keep the
+      same compact reading width as mobile. Width:100% lets it shrink on phones,
+      while max-width stops it from stretching across large monitors.
+    */
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 420px;
     overflow: visible;
+    width: 100%;
   }
 
   .__pf.__pf_KNrCd3e8 .datum-bootstrap-card .card-body {
@@ -107,6 +116,8 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
     full-width and aligned when the script makes a button visible.
   */
   .__pf.__pf_KNrCd3e8 .datum-action-stack {
+    flex-direction: column !important;
+    flex-wrap: nowrap;
     gap: 0.85rem;
   }
 
@@ -119,7 +130,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
     border-color: rgba(255, 255, 255, 0.56);
     border-radius: 6px;
     color: var(--datum-copy);
-    flex: 1 1 0;
+    flex: 0 0 auto;
     font-family: "Bebas Neue", sans-serif;
     font-size: 19px;
     justify-content: center;
@@ -217,13 +228,6 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
   .__pf.__pf_KNrCd3e8 .datum-bootstrap-card #datepicker {
     margin-left: auto;
     margin-right: auto;
-  }
-
-  @media (min-width: 992px) {
-    .__pf.__pf_KNrCd3e8 .datum-action-stack {
-      flex-direction: row !important;
-      flex-wrap: nowrap;
-    }
   }
 
   @media (max-width: 991.98px) {

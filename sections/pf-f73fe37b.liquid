@@ -30,7 +30,16 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
     border-radius: 8px;
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
     color: var(--bestellen-copy);
+    /*
+      Keep the selector card compact on every screen. The PageFly/Bootstrap row
+      can be very wide on desktop, so the card owns its own max-width instead of
+      inheriting the full desktop column width.
+    */
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 420px;
     overflow: visible;
+    width: 100%;
   }
 
   .__pf.__pf_O7hLjcWL .bestellen-bootstrap-card .card-body {
@@ -59,15 +68,18 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
   }
 
   .__pf.__pf_O7hLjcWL .bestellen-control-row {
+    flex-direction: column !important;
+    flex-wrap: nowrap;
     gap: 0.85rem;
     margin-left: auto;
     margin-right: auto;
     max-width: 760px;
     position: relative;
+    width: 100%;
   }
 
   .__pf.__pf_O7hLjcWL .bestellen-station-dropdown {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-width: 0;
     position: relative;
   }
@@ -121,7 +133,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
     border-color: #198754;
     color: #ffffff;
     display: none;
-    flex: 1 1 0;
+    flex: 0 0 auto;
   }
 
   .__pf.__pf_O7hLjcWL #next_button:hover,
@@ -139,7 +151,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
 
   .__pf.__pf_O7hLjcWL #home_delivery_btn {
     display: none !important;
-    flex: 1 1 0;
+    flex: 0 0 auto;
   }
 
   .__pf.__pf_O7hLjcWL .bestellen-station-dropdown .dropdown-menu {
@@ -209,13 +221,6 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
 
   .__pf.__pf_O7hLjcWL .next-button-spinner {
     flex: 0 0 auto;
-  }
-
-  @media (min-width: 992px) {
-    .__pf.__pf_O7hLjcWL .bestellen-control-row {
-      flex-direction: row !important;
-      flex-wrap: nowrap;
-    }
   }
 
   @media (max-width: 991.98px) {
