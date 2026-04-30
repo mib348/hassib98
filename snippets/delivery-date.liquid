@@ -61,6 +61,19 @@
       color: #fff;
     }
 
+    /*
+      Bootstrap datepicker marks the current date with a yellow "today" state.
+      The normal day rule above keeps date text white, so today needs its own
+      dark text color unless it is selected with the accent active state.
+    */
+    .datum-datepicker-shell .datepicker table tr td.today:not(.active),
+    .datum-datepicker-shell .datepicker table tr td.today:not(.active):hover,
+    .datum-datepicker-shell .datepicker table tr td.today:not(.active).focused {
+      background: #f8d66d !important;
+      color: #111111 !important;
+      text-shadow: none;
+    }
+
     .datum-datepicker-shell .datepicker table tr td.active,
     .datum-datepicker-shell .datepicker table tr td.active:hover {
       background: #ff045e !important;
