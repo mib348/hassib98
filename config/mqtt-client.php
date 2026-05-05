@@ -41,7 +41,7 @@ return [
         'default' => [
 
             // Laravel should talk to the broker over the internal/plain endpoint
-            // on the same host or Docker network. External devices keep using 8883.
+            // on the same host. External devices use mqtt.sushi.catering:443.
             'host' => env('MQTT_HOST', '127.0.0.1'),
             'port' => (int) env('MQTT_PORT', 1883),
 

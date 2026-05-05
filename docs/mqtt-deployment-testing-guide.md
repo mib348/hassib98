@@ -1,5 +1,11 @@
 # MQTT Deployment & Testing Guide
 
+> Current public endpoint policy: external MQTT uses `mqtt.sushi.catering:443`,
+> dashboard uses `https://mqtt.sushi.catering:8885/login` and
+> `https://mqtt.sushi.catering:8885/ui`, and Laravel keeps using
+> `127.0.0.1:1883`. See `docs/mqtt-sushi-catering-public-endpoints.md` for the
+> aaPanel/Nginx proxy details.
+
 ## What We Built (Quick Recap)
 
 ```
@@ -23,7 +29,7 @@ Shopify Order Webhook
 
 ## STEP 1: Start the Mosquitto Broker on the Server
 
-SSH into the dev server (`app.sushi.catering`) and run:
+SSH into the Ubuntu server that hosts the Laravel project and run:
 
 ```bash
 cd /path/to/laravelshopifypartnerapp    # wherever docker-compose.yml lives
@@ -38,8 +44,7 @@ docker compose ps
 
 You should see:
 - `mosquitto` — healthy
-- `mqtt-web-client` — running (Node-RED on port 8884)
-- `mqttui` — running (Web UI on port 8885)
+- `mqtt-web-client` — running (Node-RED dashboard behind `mqtt.sushi.catering:8885`)
 
 **If already running, skip this step.**
 
@@ -56,13 +61,16 @@ nano /path/to/laravelshopifypartnerapp/.env
 Add these lines at the bottom:
 
 ```env
-MQTT_HOST=app.sushi.catering
-MQTT_PORT=8883
+MQTT_HOST=127.0.0.1
+MQTT_PORT=1883
 MQTT_CLIENT_ID=laravel-server
 MQTT_SUBSCRIBER_CLIENT_ID=laravel-subscriber
 MQTT_AUTH_USERNAME=mqtt_12342026
 MQTT_AUTH_PASSWORD=mqtt_12342026
-MQTT_TLS_ENABLED=true
+MQTT_TLS_ENABLED=false
+MQTT_TLS_CERT_DIR=/www/server/panel/vhost/cert/mqtt.sushi.catering
+MQTT_TLS_LOCAL_PORT=9443
+MQTT_DASHBOARD_LOCAL_PORT=1885
 ```
 
 Save and exit (`Ctrl+X`, `Y`, `Enter`).
@@ -105,11 +113,11 @@ mqtt:subscribe   Subscribe to MQTT topics for RPi fulfillment confirmations (lon
 
 Before testing Laravel, verify the broker accepts connections.
 
-**Option A: Use mqttui web dashboard**
+**Option A: Use the Node-RED MQTT dashboard**
 
-Open in browser: `http://app.sushi.catering:8885`
+Open in browser: `https://mqtt.sushi.catering:8885/ui`
 
-You should see the MQTT UI. If it loads, the broker is working.
+You should see the MQTT dashboard. If it loads, the dashboard proxy is working.
 
 **Option B: From the server command line (inside the Mosquitto container)**
 
@@ -122,7 +130,7 @@ docker exec mosquitto mosquitto_pub \
   -m "Hello from server"
 ```
 
-Watch it appear in the mqttui dashboard.
+Watch it appear in the Node-RED dashboard.
 
 ---
 
@@ -163,7 +171,7 @@ MqttHelper::publishNewOrder("Standort 1", [
 
 **How to verify it worked:**
 
-1. Open mqttui: `http://app.sushi.catering:8885`
+1. Open the dashboard: `https://mqtt.sushi.catering:8885/ui`
 2. You should see a message appear on topic `location/standort_1/orders/new`
 3. Also check Laravel logs: `tail -f storage/logs/laravel.log | grep MQTT`
 
@@ -260,7 +268,7 @@ This is the full flow: place a real order on Shopify, watch MQTT deliver it.
 
 **Terminal 1 — Watch MQTT messages in real time:**
 
-Open mqttui: `http://app.sushi.catering:8885`
+Open the dashboard: `https://mqtt.sushi.catering:8885/ui`
 
 **Terminal 2 — Watch Laravel logs:**
 
@@ -277,7 +285,7 @@ tail -f storage/logs/laravel.log | grep MQTT
    MQTT: Published new order to topic {"topic":"location/standort_1/orders/new","order_id":...}
    ```
 
-2. In mqttui dashboard: a JSON message appears on `location/standort_1/orders/new` with the order details.
+2. In the Node-RED dashboard: a JSON message appears on `dev/location/standort_1/orders/new` with the order details.
 
 3. The RPi device (if connected) would receive this message instantly instead of needing to poll.
 
@@ -350,9 +358,9 @@ Fulfillment::where('order_id', 9999999999)->delete();
 | Problem | Check |
 |---------|-------|
 | "Connection refused" | Is Mosquitto running? `docker compose ps` |
-| "TLS handshake failed" | Try `MQTT_PORT=1883` and `MQTT_TLS_ENABLED=false` (uses plain MQTT on port 1883 — the broker supports both) |
+| "TLS handshake failed" | For Laravel, use `MQTT_PORT=1883` and `MQTT_TLS_ENABLED=false`; for external clients, verify `mqtt.sushi.catering:443` routes to `127.0.0.1:9443` |
 | "Not authorized" | Check username/password match in `.env` and `docker-compose.yml` |
-| Tinker publish works but no message in mqttui | Check mqttui is connected to the same broker |
+| Tinker publish works but no message in dashboard | Check Node-RED is connected to the internal broker |
 | Subscriber doesn't receive messages | Make sure subscriber is running. Check topic name matches exactly |
 | Shopify metafield errors on test data | Expected — use a real order_id for metafield sync testing |
 
@@ -362,9 +370,8 @@ Fulfillment::where('order_id', 9999999999)->delete();
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| 8883 | MQTT+TLS | Production MQTT (what Laravel uses) |
-| 1883 | MQTT plain | Fallback/testing (no TLS) |
-| 9001 | WebSocket | WS connections |
-| 9002 | WebSocket+TLS | Secure WS connections |
-| 8884 | HTTP | Node-RED web UI |
-| 8885 | HTTP | mqttui dashboard |
+| 443 | MQTT+TLS | Public external MQTT via `mqtt.sushi.catering` |
+| 9443 | MQTT+TLS | Local Nginx stream target for Mosquitto TLS |
+| 1883 | MQTT plain | Local Laravel/internal broker access only |
+| 1885 | HTTP | Local Node-RED target |
+| 8885 | HTTPS | Public dashboard at `mqtt.sushi.catering:8885` |

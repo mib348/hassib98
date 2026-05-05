@@ -221,8 +221,8 @@ function isDashboardLoginRequest(req) {
 
 // ─── LOGIN ROUTE MIDDLEWARE ───────────────────────────────────────────────────
 // This middleware is mounted ONLY on `/login` through `httpStatic`.
-// It exists so port 8884 has a real `/login` endpoint while the rest of the
-// Node-RED HTTP surface stays untouched.
+// It exists so the dashboard proxy port has a real `/login` endpoint while the
+// rest of the Node-RED HTTP surface stays untouched.
 const dashboardLoginRouteMiddleware = dashboardUser && dashboardPassword
     ? (req, res, next) => {
         if (!isDashboardLoginRequest(req)) {

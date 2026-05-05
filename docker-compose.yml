@@ -5,9 +5,9 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:1883:1883"   # Internal/plain MQTT stays private to the Ubuntu host
-      - "8883:8883"   # External TLS MQTT for RPi devices and remote clients
-      - "9001:9001"   # Optional WebSocket MQTT
-      - "9002:9002"   # Optional Secure WebSocket MQTT
+      - "127.0.0.1:${MQTT_TLS_LOCAL_PORT:-9443}:8883"   # Local TLS target for mqtt.sushi.catering:443
+      - "127.0.0.1:9001:9001"   # Local-only WebSocket MQTT for troubleshooting
+      - "127.0.0.1:9002:9002"   # Local-only Secure WebSocket MQTT for troubleshooting
     environment:
       MQTT_USER: ${MQTT_USER:-mqtt_12342026}
       MQTT_PASS: ${MQTT_PASSWORD:-mqtt_12342026}
@@ -21,7 +21,7 @@ services:
       - ./docker/mosquitto/runtime:/mosquitto/runtime
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
-      - ${MQTT_TLS_CERT_DIR:-/www/server/panel/vhost/cert/app.sushi.catering}:/tls:ro
+      - ${MQTT_TLS_CERT_DIR:-/www/server/panel/vhost/cert/mqtt.sushi.catering}:/tls:ro
     ulimits:
       nofile:
         soft: 65535
@@ -53,19 +53,19 @@ services:
       MQTT_BROKER_PORT: 1883
       MQTT_BROKER_USERNAME: ${MQTT_USER:-mqtt_12342026}
       MQTT_BROKER_PASSWORD: ${MQTT_PASSWORD:-mqtt_12342026}
-      MQTT_CERT_DIR: ${MQTT_TLS_CERT_DIR:-/www/server/panel/vhost/cert/app.sushi.catering}
+      MQTT_CERT_DIR: ${MQTT_TLS_CERT_DIR:-/www/server/panel/vhost/cert/mqtt.sushi.catering}
       AAPANEL_RENEW_COMMAND: ${AAPANEL_RENEW_COMMAND:-/www/server/panel/pyenv/bin/python -u /www/server/panel/class/acme_v2.py --renew=1}
       NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-mqtt_12342026-node-red}
       NODE_RED_HTTP_USER: ${NODE_RED_HTTP_USER:-}
       NODE_RED_HTTP_PASSWORD: ${NODE_RED_HTTP_PASSWORD:-}
       NODE_RED_ENABLE_EDITOR: ${NODE_RED_ENABLE_EDITOR:-false}
     ports:
-      - "8884:1880"   # Node-RED dashboard (/ui), editor only when explicitly enabled
+      - "127.0.0.1:${MQTT_DASHBOARD_LOCAL_PORT:-1885}:1880"   # Local dashboard target for mqtt.sushi.catering:8885
     volumes:
       - ./docker/nodered/data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - /www/server/panel:/www/server/panel
-      - ${MQTT_TLS_CERT_DIR:-/www/server/panel/vhost/cert/app.sushi.catering}:/tls:ro
+      - ${MQTT_TLS_CERT_DIR:-/www/server/panel/vhost/cert/mqtt.sushi.catering}:/tls:ro
       - mosquitto_log:/mosquitto-logs:ro   # Shared read-only access to Mosquitto log for connection tracking
 
 volumes:

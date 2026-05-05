@@ -5,7 +5,7 @@ set -eu
 # dashboard buttons stay simple and the operator can inspect one script when
 # something needs to be debugged.
 
-CERT_DIR="${MQTT_CERT_DIR:-/www/server/panel/vhost/cert/app.sushi.catering}"
+CERT_DIR="${MQTT_CERT_DIR:-/www/server/panel/vhost/cert/mqtt.sushi.catering}"
 CERT_FILE="$CERT_DIR/fullchain.pem"
 FALLBACK_CERT_FILE="/tls/fullchain.pem"
 DOCKER_SOCKET="${DOCKER_SOCKET_PATH:-/var/run/docker.sock}"
