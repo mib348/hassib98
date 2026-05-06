@@ -615,8 +615,8 @@ export const thankYouExtension = CheckoutComponents.extension(
       // Fallback UI
       if (root?.createComponent && CheckoutComponents.Text) {
         const fallback = root.createComponent(
-          CheckoutComponents.Text, 
-          { appearance: 'critical' }, 
+          CheckoutComponents.Text,
+          { appearance: 'critical' },
           'Extension failed to load. Please refresh the page.'
         );
         root.appendChild?.(fallback);
@@ -635,8 +635,8 @@ export const orderStatusExtension = CustomerAccountComponents.extension(
       // Fallback UI
       if (root?.createComponent && CustomerAccountComponents.Text) {
         const fallback = root.createComponent(
-          CustomerAccountComponents.Text, 
-          { appearance: 'critical' }, 
+          CustomerAccountComponents.Text,
+          { appearance: 'critical' },
           'Extension failed to load. Please refresh the page.'
         );
         root.appendChild?.(fallback);
@@ -647,9 +647,3 @@ export const orderStatusExtension = CustomerAccountComponents.extension(
 
 // Remove default export if it exists, or ensure it's not used by toml
 // export default ... (No default export needed if using named exports for targets)
-
-
-
-
-
-
