@@ -1,0 +1,16 @@
+api_version = "2025-07"
+uid = "e189b246-e678-b898-ed83-042a873613df4b67b800"
+
+[[extensions]]
+name = "Voucher Codes"
+handle = "voucher-codes"
+type = "ui_extension"
+
+[extensions.capabilities]
+api_access = true
+network_access = true
+
+[[extensions.targeting]]
+module = "./src/index.js"
+target = "customer-account.profile.block.render"
+export = "voucherCodesProfileExtension"

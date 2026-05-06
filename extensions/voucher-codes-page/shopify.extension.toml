@@ -1,0 +1,16 @@
+api_version = "2026-07"
+uid = "67b3d9b8-6ecf-4e46-c3c9-61ed54b93b851695a2de"
+
+[[extensions]]
+name = "Voucher Codes Page"
+handle = "voucher-codes-page"
+type = "ui_extension"
+
+[extensions.capabilities]
+api_access = true
+network_access = true
+
+[[extensions.targeting]]
+module = "./src/index.js"
+target = "customer-account.page.render"
+export = "voucherCodesPageExtension"
