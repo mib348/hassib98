@@ -6,6 +6,7 @@ use App\Http\Controllers\LoyaltyController;
 use App\Http\Controllers\OrderDetailsForRpiController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\TokenController;
+use App\Http\Controllers\VoucherCodeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
@@ -39,6 +40,7 @@ Route::any('/getordernumber/{order_id}', [ShopifyController::class, 'getordernum
 Route::any('/checkCartProductsQty', [ShopifyController::class, 'checkCartProductsQty'])->name('checkCartProductsQty');
 Route::any('/checkOrderInventory', [ShopifyController::class, 'checkOrderInventory'])->name('checkOrderInventory');
 Route::any('/getLocationsList', [ShopifyController::class, 'getLocationsList'])->name('getLocationsList');
+Route::get('/customer/voucher-codes', [VoucherCodeController::class, 'index'])->name('customer.voucher-codes');
 // Route::get('/getProductsList', function(){
 //     return redirect('https://council-moms-commissioners-tip.trycloudflare.com/authenticate');
 // })->name('api_getProductsList');

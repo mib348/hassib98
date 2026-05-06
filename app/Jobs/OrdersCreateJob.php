@@ -6,6 +6,7 @@ use App\Helpers\MqttHelper;
 use App\Mail\QRCodeMail;
 use App\Models\LoyaltyMember;
 use App\Models\User;
+use App\Services\VoucherCodeService;
 use Choowx\RasterizeSvg\Svg;
 use Exception;
 use Illuminate\Bus\Queueable;
@@ -112,6 +113,11 @@ class OrdersCreateJob implements ShouldQueue
                 return; // Stop the job when the existing inventory rule cancels the order.
             }
 
+            // Voucher codes are generated only after the existing inventory checks
+            // pass. The service is idempotent, so Shopify webhook retries do not
+            // create duplicate codes for the same order line quantity.
+            app(VoucherCodeService::class)->processOrder($shop, $orderData);
+
             $this->processLoyaltyPoints($orderData);
 
             // =====================================================================
@@ -158,6 +164,16 @@ class OrdersCreateJob implements ShouldQueue
         $pendingProductMetafields = [];
         $lastOrderLineItem = null;
 
+        $rememberOrderLineItem = function (array $item) use (&$lastOrderLineItem) {
+            // Order metafields are order-level data, but this job gets the data
+            // from one line item. Gift cards/vouchers can be part of the same
+            // cart without `location` or `date`, so they must not replace the
+            // last normal product line that actually carries pickup details.
+            if ($this->lineItemCanUpdateOrderMetafields($item)) {
+                $lastOrderLineItem = $item;
+            }
+        };
+
         $flushPendingProductMetafields = function () use ($shop, &$pendingProductMetafields, $orderData) {
             if (empty($pendingProductMetafields)) {
                 return;
@@ -179,7 +195,7 @@ class OrdersCreateJob implements ShouldQueue
             }
 
             if ($this->shouldSkipInventoryMetafieldUpdate($item)) {
-                $lastOrderLineItem = $item;
+                $rememberOrderLineItem($item);
 
                 continue;
             }
@@ -190,7 +206,7 @@ class OrdersCreateJob implements ShouldQueue
 
             if (empty($metafield)) {
                 Log::info("No {$key} metafield found for product ID {$productId}");
-                $lastOrderLineItem = $item;
+                $rememberOrderLineItem($item);
 
                 continue;
             }
@@ -224,7 +240,7 @@ class OrdersCreateJob implements ShouldQueue
                 'value' => $updatedValues,
             ];
 
-            $lastOrderLineItem = $item;
+            $rememberOrderLineItem($item);
         }
 
         $flushPendingProductMetafields();
@@ -243,6 +259,26 @@ class OrdersCreateJob implements ShouldQueue
         }
 
         return $this->getLineItemPropertyValue($lineItem, 'snacks_and_drinks', 'N') === 'Y';
+    }
+
+    protected function lineItemCanUpdateOrderMetafields(array $lineItem): bool
+    {
+        $location = $this->getLineItemPropertyValue($lineItem, 'location');
+        if (! is_string($location) && ! is_numeric($location)) {
+            return false;
+        }
+
+        if (trim((string) $location) === '') {
+            return false;
+        }
+
+        // Yesterday inventory lines intentionally write today's pickup date in
+        // updateOrder(), so a usable location is enough to keep them eligible.
+        if ($this->getLineItemPropertyValue($lineItem, 'yesterday_item', 'N') === 'Y') {
+            return true;
+        }
+
+        return $this->formatOrderMetafieldDate($this->getLineItemPropertyValue($lineItem, 'date')) !== null;
     }
 
     protected function fetchProductInventoryMetafields($shop, array $productIds): array
@@ -731,6 +767,32 @@ class OrdersCreateJob implements ShouldQueue
             : 'preorder';
     }
 
+    /**
+     * Convert the storefront pickup date into Shopify's `date` metafield format.
+     * `strtotime()` returns false when the line item has no date; passing that
+     * false value into `date()` creates `1970-01-01`, which looks valid but is
+     * actually bad order data. Returning null lets the caller skip the Shopify
+     * write instead of saving a fake pickup date or breaking the webhook job.
+     */
+    protected function formatOrderMetafieldDate($pickUpDate): ?string
+    {
+        if (! is_string($pickUpDate) && ! is_numeric($pickUpDate)) {
+            return null;
+        }
+
+        $pickUpDate = trim((string) $pickUpDate);
+        if ($pickUpDate === '') {
+            return null;
+        }
+
+        $timestamp = strtotime($pickUpDate);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        return date('Y-m-d', $timestamp);
+    }
+
     protected function updateOrder($shop, $productId, $lineItem, $orderData)
     {
         $location = $this->getLineItemPropertyValue($lineItem, 'location');
@@ -761,6 +823,24 @@ class OrdersCreateJob implements ShouldQueue
             ]);
         }
 
+        $location = is_string($location) ? trim($location) : $location;
+        $formattedPickUpDate = $this->formatOrderMetafieldDate($pickUpDate);
+
+        if ($location === null || $location === '' || $formattedPickUpDate === null) {
+            Log::warning('Skipping Shopify order metafield update because the line item has no usable location/date properties', [
+                'order_id' => $orderData['id'] ?? null,
+                'order_number' => $orderData['order_number'] ?? null,
+                'product_id' => $productId,
+                'line_item_id' => $lineItem['id'] ?? null,
+                'line_item_title' => $lineItem['title'] ?? null,
+                'location' => $location,
+                'pick_up_date' => $pickUpDate,
+                'yesterday_item' => $yesterdayItem,
+            ]);
+
+            return null;
+        }
+
         $orderId = $orderData['id'];
         $orderGid = $this->shopifyGid('Order', $orderId);
 
@@ -778,7 +858,7 @@ class OrdersCreateJob implements ShouldQueue
                 'ownerId' => $orderGid,
                 'namespace' => 'custom',
                 'key' => 'pick_up_date',
-                'value' => date('Y-m-d', strtotime($pickUpDate)),
+                'value' => $formattedPickUpDate,
                 'type' => 'date',
             ],
             [

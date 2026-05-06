@@ -356,6 +356,12 @@ class ShopifyController extends Controller
 
     public function getOrderCreationWebhook(Request $request){
         Log::info('Order Creation Webhook: '. json_encode($request));
+
+        // Dispatch the OrdersCreateJob so voucher-code generation, inventory
+        // updates, loyalty points, and MQTT publishing all run.
+        $shopDomain = $request->header('X-Shopify-Shop-Domain', '');
+        $data = $request->all();
+        \App\Jobs\OrdersCreateJob::dispatch($shopDomain, $data);
     }
     public function getOrderUpdateWebhook(Request $request){
         Log::info('Order Update Webhook: '. json_encode($request));
