@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:1883:1883"   # Internal/plain MQTT stays private to the Ubuntu host
-      - "127.0.0.1:${MQTT_TLS_LOCAL_PORT:-9443}:8883"   # Local TLS target for mqtt.sushi.catering:443
+      - "8883:8883"   # Public TLS MQTT endpoint for mqtts://mqtt.sushi.catering
       - "127.0.0.1:9001:9001"   # Local-only WebSocket MQTT for troubleshooting
       - "127.0.0.1:9002:9002"   # Local-only Secure WebSocket MQTT for troubleshooting
     environment:
