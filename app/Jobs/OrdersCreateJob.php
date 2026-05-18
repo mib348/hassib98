@@ -164,14 +164,29 @@ class OrdersCreateJob implements ShouldQueue
         $pendingProductMetafields = [];
         $lastOrderLineItem = null;
 
-        $rememberOrderLineItem = function (array $item) use (&$lastOrderLineItem) {
+        $rememberOrderLineItem = function (array $item) use (&$lastOrderLineItem, $orderData) {
             // Order metafields are order-level data, but this job gets the data
             // from one line item. Gift cards/vouchers can be part of the same
             // cart without `location` or `date`, so they must not replace the
             // last normal product line that actually carries pickup details.
-            if ($this->lineItemCanUpdateOrderMetafields($item)) {
-                $lastOrderLineItem = $item;
+            if (! $this->lineItemCanUpdateOrderMetafields($item, $orderData)) {
+                return;
             }
+
+            // Snacks/drinks can be sold as immediate vending-machine items. If
+            // their storefront payload lost the selected date, we can still save
+            // a same-day order date from Shopify's created_at value. That fallback
+            // is only a backup source: it must not overwrite a normal food line
+            // that already has an explicit customer-selected pickup date.
+            if (
+                $lastOrderLineItem &&
+                $this->lineItemUsesSnackDateFallback($item, $orderData) &&
+                ! $this->lineItemUsesSnackDateFallback($lastOrderLineItem, $orderData)
+            ) {
+                return;
+            }
+
+            $lastOrderLineItem = $item;
         };
 
         $flushPendingProductMetafields = function () use ($shop, &$pendingProductMetafields, $orderData) {
@@ -261,7 +276,7 @@ class OrdersCreateJob implements ShouldQueue
         return $this->getLineItemPropertyValue($lineItem, 'snacks_and_drinks', 'N') === 'Y';
     }
 
-    protected function lineItemCanUpdateOrderMetafields(array $lineItem): bool
+    protected function lineItemCanUpdateOrderMetafields(array $lineItem, array $orderData = []): bool
     {
         $location = $this->getLineItemPropertyValue($lineItem, 'location');
         if (! is_string($location) && ! is_numeric($location)) {
@@ -272,13 +287,7 @@ class OrdersCreateJob implements ShouldQueue
             return false;
         }
 
-        // Yesterday inventory lines intentionally write today's pickup date in
-        // updateOrder(), so a usable location is enough to keep them eligible.
-        if ($this->getLineItemPropertyValue($lineItem, 'yesterday_item', 'N') === 'Y') {
-            return true;
-        }
-
-        return $this->formatOrderMetafieldDate($this->getLineItemPropertyValue($lineItem, 'date')) !== null;
+        return $this->resolveOrderMetafieldDate($lineItem, $orderData) !== null;
     }
 
     protected function fetchProductInventoryMetafields($shop, array $productIds): array
@@ -790,7 +799,81 @@ class OrdersCreateJob implements ShouldQueue
             return null;
         }
 
-        return date('Y-m-d', $timestamp);
+        $formattedDate = date('Y-m-d', $timestamp);
+
+        // A real 1970 pickup date is not possible for this Shopify flow. When it
+        // appears, it means an empty or broken date was converted through the old
+        // strtotime/date fallback. Treat it as missing so we do not save fake data.
+        if ($formattedDate === '1970-01-01') {
+            return null;
+        }
+
+        return $formattedDate;
+    }
+
+    protected function resolveOrderMetafieldDate(array $lineItem, array $orderData = []): ?string
+    {
+        $pickUpDate = $this->getLineItemPropertyValue($lineItem, 'date');
+        $yesterdayItem = $this->getLineItemPropertyValue($lineItem, 'yesterday_item', 'N');
+
+        // Yesterday inventory is picked up today. Keep this rule centralized so
+        // both eligibility checks and the actual Shopify metafield write agree.
+        if ($yesterdayItem === 'Y') {
+            return Carbon::now('Europe/Berlin')->format('Y-m-d');
+        }
+
+        $formattedPickUpDate = $this->formatOrderMetafieldDate($pickUpDate);
+        if ($formattedPickUpDate !== null) {
+            return $formattedPickUpDate;
+        }
+
+        // Snack/drink vending-machine lines are immediate pickup items and do not
+        // use product inventory deduction. If their line item date is empty, use
+        // the Shopify order creation date as the safest same-day pickup date
+        // instead of leaving location/date blank or saving 1970-01-01.
+        if ($this->getLineItemPropertyValue($lineItem, 'snacks_and_drinks', 'N') === 'Y') {
+            return $this->formatOrderCreatedDateForMetafield($orderData);
+        }
+
+        return null;
+    }
+
+    protected function lineItemUsesSnackDateFallback(array $lineItem, array $orderData = []): bool
+    {
+        if ($this->getLineItemPropertyValue($lineItem, 'snacks_and_drinks', 'N') !== 'Y') {
+            return false;
+        }
+
+        if ($this->getLineItemPropertyValue($lineItem, 'yesterday_item', 'N') === 'Y') {
+            return false;
+        }
+
+        return $this->formatOrderMetafieldDate($this->getLineItemPropertyValue($lineItem, 'date')) === null &&
+            $this->formatOrderCreatedDateForMetafield($orderData) !== null;
+    }
+
+    protected function formatOrderCreatedDateForMetafield(array $orderData): ?string
+    {
+        $createdAt = $orderData['created_at'] ?? null;
+
+        if (is_string($createdAt) || is_numeric($createdAt)) {
+            $createdAt = trim((string) $createdAt);
+
+            if ($createdAt !== '') {
+                try {
+                    return Carbon::parse($createdAt)->setTimezone('Europe/Berlin')->format('Y-m-d');
+                } catch (\Throwable $exception) {
+                    Log::warning('Unable to parse Shopify order created_at for snack/drink pickup date fallback', [
+                        'order_id' => $orderData['id'] ?? null,
+                        'order_number' => $orderData['order_number'] ?? null,
+                        'created_at' => $createdAt,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        return Carbon::now('Europe/Berlin')->format('Y-m-d');
     }
 
     protected function updateOrder($shop, $productId, $lineItem, $orderData)
@@ -824,7 +907,7 @@ class OrdersCreateJob implements ShouldQueue
         }
 
         $location = is_string($location) ? trim($location) : $location;
-        $formattedPickUpDate = $this->formatOrderMetafieldDate($pickUpDate);
+        $formattedPickUpDate = $this->resolveOrderMetafieldDate($lineItem, $orderData);
 
         if ($location === null || $location === '' || $formattedPickUpDate === null) {
             Log::warning('Skipping Shopify order metafield update because the line item has no usable location/date properties', [
