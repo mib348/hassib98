@@ -58,18 +58,7 @@
 @include('partials.app_nav')
 
 <s-page heading="Kitchen">
-    {{-- Primary action button - navigates to Location Products --}}
-    <s-button slot="primary-action" onclick="navigateToPage('/location_products')">Location Products</s-button>
-
-    {{-- Secondary action buttons for navigation --}}
-    <s-button slot="secondary-actions" onclick="navigateToPage('/stores')">Stores</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/drivers/ADMIN?menu=1')">Drivers</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_revenue')">Locations Revenue</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_text')">Location Settings</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/orders')">Location Order Overview</s-button>
-    {{-- Temporarily hidden --}}
-    {{-- <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button> --}}
-    <s-button slot="secondary-actions" onclick="navigateToPage('/order_details_for_rpi/ADMIN?menu=1')">RPI Order Details</s-button>
+    @include('partials.app_page_actions', ['primaryAction' => ['label' => 'Location Products', 'path' => '/location_products']])
 </s-page>
 @endif
 

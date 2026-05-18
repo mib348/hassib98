@@ -11,19 +11,7 @@
 
 {{-- AppBridge v4 Title Bar using s-page web component --}}
 <s-page heading="Operations">
-    {{-- Primary action button - navigates to Location Order Overview --}}
-    <s-button slot="primary-action" onclick="navigateToPage('/orders')">Location Order Overview</s-button>
-
-    {{-- Secondary action buttons for navigation --}}
-    <s-button slot="secondary-actions" onclick="navigateToPage('/stores')">Stores</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/location_products')">Location Products</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_revenue')">Locations Revenue</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/locations_text')">Location Settings</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/kitchen/ADMIN?menu=1')">Kitchen</s-button>
-    <s-button slot="secondary-actions" onclick="navigateToPage('/drivers/ADMIN?menu=1')">Drivers</s-button>
-    {{-- Temporarily hidden --}}
-    {{-- <s-button slot="secondary-actions" onclick="navigateToPage('/home_delivery')">Home Delivery Overview</s-button> --}}
-    <s-button slot="secondary-actions" onclick="navigateToPage('/order_details_for_rpi/ADMIN?menu=1')">RPI Order Details</s-button>
+    @include('partials.app_page_actions', ['primaryAction' => ['label' => 'Location Order Overview', 'path' => '/orders']])
 </s-page>
 
 <div class="container-fluid p-2">
