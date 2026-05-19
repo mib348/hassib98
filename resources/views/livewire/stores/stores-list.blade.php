@@ -3,7 +3,7 @@
 
     <!-- Add Store Modal -->
     <div class="modal fade" id="addStoreModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable stores-modal-dialog">
             <div class="modal-content">
                 <form wire:submit.prevent="saveStore">
                     <div class="modal-header">

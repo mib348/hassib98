@@ -6,6 +6,66 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/solid.min.css" integrity="sha512-DzC7h7+bDlpXPDQsX/0fShhf1dLxXlHuhPBkBo/5wJWRoTU6YL7moeiNoej6q3wh5ti78C57Tu1JwTNlcgHSjg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <style>
     .edit_button, .delete_button { margin-right: 5px; }
+
+    #addStoreModal {
+        --stores-modal-edge-gap: 0.75rem;
+        --stores-mobile-bottom-nav-space: 6rem;
+    }
+
+    /*
+        The selected locations can become a very long badge list. This keeps
+        that list inside the modal body so the footer actions stay reachable
+        instead of being pushed below the mobile Shopify navigation bar.
+    */
+    #addStoreModal .stores-modal-dialog {
+        height: auto;
+        margin-top: var(--stores-modal-edge-gap);
+        margin-bottom: var(--stores-modal-edge-gap);
+    }
+
+    #addStoreModal .modal-content {
+        max-height: calc(100dvh - (var(--stores-modal-edge-gap) * 2));
+    }
+
+    /*
+        The form is the direct child of .modal-content in this Livewire modal.
+        Making the form a column lets only .modal-body scroll while the header
+        and Save Store footer stay visible.
+    */
+    #addStoreModal .modal-content > form {
+        display: flex;
+        flex-direction: column;
+        max-height: inherit;
+        min-height: 0;
+    }
+
+    #addStoreModal .modal-body {
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    @media (max-width: 575.98px) {
+        #addStoreModal .stores-modal-dialog {
+            margin: var(--stores-modal-edge-gap);
+            margin-bottom: calc(var(--stores-mobile-bottom-nav-space) + env(safe-area-inset-bottom));
+        }
+
+        #addStoreModal .modal-content {
+            max-height: calc(100dvh - var(--stores-modal-edge-gap) - var(--stores-mobile-bottom-nav-space) - env(safe-area-inset-bottom));
+        }
+    }
+
+    @supports not (height: 100dvh) {
+        #addStoreModal .modal-content {
+            max-height: calc(100vh - (var(--stores-modal-edge-gap) * 2));
+        }
+
+        @media (max-width: 575.98px) {
+            #addStoreModal .modal-content {
+                max-height: calc(100vh - var(--stores-modal-edge-gap) - var(--stores-mobile-bottom-nav-space) - env(safe-area-inset-bottom));
+            }
+        }
+    }
 </style>
 @endsection
 
