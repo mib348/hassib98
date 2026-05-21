@@ -1028,7 +1028,32 @@ function updateLocationBar() {
   } else {
     $(".location_bar").remove();
   }
+
+  syncLocationBarLayout();
 }
+
+function syncLocationBarLayout() {
+  if (!document.body) return;
+
+  const locationBar = document.querySelector(".location_bar");
+  const hasVisibleLocationBar =
+    locationBar && window.getComputedStyle(locationBar).display !== "none";
+  const locationBarHeight = hasVisibleLocationBar
+    ? Math.ceil(locationBar.getBoundingClientRect().height)
+    : 0;
+
+  /* CSS uses this measured height to pull only the datum page hero upward.
+     Measuring avoids hardcoding a desktop height, so wrapped mobile text still
+     gets the correct offset. */
+  document.body.classList.toggle("has-location-bar", Boolean(hasVisibleLocationBar));
+  document.documentElement.style.setProperty(
+    "--active-location-bar-height",
+    `${locationBarHeight}px`
+  );
+}
+
+window.addEventListener("resize", syncLocationBarLayout);
+window.addEventListener("load", syncLocationBarLayout);
 
 if (window.location.pathname === "/pages/order-menue" || window.location.pathname === "/cart" || (window.location.pathname === "/pages/datum" && sessionStorage.getItem("location") == null && localStorage.getItem("location") == null)) {
   // Check if the session storage 'date' exists and is not null

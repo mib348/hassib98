@@ -3734,6 +3734,25 @@ body {
 div.pf-29_ p{margin:0 !important;}
 .location_bar{display:none;}
 
+/* Keep the shared bestellen/datum hero image locked to the same viewport start.
+   The location bar is still shown, but it overlays the datum hero instead of
+   pushing the hero background down and making the image appear to jump. */
+body.page-datum.has-location-bar #MainContent {
+  margin-top: calc(var(--active-location-bar-height, 0px) * -1);
+  position: relative;
+  z-index: 0;
+}
+
+/* The bestellen and datum pages use the same PageFly hero image. PageFly centers
+   that image by default, so whenever the datum Bootstrap card reveals more
+   buttons/content and changes the section height, the browser re-centers the
+   background and the image looks like it jumps. Top-anchoring the same image on
+   both pages keeps the visible crop stable while the card content loads. */
+body.page-bestellen .__pf.__pf_LM5usA9o .pf-7_,
+body.page-datum .__pf.__pf_GlDVGOc7 .pf-8_ {
+  background-position: center top !important;
+}
+
 /* Keep order-menu product card tweaks in theme-owned CSS so PageFly
    republishes cannot remove the requested spacing, bullet, or button styles. */
 body.page-order-menue [data-pf-type='ProductDescription'] {
