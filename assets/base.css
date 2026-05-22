@@ -3753,6 +3753,21 @@ body.page-datum .__pf.__pf_GlDVGOc7 .pf-8_ {
   background-position: center top !important;
 }
 
+@media screen and (max-width: 767px) {
+  /* On mobile the PageFly section is narrow, so `background-size: cover` scales
+     from the section height instead of the width. When Bootstrap loads extra
+     datum card content, the section becomes taller and the same image is
+     re-zoomed. Locking the rendered image height to the viewport keeps the crop
+     stable while the card can still grow normally below it. */
+  body.page-bestellen .__pf.__pf_LM5usA9o .pf-7_,
+  body.page-datum .__pf.__pf_GlDVGOc7 .pf-8_ {
+    background-size: auto 100vh !important;
+    background-size: auto 100svh !important;
+    background-repeat: no-repeat !important;
+    background-color: #000 !important;
+  }
+}
+
 /* Keep order-menu product card tweaks in theme-owned CSS so PageFly
    republishes cannot remove the requested spacing, bullet, or button styles. */
 body.page-order-menue [data-pf-type='ProductDescription'] {
