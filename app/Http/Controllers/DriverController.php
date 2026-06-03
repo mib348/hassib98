@@ -19,6 +19,10 @@ use Illuminate\Support\Str;
 
 class DriverController extends Controller
 {
+    private const DRIVER_IMAGE_MAX_DIMENSION = 1280;
+
+    private const DRIVER_IMAGE_JPEG_QUALITY = 75;
+
     public function index(){
         abort(403, 'Access Denied');
     }
@@ -396,8 +400,9 @@ class DriverController extends Controller
                 ], 400);
             }
 
+            [$imageData, $extension] = $this->optimizeDriverImage($imageData, $imageType);
+
             // Generate unique filename with correct extension
-            $extension = $imageType === 'jpeg' ? 'jpg' : $imageType;
             $imageName = Str::slug($request->location).'-'.$currentDate.'-'.Str::random(10).'.'.$extension;
             
             // Store the image
@@ -526,6 +531,64 @@ class DriverController extends Controller
                 'message' => 'Failed to mark location as fulfilled/cleaned: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    protected function optimizeDriverImage(string $imageData, string $imageType): array
+    {
+        $extension = $imageType === 'jpeg' ? 'jpg' : strtolower($imageType);
+
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagejpeg')) {
+            return [$imageData, $extension ?: 'jpg'];
+        }
+
+        $sourceImage = @imagecreatefromstring($imageData);
+
+        if (! $sourceImage) {
+            return [$imageData, $extension ?: 'jpg'];
+        }
+
+        $sourceWidth = imagesx($sourceImage);
+        $sourceHeight = imagesy($sourceImage);
+        $largestSide = max($sourceWidth, $sourceHeight);
+        $scale = $largestSide > self::DRIVER_IMAGE_MAX_DIMENSION
+            ? self::DRIVER_IMAGE_MAX_DIMENSION / $largestSide
+            : 1;
+
+        $targetWidth = (int) max(1, round($sourceWidth * $scale));
+        $targetHeight = (int) max(1, round($sourceHeight * $scale));
+
+        // Drivers only need a quick proof photo in the app, not a full camera sensor file.
+        // This creates a browser-friendly JPEG, keeps the aspect ratio, and never enlarges
+        // small images, so uploads and later page loads stay fast without changing the
+        // existing database fields or upload folders.
+        $targetImage = imagecreatetruecolor($targetWidth, $targetHeight);
+        $white = imagecolorallocate($targetImage, 255, 255, 255);
+        imagefilledrectangle($targetImage, 0, 0, $targetWidth, $targetHeight, $white);
+        imagecopyresampled(
+            $targetImage,
+            $sourceImage,
+            0,
+            0,
+            0,
+            0,
+            $targetWidth,
+            $targetHeight,
+            $sourceWidth,
+            $sourceHeight
+        );
+
+        ob_start();
+        $saved = imagejpeg($targetImage, null, self::DRIVER_IMAGE_JPEG_QUALITY);
+        $optimizedImageData = ob_get_clean();
+
+        imagedestroy($sourceImage);
+        imagedestroy($targetImage);
+
+        if (! $saved || empty($optimizedImageData)) {
+            return [$imageData, $extension ?: 'jpg'];
+        }
+
+        return [$optimizedImageData, 'jpg'];
     }
 
     protected function fetchExistingMetafields($api, array $productIds)

@@ -454,14 +454,14 @@
                                             @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
                                             <div class="col-12 col-sm-6 col-lg-3">
                                                 <h6>FULFILLMENT ATTACHED PHOTO</h6>
-                                                <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                                <img data-driver-image-src="{{ $arrProducts['fulfillment_image'] }}" loading="lazy" decoding="async" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
                                             </div>
                                             @endif
 
                                             @if(isset($arrProducts['is_cleaned']) && $arrProducts['is_cleaned'] && isset($arrProducts['cleaned_image']))
                                                 <div class="col-12 col-sm-6 col-lg-3">
                                                     <h6>CLEANING ATTACHED PHOTO</h6>
-                                                    <img src="{{ $arrProducts['cleaned_image'] }}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                                    <img data-driver-image-src="{{ $arrProducts['cleaned_image'] }}" loading="lazy" decoding="async" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
                                                 </div>
                                             @endif
                                         </div>
@@ -612,14 +612,14 @@
                                         @if(isset($arrProducts['is_fulfilled']) && $arrProducts['is_fulfilled'] && isset($arrProducts['fulfillment_image']))
                                         <div class="col-12 col-sm-6 col-lg-3">
                                             <h6>FULFILLMENT ATTACHED PHOTO</h6>
-                                            <img src="{{ $arrProducts['fulfillment_image'] }}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                            <img data-driver-image-src="{{ $arrProducts['fulfillment_image'] }}" loading="lazy" decoding="async" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
                                         </div>
                                         @endif
 
                                         @if(isset($arrProducts['is_cleaned']) && $arrProducts['is_cleaned'] && isset($arrProducts['cleaned_image']))
                                             <div class="col-12 col-sm-6 col-lg-3">
                                                 <h6>CLEANING ATTACHED PHOTO</h6>
-                                                <img src="{{ $arrProducts['cleaned_image'] }}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                                <img data-driver-image-src="{{ $arrProducts['cleaned_image'] }}" loading="lazy" decoding="async" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
                                             </div>
                                         @endif
                                     </div>
@@ -732,6 +732,18 @@
             if (scrollPosition) {
                 $(window).scrollTop(scrollPosition);
             }
+
+            loadDriverAttachedImages($('.accordion-collapse.show'));
+        }
+
+        function loadDriverAttachedImages(container) {
+            $(container).find('img[data-driver-image-src]').each(function() {
+                const imageUrl = $(this).data('driver-image-src');
+
+                if (imageUrl && !$(this).attr('src')) {
+                    $(this).attr('src', imageUrl);
+                }
+            });
         }
 
         // Set up reload interval with preserved state
@@ -757,7 +769,12 @@
         startReloadTimer();
 
         // Listen for accordion changes to store state
-        $(document).on('shown.bs.collapse hidden.bs.collapse', '.accordion-collapse', function() {
+        $(document).on('shown.bs.collapse', '.accordion-collapse', function() {
+            storeAccordionState();
+            loadDriverAttachedImages(this);
+        });
+
+        $(document).on('hidden.bs.collapse', '.accordion-collapse', function() {
             storeAccordionState();
         });
 
@@ -875,6 +892,8 @@
         let stream = null;
         let cameraStream = null;
         let capturedImageData = null;
+        const driverImageMaxDimension = 1280;
+        const driverImageJpegQuality = 0.75;
 
         // Initialize camera functionality
         function initCamera() {
@@ -1087,6 +1106,29 @@
             }
         }
 
+        function buildOptimizedDriverImageData(source, sourceWidth, sourceHeight) {
+            const scale = Math.min(1, driverImageMaxDimension / Math.max(sourceWidth, sourceHeight));
+            const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+            const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            // The driver app only displays this as proof that a location was fulfilled
+            // or cleaned. Sending the full camera file makes the AJAX upload and the
+            // later drivers page reload heavy, so this keeps the same visible photo
+            // but caps the pixel size before it ever leaves the phone/browser.
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+            ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+
+            return canvas.toDataURL('image/jpeg', driverImageJpegQuality);
+        }
+
         // Capture image from camera
         function captureImage() {
             const video = document.getElementById('camera-preview');
@@ -1097,7 +1139,6 @@
                 return;
             }
 
-            const canvas = document.createElement('canvas');
             const capturedImage = document.getElementById('captured-image');
 
             // Get video dimensions
@@ -1112,38 +1153,9 @@
                 return;
             }
 
-            // Set canvas to the native resolution of the video
-            canvas.width = videoWidth;
-            canvas.height = videoHeight;
+            console.log('Capturing optimized driver image from:', videoWidth, 'x', videoHeight);
 
-            // If we have a very low resolution, try to use a larger canvas
-            if (videoWidth < 1280 || videoHeight < 720) {
-                // Scale up by 1.5x for better quality if device resolution is low
-                const scaleFactor = Math.max(1.5, 1280 / videoWidth);
-                canvas.width = videoWidth * scaleFactor;
-                canvas.height = videoHeight * scaleFactor;
-
-                console.log('Scaling up canvas to:', canvas.width, 'x', canvas.height);
-            }
-
-            console.log('Capturing at resolution:', canvas.width, 'x', canvas.height);
-
-            // Draw video frame to canvas - handle scaling if needed
-            const ctx = canvas.getContext('2d');
-            // Use high quality image rendering
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-
-            if (canvas.width > videoWidth) {
-                // Scale up the image with interpolation
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            } else {
-                // Direct copy at native resolution
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            }
-
-            // Convert canvas to data URL with maximum quality
-            capturedImageData = canvas.toDataURL('image/jpeg', 1.0);
+            capturedImageData = buildOptimizedDriverImageData(video, videoWidth, videoHeight);
 
             // Verify that we have valid image data
             if (!capturedImageData || capturedImageData === 'data:,') {
@@ -1171,20 +1183,28 @@
 
         // Handle file upload
         function handleFileUpload(file) {
-            const reader = new FileReader();
+            const uploadedImage = new Image();
+            const objectUrl = URL.createObjectURL(file);
 
-            reader.onload = function(e) {
+            uploadedImage.onload = function() {
                 const capturedImage = document.getElementById('captured-image');
                 const video = document.getElementById('camera-preview');
 
-                // Validate the result
-                if (!e.target.result || e.target.result === 'data:,') {
+                URL.revokeObjectURL(objectUrl);
+
+                if (!uploadedImage.naturalWidth || !uploadedImage.naturalHeight) {
                     $('#submission-message').html('<div class="alert alert-danger">Failed to read image file. Please try again.</div>');
                     return;
                 }
 
-                // Set the captured image data
-                capturedImageData = e.target.result;
+                // Uploaded files can be much larger than camera captures. Drawing the
+                // selected file into the same capped JPEG canvas makes manual uploads
+                // follow the same fast path as photos taken inside this modal.
+                capturedImageData = buildOptimizedDriverImageData(
+                    uploadedImage,
+                    uploadedImage.naturalWidth,
+                    uploadedImage.naturalHeight
+                );
 
                 // Display uploaded image
                 capturedImage.src = capturedImageData;
@@ -1204,11 +1224,12 @@
                 stopCamera();
             };
 
-            reader.onerror = function() {
+            uploadedImage.onerror = function() {
+                URL.revokeObjectURL(objectUrl);
                 $('#submission-message').html('<div class="alert alert-danger">Error reading image file. Please try again.</div>');
             };
 
-            reader.readAsDataURL(file);
+            uploadedImage.src = objectUrl;
         }
 
         // Reset camera UI to initial state
@@ -1255,7 +1276,6 @@
                         store_uuid: store_uuid,  // Changed from store_id to store_uuid for clarity
                         _token: $('meta[name="csrf-token"]').attr('content')
                     },
-                    async: false,
                     success: function(response) {
                         if($('#action_type').val() == 'fulfilled'){
                             // Disable the fulfilled button for this location
@@ -1286,7 +1306,7 @@
                                     <div class="row mt-3">
                                         <div class="col-12">
                                             <h6>FULFILLMENT ATTACHED PHOTO</h6>
-                                            <img src="${response.data.image_url}" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
+                                            <img src="${response.data.image_url}" loading="lazy" decoding="async" class="img-fluid img-thumbnail fulfillment-thumbnail" alt="FULFILLMENT ATTACHED PHOTO">
                                         </div>
                                     </div>
                                 `);
@@ -1330,7 +1350,7 @@
                                     <div class="row mt-3">
                                         <div class="col-12">
                                             <h6>CLEANING ATTACHED PHOTO</h6>
-                                            <img src="${response.data.image_url}" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
+                                            <img src="${response.data.image_url}" loading="lazy" decoding="async" class="img-fluid img-thumbnail cleaned-thumbnail" alt="CLEANING ATTACHED PHOTO">
                                         </div>
                                     </div>
                                 `);
