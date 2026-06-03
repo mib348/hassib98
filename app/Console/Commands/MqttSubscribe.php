@@ -4,22 +4,26 @@ namespace App\Console\Commands;
 
 use App\Helpers\MqttHelper;
 use App\Models\Fulfillment;
+use App\Models\PiStatus;
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use PhpMqtt\Client\Facades\MQTT;
 
 /**
- * MqttSubscribe — long-running artisan command that listens for RPi fulfillment messages.
+ * MqttSubscribe — long-running artisan command that listens for RPi MQTT messages.
  *
  * HOW IT WORKS:
  * - Connects to the MQTT broker using the "subscriber" connection (auto-reconnect enabled).
  * - Subscribes to "location/+/orders/fulfilled" (wildcard matches any location slug).
+ * - Subscribes to "{env}/location/+/pi/status" for RPi heartbeat/last-will status.
  * - When an RPi device publishes a fulfillment confirmation, this command:
  *   1. Validates the JSON payload (same rules as FulfillmentController::store)
  *   2. Saves/updates the fulfillment record in the database
  *   3. Syncs all metafields to Shopify (replicating FulfillmentController::store logic)
+ * - When an RPi publishes pi.status, this command updates one latest row in pi_statuses.
  *
  * RUNNING IN PRODUCTION:
  * Use Supervisor to keep this command alive:
@@ -40,7 +44,7 @@ class MqttSubscribe extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Subscribe to MQTT topics for RPi fulfillment confirmations (long-running)';
+    protected $description = 'Subscribe to MQTT topics for RPi fulfillment confirmations and Pi status heartbeats (long-running)';
 
     /**
      * Execute the console command.
@@ -55,17 +59,29 @@ class MqttSubscribe extends Command
             // Connect using the "subscriber" connection which has auto-reconnect enabled
             $mqtt = MQTT::connection('subscriber');
 
-            // The wildcard topic matches ALL locations:
-            // location/standort_1/orders/fulfilled, location/standort_2/orders/fulfilled, etc.
-            $topic = MqttHelper::fulfillmentSubscriptionTopic();
+            // The fulfillment wildcard matches ALL locations in the configured env:
+            // dev/location/standort_1/orders/fulfilled, dev/location/standort_2/orders/fulfilled, etc.
+            $fulfillmentTopic = MqttHelper::fulfillmentSubscriptionTopic();
+
+            // The Pi status wildcard listens for retained 10-second heartbeats and
+            // retained MQTT last-will offline messages from every location in this env.
+            $piStatusTopic = MqttHelper::piStatusSubscriptionTopic();
 
             // Subscribe with QoS 1 (at least once delivery) to ensure no messages are lost
-            $mqtt->subscribe($topic, function (string $topic, string $message) {
+            $mqtt->subscribe($fulfillmentTopic, function (string $topic, string $message) {
                 $this->processFulfillmentMessage($topic, $message);
             }, 1);
 
-            $this->info("Subscribed to: {$topic}");
-            Log::info('MQTT Subscriber: Listening on topic', ['topic' => $topic]);
+            $mqtt->subscribe($piStatusTopic, function (string $topic, string $message) {
+                $this->processPiStatusMessage($topic, $message);
+            }, 1);
+
+            $this->info("Subscribed to: {$fulfillmentTopic}");
+            $this->info("Subscribed to: {$piStatusTopic}");
+            Log::info('MQTT Subscriber: Listening on topics', [
+                'fulfillment_topic' => $fulfillmentTopic,
+                'pi_status_topic' => $piStatusTopic,
+            ]);
 
             // Infinite event loop — blocks here forever, processing incoming messages.
             // The loop handles ping/pong keep-alive and auto-reconnect internally.
@@ -221,6 +237,141 @@ class MqttSubscribe extends Command
             ]);
             $this->error("Error processing message: {$e->getMessage()}");
         }
+    }
+
+    /**
+     * Process one Pi heartbeat/status message.
+     *
+     * The Pi publishes this every 10 seconds with retain=true. It also sets the
+     * same topic as its MQTT Last Will using status=offline, so Laravel receives
+     * an offline state when Mosquitto detects an unexpected disconnect.
+     *
+     * Only the latest row is stored per location_slug. This keeps the table small
+     * and makes admin/status dashboards read a single current state per device.
+     *
+     * @param string $topic   e.g. "dev/location/standort_1/pi/status"
+     * @param string $message Raw JSON payload sent by the RPi or Last Will
+     */
+    private function processPiStatusMessage(string $topic, string $message): void
+    {
+        try {
+            $this->info("Received Pi status on: {$topic}");
+
+            if (! preg_match('/^([^\/]+)\/location\/([^\/]+)\/pi\/status$/', $topic, $matches)) {
+                Log::warning('MQTT Subscriber: Pi status topic did not match expected pattern', [
+                    'topic' => $topic,
+                ]);
+                return;
+            }
+
+            $topicEnv = $matches[1];
+            $topicLocationSlug = $matches[2];
+
+            $data = json_decode($message, true);
+
+            if (!$data || !is_array($data)) {
+                Log::warning('MQTT Subscriber: Invalid Pi status JSON received', [
+                    'topic' => $topic,
+                    'raw_message' => $message,
+                ]);
+                return;
+            }
+
+            $validator = Validator::make($data, [
+                'event' => 'nullable|string|max:64',
+                'client_id' => 'nullable|string|max:255',
+                'location_slug' => 'nullable|string|max:255',
+                'status' => 'required|string|max:64',
+                'timestamp' => 'nullable|string|max:64',
+                'uptime_seconds' => 'nullable|integer|min:0',
+                'app_version' => 'nullable|string|max:255',
+                'message' => 'nullable|string|max:1000',
+            ]);
+
+            if ($validator->fails()) {
+                Log::warning('MQTT Subscriber: Pi status validation failed', [
+                    'topic' => $topic,
+                    'errors' => $validator->errors()->toArray(),
+                    'data' => $data,
+                ]);
+                return;
+            }
+
+            $validatedData = $validator->validated();
+
+            // Prefer the payload location_slug when provided, but fall back to
+            // the MQTT topic so a Last Will can be short and still update the
+            // correct location row.
+            $locationSlug = trim((string)($validatedData['location_slug'] ?? ''));
+            if ($locationSlug === '') {
+                $locationSlug = $topicLocationSlug;
+            }
+
+            // The client_id should normally equal the location slug. If the Pi
+            // omits it, store the location slug so the dashboard still has a
+            // stable identity instead of a blank value.
+            $clientId = trim((string)($validatedData['client_id'] ?? ''));
+            if ($clientId === '') {
+                $clientId = $locationSlug;
+            }
+
+            $heartbeatAt = $this->parsePiTimestamp($validatedData['timestamp'] ?? null, $topic);
+            $lastSeenAt = Carbon::now('Europe/Berlin');
+
+            PiStatus::updateOrCreate(
+                ['location_slug' => $locationSlug],
+                [
+                    'client_id' => $clientId,
+                    'status' => strtolower((string)$validatedData['status']),
+                    'heartbeat_at' => $heartbeatAt,
+                    'last_seen_at' => $lastSeenAt,
+                    'uptime_seconds' => isset($validatedData['uptime_seconds']) ? (int)$validatedData['uptime_seconds'] : null,
+                    'app_version' => $validatedData['app_version'] ?? null,
+                    'message' => $validatedData['message'] ?? null,
+                    'payload' => $data,
+                ]
+            );
+
+            Log::info('MQTT Subscriber: Pi status saved', [
+                'topic' => $topic,
+                'topic_env' => $topicEnv,
+                'location_slug' => $locationSlug,
+                'client_id' => $clientId,
+                'status' => $validatedData['status'],
+            ]);
+        } catch (\Throwable $e) {
+            // A malformed heartbeat must not kill the long-running subscriber.
+            // Supervisor should only restart this process on fatal connection errors.
+            Log::error('MQTT Subscriber: Error processing Pi status message', [
+                'topic' => $topic,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $this->error("Error processing Pi status: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Parse the Pi-provided timestamp, falling back to server time if missing.
+     *
+     * Pi devices should send ISO-8601 timestamps, but this helper prevents one
+     * bad device clock/string from dropping the whole heartbeat message.
+     */
+    private function parsePiTimestamp(?string $timestamp, string $topic): Carbon
+    {
+        if ($timestamp !== null && trim($timestamp) !== '') {
+            try {
+                return Carbon::parse($timestamp);
+            } catch (\Throwable $e) {
+                Log::warning('MQTT Subscriber: Pi status timestamp could not be parsed', [
+                    'topic' => $topic,
+                    'timestamp' => $timestamp,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return Carbon::now('Europe/Berlin');
     }
 
     /**
