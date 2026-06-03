@@ -342,16 +342,17 @@ class ImportDriversOrders extends Command
             $date = null;
             $day = null;
 
-            if (isset($order['line_items'][0]['properties'][1])) {
-                $location = $order['line_items'][0]['properties'][1]['value'];
+            $firstLineItem = $order['line_items'][0] ?? [];
+            $location = $this->lineItemPropertyValue($firstLineItem, 'location');
+            $rawDate = $this->lineItemPropertyValue($firstLineItem, 'date');
+            if (! empty($rawDate)) {
+                $timestamp = strtotime($rawDate);
+                $date = $timestamp === false ? null : date("Y-m-d", $timestamp);
             }
 
-            if (isset($order['line_items'][0]['properties'][2])) {
-                $date = date("Y-m-d", strtotime($order['line_items'][0]['properties'][2]['value']));
-            }
-
-            if (isset($order['line_items'][0]['properties'][3])) {
-                $day = $order['line_items'][0]['properties'][3]['value'];
+            $day = $this->lineItemPropertyValue($firstLineItem, 'day');
+            if (empty($day) && ! empty($date)) {
+                $day = date('l', strtotime($date));
             }
 
             $arr = Orders::updateOrCreate(['number' => $order['order_number']], [
@@ -381,5 +382,21 @@ class ImportDriversOrders extends Command
             Log::info("Order: {$order['order_number']} has been imported successfully");
             $this->info("Order: {$order['order_number']} has been imported successfully") . PHP_EOL;
         }
+    }
+
+    private function lineItemPropertyValue(array $lineItem, string $propertyName, $default = null)
+    {
+        $properties = $lineItem['properties'] ?? [];
+        if (! is_array($properties)) {
+            return $default;
+        }
+
+        foreach ($properties as $property) {
+            if (($property['name'] ?? null) === $propertyName) {
+                return $property['value'] ?? $default;
+            }
+        }
+
+        return $default;
     }
 }

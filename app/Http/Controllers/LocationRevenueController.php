@@ -263,7 +263,7 @@ class LocationRevenueController extends Controller
                     $arr_no_status[$order->order_id] = $order->number;
                     $no_status++;
                 }
-                if ($order->financial_status == 'refunded') {
+                if (strtolower((string) $order->financial_status) == 'refunded') {
                     $arr_refunded[$order->order_id] = $order->number;
                     $refunded++;
                 }

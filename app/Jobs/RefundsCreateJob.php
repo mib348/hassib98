@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Osiset\ShopifyApp\Objects\Values\ShopDomain;
 use stdClass;
 
-class RefundsCreateJob
+class RefundsCreateJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -68,11 +68,20 @@ class RefundsCreateJob
             if(!isset($shop) || !$shop)
                 $shop = User::find(env('db_shop_id', 1));
 
-            // Assuming $this->data contains order details including line items
+            // This webhook file must exist because Osiset maps:
+            // /webhook/refunds-create -> App\Jobs\RefundsCreateJob.
+            // Refund payloads are kept separate from MQTT order delivery because
+            // the RPi contract depends on full order line-item location data,
+            // which belongs to the orders/create, orders/cancelled, and
+            // orders/updated webhook payloads handled by the order jobs.
             $orderData = json_decode(json_encode($this->data), true);
             $lineItems = $orderData['line_items'] ?? [];
         } catch (\Throwable $th) {
-            //throw $th;
+            Log::error('Handler New Refund Creation Webhook Error: '.json_encode([
+                'message' => $th->getMessage(),
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]));
         }
     }
 }

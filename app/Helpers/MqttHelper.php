@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 use PhpMqtt\Client\Facades\MQTT;
 
 /**
@@ -15,8 +16,11 @@ use PhpMqtt\Client\Facades\MQTT;
  *    but must not break the Shopify webhook pipeline.
  *
  * Topic structure (agreed with RPi firmware):
- *   {env}/location/{slug}/orders/new        <- Server publishes, RPi subscribes
- *   {env}/location/{slug}/orders/fulfilled  <- RPi publishes, Server subscribes
+ *   {env}/location/{slug}/orders/new        <- Server publishes new orders
+ *   {env}/location/{slug}/orders/cancelled  <- Server publishes cancelled orders
+ *   {env}/location/{slug}/orders/updated    <- Server publishes changed orders
+ *   {env}/location/{slug}/orders/fulfilled  <- RPi publishes pickup confirmations
+ *   {env}/location/{slug}/pi/status         <- RPi publishes heartbeat/status
  *
  * The {env} prefix (e.g. "dev" or "live") is read from MQTT_TOPIC_ENV
  * in .env so dev and live messages never mix on the same broker.
@@ -77,6 +81,23 @@ class MqttHelper
     }
 
     /**
+     * Build one outbound order-event topic for a location.
+     *
+     * The action is the last MQTT topic segment. Keeping this method central
+     * prevents "new", "cancelled", and "updated" topics from drifting apart.
+     *
+     * @param  string $locationName  Human-readable location, e.g. "Standort 1"
+     * @param  string $action        One of: new, cancelled, updated
+     * @return string                e.g. "live/location/standort_1/orders/cancelled"
+     */
+    public static function orderEventTopic(string $locationName, string $action): string
+    {
+        self::guardOrderEventAction($action);
+
+        return self::topicEnv().'/location/'.self::locationToTopicSlug($locationName).'/orders/'.$action;
+    }
+
+    /**
      * Build the topic where the server publishes NEW orders for a location.
      * RPi devices subscribe to this topic to receive orders in real time.
      *
@@ -85,7 +106,29 @@ class MqttHelper
      */
     public static function newOrderTopic(string $locationName): string
     {
-        return self::topicEnv() . '/location/' . self::locationToTopicSlug($locationName) . '/orders/new';
+        return self::orderEventTopic($locationName, 'new');
+    }
+
+    /**
+     * Build the topic where the server publishes CANCELLED orders for a location.
+     *
+     * @param  string $locationName  e.g. "Standort 1"
+     * @return string                e.g. "dev/location/standort_1/orders/cancelled"
+     */
+    public static function cancelledOrderTopic(string $locationName): string
+    {
+        return self::orderEventTopic($locationName, 'cancelled');
+    }
+
+    /**
+     * Build the topic where the server publishes UPDATED orders for a location.
+     *
+     * @param  string $locationName  e.g. "Standort 1"
+     * @return string                e.g. "dev/location/standort_1/orders/updated"
+     */
+    public static function updatedOrderTopic(string $locationName): string
+    {
+        return self::orderEventTopic($locationName, 'updated');
     }
 
     /**
@@ -96,7 +139,152 @@ class MqttHelper
      */
     public static function fulfillmentSubscriptionTopic(): string
     {
-        return self::topicEnv() . '/location/+/orders/fulfilled';
+        return self::topicEnv().'/location/+/orders/fulfilled';
+    }
+
+    /**
+     * Build the topic where an RPi publishes its heartbeat/status.
+     *
+     * Each device publishes to its own location topic every 10 seconds. The
+     * client should also connect with MQTT ClientId equal to the same slug
+     * (for example "standort_1") so broker logs and heartbeat messages agree.
+     *
+     * @param  string $locationName  e.g. "Standort 1"
+     * @return string                e.g. "dev/location/standort_1/pi/status"
+     */
+    public static function piStatusTopic(string $locationName): string
+    {
+        return self::topicEnv().'/location/'.self::locationToTopicSlug($locationName).'/pi/status';
+    }
+
+    /**
+     * Build the wildcard topic Laravel subscribes to for current-env Pi status.
+     *
+     * The "+" segment matches exactly one location slug. This keeps Laravel
+     * listening only to its configured environment prefix (dev or live) while
+     * still accepting status from every location in that environment.
+     *
+     * @return string  e.g. "dev/location/+/pi/status"
+     */
+    public static function piStatusSubscriptionTopic(): string
+    {
+        return self::topicEnv().'/location/+/pi/status';
+    }
+
+    /**
+     * Convert one Shopify order webhook payload into per-location MQTT payloads.
+     *
+     * One Shopify order can contain products for more than one pickup location.
+     * Each physical location has its own RPi, so MQTT sends one message per
+     * location. The array key is the human location name used for topic building.
+     *
+     * @param  array  $orderData  Decoded Shopify order webhook payload
+     * @param  array  $lineItems  The order's line_items array
+     * @param  string $action     One of: new, cancelled, updated
+     * @return array<string,array<string,mixed>>
+     */
+    public static function buildOrderEventPayloads(array $orderData, array $lineItems, string $action): array
+    {
+        self::guardOrderEventAction($action);
+
+        $itemsByLocation = [];
+
+        foreach ($lineItems as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $location = self::lineItemPropertyValue($item, 'location');
+            $pickUpDate = self::lineItemPropertyValue($item, 'date');
+            $yesterdayItem = self::lineItemPropertyValue($item, 'yesterday_item', 'N');
+
+            if (! is_string($location) && ! is_numeric($location)) {
+                continue;
+            }
+
+            $location = trim((string) $location);
+
+            // Delivery orders do not belong to a physical RPi pickup station.
+            if ($location === '' || $location === 'Delivery') {
+                continue;
+            }
+
+            // Yesterday items are picked up today even though inventory came
+            // from yesterday's bucket. The RPi door logic expects today's date.
+            if ($yesterdayItem === 'Y' && $pickUpDate) {
+                $pickUpDate = Carbon::now('Europe/Berlin')->format('d-m-Y');
+            }
+
+            if (! isset($itemsByLocation[$location])) {
+                $itemsByLocation[$location] = [
+                    'pick_up_date' => $pickUpDate,
+                    'items' => [],
+                ];
+            }
+
+            $itemsByLocation[$location]['items'][] = [
+                'product_id' => $item['product_id'] ?? null,
+                'title' => $item['title'] ?? '',
+                'quantity' => $item['quantity'] ?? 1,
+            ];
+        }
+
+        $payloads = [];
+
+        foreach ($itemsByLocation as $locationName => $locationData) {
+            $payload = [
+                'event' => 'order.'.$action,
+                'order_id' => $orderData['id'] ?? null,
+                'order_number' => $orderData['order_number'] ?? null,
+                'pick_up_date' => $locationData['pick_up_date'],
+                'location' => $locationName,
+                'location_slug' => self::locationToTopicSlug($locationName),
+                'items' => $locationData['items'],
+                'customer_name' => trim(
+                    ($orderData['customer']['first_name'] ?? '').' '.
+                    ($orderData['customer']['last_name'] ?? '')
+                ),
+                'total_price' => $orderData['total_price'] ?? '0.00',
+                'published_at' => Carbon::now('Europe/Berlin')->toIso8601String(),
+            ];
+
+            if ($action === 'cancelled') {
+                $payload['cancel_reason'] = $orderData['cancel_reason'] ?? null;
+                $payload['cancelled_at'] = $orderData['cancelled_at'] ?? null;
+            }
+
+            if ($action === 'updated') {
+                $payload['financial_status'] = $orderData['financial_status'] ?? null;
+                $payload['fulfillment_status'] = $orderData['fulfillment_status'] ?? null;
+                $payload['updated_at'] = $orderData['updated_at'] ?? null;
+            }
+
+            $payloads[$locationName] = $payload;
+        }
+
+        return $payloads;
+    }
+
+    /**
+     * Publish every per-location payload for one Shopify order event.
+     *
+     * @param  string $action     One of: new, cancelled, updated
+     * @param  array  $orderData  Decoded Shopify order webhook payload
+     * @param  array|null $lineItems Optional line_items override for existing callers
+     * @return int Number of payloads successfully published
+     */
+    public static function publishOrderEventPayloads(string $action, array $orderData, ?array $lineItems = null): int
+    {
+        $lineItems = $lineItems ?? ($orderData['line_items'] ?? []);
+        $published = 0;
+
+        foreach (self::buildOrderEventPayloads($orderData, $lineItems, $action) as $locationName => $payload) {
+            if (self::publishOrderEvent($locationName, $action, $payload)) {
+                $published++;
+            }
+        }
+
+        return $published;
     }
 
     /**
@@ -114,16 +302,33 @@ class MqttHelper
      */
     public static function publishNewOrder(string $locationName, array $payload): bool
     {
+        return self::publishOrderEvent($locationName, 'new', $payload);
+    }
+
+    /**
+     * Publish one order event message to the MQTT broker for a specific location.
+     *
+     * CRITICAL: This method NEVER throws. Shopify webhook work must continue even
+     * when MQTT is temporarily down; failures are logged for operational follow-up.
+     *
+     * @param  string $locationName Human-readable location (e.g. "Standort 1")
+     * @param  string $action       One of: new, cancelled, updated
+     * @param  array  $payload      Associative array to be JSON-encoded and sent
+     * @return bool                 true if published successfully, false on failure
+     */
+    public static function publishOrderEvent(string $locationName, string $action, array $payload): bool
+    {
         try {
-            $topic = self::newOrderTopic($locationName);
+            $topic = self::orderEventTopic($locationName, $action);
             $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
             // Use the "default" MQTT connection (short-lived publisher)
             // QoS 1 = at least once delivery, retain = false (no need to store last message)
             MQTT::connection('default')->publish($topic, $json, 1, false);
 
-            Log::info('MQTT: Published new order to topic', [
+            Log::info('MQTT: Published order event to topic', [
                 'topic' => $topic,
+                'event' => $payload['event'] ?? 'order.'.$action,
                 'order_id' => $payload['order_id'] ?? null,
                 'order_number' => $payload['order_number'] ?? null,
                 'location' => $locationName,
@@ -132,13 +337,40 @@ class MqttHelper
             return true;
         } catch (\Throwable $e) {
             // Log the error but do NOT rethrow — MQTT failure must not break the webhook job
-            Log::error('MQTT: Failed to publish new order', [
+            Log::error('MQTT: Failed to publish order event', [
                 'location' => $locationName,
+                'event' => $payload['event'] ?? 'order.'.$action,
                 'order_id' => $payload['order_id'] ?? null,
                 'error' => $e->getMessage(),
             ]);
 
             return false;
         }
+    }
+
+    private static function guardOrderEventAction(string $action): void
+    {
+        if (! in_array($action, ['new', 'cancelled', 'updated'], true)) {
+            throw new \InvalidArgumentException("Unsupported MQTT order event action [{$action}].");
+        }
+    }
+
+    private static function lineItemPropertyValue(array $lineItem, string $name, $default = null)
+    {
+        foreach (($lineItem['properties'] ?? []) as $key => $property) {
+            if (is_array($property) && ($property['name'] ?? null) === $name) {
+                return $property['value'] ?? $default;
+            }
+
+            if (is_object($property) && ($property->name ?? null) === $name) {
+                return $property->value ?? $default;
+            }
+
+            if ($key === $name) {
+                return $property;
+            }
+        }
+
+        return $default;
     }
 }

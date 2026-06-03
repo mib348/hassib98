@@ -396,6 +396,14 @@ return [
         [
             'topic' => env('SHOPIFY_WEBHOOK_3_TOPIC', 'REFUNDS_CREATE'),
             'address' => env('SHOPIFY_WEBHOOK_3_ADDRESS', 'https://(your-domain).com/webhook/refunds-create')
+        ],
+        [
+            'topic' => env('SHOPIFY_WEBHOOK_4_TOPIC', 'ORDERS_CANCELLED'),
+            'address' => env('SHOPIFY_WEBHOOK_4_ADDRESS', env('APP_URL', 'https://(your-domain).com').'/webhook/orders-cancelled')
+        ],
+        [
+            'topic' => env('SHOPIFY_WEBHOOK_5_TOPIC', 'ORDERS_UPDATED'),
+            'address' => env('SHOPIFY_WEBHOOK_5_ADDRESS', env('APP_URL', 'https://(your-domain).com').'/webhook/orders-updated')
         ]
         /*
             [

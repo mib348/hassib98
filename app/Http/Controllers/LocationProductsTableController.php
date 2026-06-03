@@ -88,7 +88,7 @@ class LocationProductsTableController extends Controller
         $locations = $this->getQuickSetLocationsQuery()->get(['name']);
 
         return view('location_products_quick_set', [
-            'rows' => $this->buildQuickSetRows($locations, $todayContext['day']),
+            'rows' => $this->buildQuickSetRows($locations, $todayContext['day'], $todayContext['date']),
             'todayDate' => $todayContext['date'],
             'todayDay' => $todayContext['day'],
         ]);
@@ -123,30 +123,25 @@ class LocationProductsTableController extends Controller
         }
 
         $locationNames = $locations->pluck('name')->all();
-        $rowsToDelete = LocationProductsTable::query()
+        $affectedProductIds = LocationProductsTable::query()
             ->whereIn('location', $locationNames)
             ->where('inventory_type', 'immediate')
             ->where('day', $todayContext['day'])
-            ->get(['id', 'product_id', 'location']);
+            ->pluck('product_id')
+            ->unique()
+            ->values()
+            ->all();
 
-        if ($rowsToDelete->isNotEmpty()) {
-            DB::beginTransaction();
-
+        if (!empty($affectedProductIds)) {
             try {
-                $affectedProductIds = $rowsToDelete->pluck('product_id')->unique()->values()->all();
-
-                LocationProductsTable::whereIn('id', $rowsToDelete->pluck('id')->all())->delete();
-
+                // location_products_tables is the normal weekday schedule. Quick Set
+                // only removes today's live Shopify entries so next week stays normal.
                 $this->syncImmediateInventoryRemovalForToday(
                     $locationNames,
                     $todayContext['date'],
                     $affectedProductIds
                 );
-
-                DB::commit();
             } catch (\Throwable $exception) {
-                DB::rollBack();
-
                 Log::error('Error resetting today immediate inventory: ' . $exception->getMessage(), [
                     'location' => $validated['location'] ?? null,
                     'date' => $todayContext['date'],
@@ -160,7 +155,7 @@ class LocationProductsTableController extends Controller
         }
 
         $allQuickSetLocations = $this->getQuickSetLocationsQuery()->get(['name']);
-        $message = $rowsToDelete->isEmpty()
+        $message = empty($affectedProductIds)
             ? 'No immediate inventory was found for the selected quick-set scope today.'
             : 'Today immediate inventory was deleted successfully.';
 
@@ -169,7 +164,7 @@ class LocationProductsTableController extends Controller
             'date' => $todayContext['date'],
             'day' => $todayContext['day'],
             'affected_locations' => $locationNames,
-            'rows' => $this->buildQuickSetRows($allQuickSetLocations, $todayContext['day']),
+            'rows' => $this->buildQuickSetRows($allQuickSetLocations, $todayContext['day'], $todayContext['date']),
         ]);
     }
 
@@ -680,12 +675,7 @@ class LocationProductsTableController extends Controller
             return;
         }
 
-        $shop = Auth::user();
-        if (!isset($shop) || !$shop) {
-            $shop = User::find(env('db_shop_id', 1));
-        }
-
-        $api = $shop->api();
+        $api = $this->getShopApi();
         $existingMetafields = $this->fetchExistingMetafields($api, $affectedProductIds, 'json');
         $metafieldMutations = [];
 
@@ -777,7 +767,7 @@ class LocationProductsTableController extends Controller
      * Build one row per location so the view always shows the full operational list,
      * even when a location currently has zero immediate inventory for today.
      */
-    protected function buildQuickSetRows($locations, string $day): array
+    protected function buildQuickSetRows($locations, string $day, ?string $todayDate = null): array
     {
         $locationNames = collect($locations)->pluck('name')->values()->all();
 
@@ -785,19 +775,80 @@ class LocationProductsTableController extends Controller
             return [];
         }
 
-        // Group inventory by location + product first so the UI can show both the
-        // location total badge and the exact product drilldown for the modal.
-        $groupedInventory = LocationProductsTable::query()
-            ->select('location', 'product_id', DB::raw('SUM(quantity) as total_quantity'))
+        $todayDate = $todayDate ?? $this->getTodayContext()['date'];
+
+        // The database rows are the reusable weekday schedule. Quick Set must
+        // read the live dated Shopify entries for today so a one-day holiday
+        // delete does not look like a permanent schedule change.
+        $scheduledProductIds = LocationProductsTable::query()
             ->whereIn('location', $locationNames)
             ->where('inventory_type', 'immediate')
             ->where('day', $day)
-            ->groupBy('location', 'product_id')
-            ->get();
+            ->pluck('product_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
-        $productTitles = Products::query()
-            ->whereIn('product_id', $groupedInventory->pluck('product_id')->filter()->unique()->values()->all())
-            ->pluck('title', 'product_id');
+        $liveInventoryRows = collect();
+
+        if (!empty($scheduledProductIds)) {
+            $existingMetafields = $this->fetchExistingMetafields($this->getShopApi(), $scheduledProductIds, 'json');
+
+            foreach ($scheduledProductIds as $productId) {
+                $currentMetafield = $existingMetafields[$productId] ?? null;
+                $existingData = json_decode($currentMetafield['value'] ?? '[]', true);
+
+                if (!is_array($existingData)) {
+                    continue;
+                }
+
+                foreach ($existingData as $entry) {
+                    if (!is_string($entry)) {
+                        continue;
+                    }
+
+                    $parts = explode(':', $entry);
+                    if (count($parts) !== 3) {
+                        continue;
+                    }
+
+                    [$entryLocation, $entryDate, $entryQuantity] = $parts;
+                    if (!in_array($entryLocation, $locationNames, true) || $entryDate !== $todayDate) {
+                        continue;
+                    }
+
+                    $liveInventoryRows->push((object) [
+                        'location' => $entryLocation,
+                        'product_id' => (int) $productId,
+                        'total_quantity' => (int) $entryQuantity,
+                    ]);
+                }
+            }
+        }
+
+        $groupedInventory = $liveInventoryRows
+            ->groupBy(function ($inventoryRow) {
+                return $inventoryRow->location . '|' . $inventoryRow->product_id;
+            })
+            ->map(function ($inventoryRows) {
+                $firstRow = $inventoryRows->first();
+
+                return (object) [
+                    'location' => $firstRow->location,
+                    'product_id' => $firstRow->product_id,
+                    'total_quantity' => $inventoryRows->sum('total_quantity'),
+                ];
+            })
+            ->values();
+
+        $productIdsForTitles = $groupedInventory->pluck('product_id')->filter()->unique()->values()->all();
+
+        $productTitles = empty($productIdsForTitles)
+            ? collect()
+            : Products::query()
+                ->whereIn('product_id', $productIdsForTitles)
+                ->pluck('title', 'product_id');
 
         $inventoryByLocation = $groupedInventory->groupBy('location');
 
@@ -822,6 +873,19 @@ class LocationProductsTableController extends Controller
                 'products' => $products->all(),
             ];
         })->all();
+    }
+
+    /**
+     * Use the same Shopify API lookup path for quick-set reads and writes.
+     */
+    protected function getShopApi()
+    {
+        $shop = Auth::user();
+        if (!isset($shop) || !$shop) {
+            $shop = User::find(env('db_shop_id', 1));
+        }
+
+        return $shop->api();
     }
 
     /**

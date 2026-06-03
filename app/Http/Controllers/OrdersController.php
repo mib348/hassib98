@@ -252,7 +252,7 @@ class OrdersController extends Controller
                     $arr_cancelled[$order->order_id] = $order->number;
                     $cancelled++;
                 }
-                if ($order->financial_status == 'refunded') {
+                if (strtolower((string) $order->financial_status) == 'refunded') {
                     $arr_refunded[$order->order_id] = $order->number;
                     $refunded++;
                 }
@@ -315,8 +315,8 @@ class OrdersController extends Controller
                                 'product_id' => $productId,
                                 'order_number' => $order->number,
                                 'quantity' => $quantity,
-                                'location' => ($arrLineItem['properties'][1]['value'] ?? null),
-                                'date' => ($arrLineItem['properties'][2]['value'] ?? null),
+                                'location' => $this->lineItemPropertyValue($arrLineItem, 'location'),
+                                'date' => $this->lineItemPropertyValue($arrLineItem, 'date'),
                                 'title' => $title,
                             ];
                         }
@@ -597,20 +597,7 @@ class OrdersController extends Controller
      */
     private function isImmediateInventoryLineItem(array $lineItem): bool
     {
-        if (empty($lineItem['properties']) || ! is_array($lineItem['properties'])) {
-            return false;
-        }
-
-        foreach ($lineItem['properties'] as $property) {
-            $name = $property['name'] ?? null;
-            $value = $property['value'] ?? null;
-
-            if ($name === 'immediate_inventory') {
-                return $value === 'Y';
-            }
-        }
-
-        return false;
+        return $this->lineItemPropertyValue($lineItem, 'immediate_inventory') === 'Y';
     }
 
     /**
@@ -626,20 +613,22 @@ class OrdersController extends Controller
      */
     private function isYesterdayInventoryLineItem(array $lineItem): bool
     {
+        return $this->lineItemPropertyValue($lineItem, 'yesterday_item') === 'Y';
+    }
+
+    private function lineItemPropertyValue(array $lineItem, string $propertyName, $default = null)
+    {
         if (empty($lineItem['properties']) || ! is_array($lineItem['properties'])) {
-            return false;
+            return $default;
         }
 
         foreach ($lineItem['properties'] as $property) {
-            $name = $property['name'] ?? null;
-            $value = $property['value'] ?? null;
-
-            if ($name === 'yesterday_item') {
-                return $value === 'Y';
+            if (($property['name'] ?? null) === $propertyName) {
+                return $property['value'] ?? $default;
             }
         }
 
-        return false;
+        return $default;
     }
 
     /**

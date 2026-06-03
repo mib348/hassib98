@@ -611,6 +611,11 @@ class OrdersCreateJob implements ShouldQueue
 
                 Log::info("Order {$orderData['id']} {$orderData['order_number']} cancelled/refunded through GraphQL ".json_encode($cancelResponse));
 
+                // Do not publish MQTT cancellation from the create job. Shopify
+                // emits ORDERS_CANCELLED after this GraphQL cancellation, and
+                // OrdersCancelledJob owns the cancelled MQTT topic. Keeping that
+                // responsibility separate prevents duplicate RPi messages.
+
                 return false;
             }
 
@@ -1047,13 +1052,9 @@ class OrdersCreateJob implements ShouldQueue
     /**
      * Publish order details to MQTT so Raspberry Pi devices receive new orders instantly.
      *
-     * HOW IT WORKS:
-     * 1. Groups line items by their location property (one Shopify order can span
-     *    multiple pickup locations, e.g. "Standort 1" and "Standort 2").
-     * 2. Skips the "Delivery" location (no RPi device there — deliveries are handled differently).
-     * 3. For "yesterday items" (yesterday_item = Y), overrides pick_up_date to TODAY
-     *    because the RPi door system checks if pick_up_date == today.
-     * 4. Publishes one MQTT message per location on topic: location/{slug}/orders/new
+     * The helper owns the shared MQTT contract for new/cancelled/updated orders.
+     * Keeping the shape there prevents a future cancelled/update payload from
+     * drifting away from the already-working new-order payload.
      *
      * SAFETY: Entire method is wrapped in try/catch. If MQTT is down, the order is
      * already saved in DB and RPi devices can still fall back to REST polling.
@@ -1064,82 +1065,7 @@ class OrdersCreateJob implements ShouldQueue
     private function publishOrderToMqtt(array $orderData, array $lineItems): void
     {
         try {
-            // -----------------------------------------------------------------
-            // Group line items by their location property so we send one MQTT
-            // message per physical location (each location has its own RPi)
-            // -----------------------------------------------------------------
-            $itemsByLocation = [];
-
-            foreach ($lineItems as $item) {
-                $location = null;
-                $pickUpDate = null;
-                $yesterdayItem = 'N';
-
-                // Extract location, date and yesterday_item from line item properties
-                // Properties is an array of {name, value} objects set by the Shopify storefront
-                foreach ($item['properties'] as $property) {
-                    if ($property['name'] === 'location') {
-                        $location = $property['value'];
-                    } elseif ($property['name'] === 'date') {
-                        $pickUpDate = $property['value'];
-                    } elseif ($property['name'] === 'yesterday_item') {
-                        $yesterdayItem = $property['value'];
-                    }
-                }
-
-                // Skip items without a location or that belong to "Delivery"
-                // (Delivery orders have no physical RPi device at a pickup point)
-                if (! $location || $location === 'Delivery') {
-                    continue;
-                }
-
-                // -----------------------------------------------------------------
-                // Yesterday items: customer bought leftover items from yesterday's
-                // inventory, but picks them up TODAY. Override date to today so the
-                // RPi door opens for today's date check (same logic as updateOrder())
-                // -----------------------------------------------------------------
-                if ($yesterdayItem === 'Y' && $pickUpDate) {
-                    $pickUpDate = \Carbon\Carbon::now('Europe/Berlin')->format('d-m-Y');
-                }
-
-                // Group items under their location key
-                if (! isset($itemsByLocation[$location])) {
-                    $itemsByLocation[$location] = [
-                        'pick_up_date' => $pickUpDate,
-                        'items' => [],
-                    ];
-                }
-
-                // Add this line item to the location's items array
-                $itemsByLocation[$location]['items'][] = [
-                    'product_id' => $item['product_id'] ?? null,
-                    'title' => $item['title'] ?? '',
-                    'quantity' => $item['quantity'] ?? 1,
-                ];
-            }
-
-            // -----------------------------------------------------------------
-            // Publish one MQTT message per location
-            // Each RPi device subscribes to: location/{its_slug}/orders/new
-            // -----------------------------------------------------------------
-            foreach ($itemsByLocation as $locationName => $locationData) {
-                $payload = [
-                    'order_id' => $orderData['id'],
-                    'order_number' => $orderData['order_number'],
-                    'pick_up_date' => $locationData['pick_up_date'],
-                    'location' => $locationName,
-                    'items' => $locationData['items'],
-                    'customer_name' => trim(
-                        ($orderData['customer']['first_name'] ?? '').' '.
-                        ($orderData['customer']['last_name'] ?? '')
-                    ),
-                    'total_price' => $orderData['total_price'] ?? '0.00',
-                    'published_at' => \Carbon\Carbon::now('Europe/Berlin')->toIso8601String(),
-                ];
-
-                MqttHelper::publishNewOrder($locationName, $payload);
-            }
-
+            MqttHelper::publishOrderEventPayloads('new', $orderData, $lineItems);
         } catch (\Throwable $e) {
             // Log but NEVER rethrow — the order is already saved in the database
             // RPi devices can still get the order via REST API polling as a fallback
