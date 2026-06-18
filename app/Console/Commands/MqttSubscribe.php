@@ -280,11 +280,18 @@ class MqttSubscribe extends Command
             $validator = Validator::make($data, [
                 'event' => 'nullable|string|max:64',
                 'client_id' => 'nullable|string|max:255',
+                'location' => 'nullable|string|max:255',
                 'location_slug' => 'nullable|string|max:255',
                 'status' => 'required|string|max:64',
                 'timestamp' => 'nullable|string|max:64',
                 'uptime_seconds' => 'nullable|integer|min:0',
                 'app_version' => 'nullable|string|max:255',
+                'ip_address' => 'nullable|string|max:255',
+                'door_status' => 'nullable|string|max:255',
+                'wifi_strength' => 'nullable|numeric',
+                'ram_usage' => 'nullable|numeric',
+                'disk_usage' => 'nullable|numeric',
+                'temperature' => 'nullable|numeric',
                 'message' => 'nullable|string|max:1000',
             ]);
 
