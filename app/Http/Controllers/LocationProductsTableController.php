@@ -238,18 +238,19 @@ class LocationProductsTableController extends Controller
 
                 $productIds = array_unique($productIds);
 
+                $metafieldMutations = [];
+
                 if(count($productIds) > 0){
                     // Fetch existing metafields for all products in a single GraphQL query
                     $existingMetafields = $this->fetchExistingMetafields($api, $productIds, $metafieldKey);
 
 
                     // Prepare metafield updates for updated products
-                    $metafieldMutations = [];
                     $i = 0;
                     foreach ($productIds as $productId) {
                         $currentMetafield = $existingMetafields[$productId] ?? null;
                         $existingValue = $currentMetafield['value'] ?? '[]';
-                        $existingData = json_decode($existingValue, true) ?? [];
+                        $existingData = $this->decodeMetafieldValue($existingValue);
 
                         $updatedData = $this->prepareMetafieldValue($productId, $location, $daysToUpdate, $inventoryType, $existingData);
 
@@ -277,7 +278,7 @@ class LocationProductsTableController extends Controller
                         $currentMetafield = $removedMetafields[$removedProductId] ?? null;
                         if ($currentMetafield) {
                             $existingValue = $currentMetafield['value'] ?? '[]';
-                            $existingData = json_decode($existingValue, true) ?? [];
+                            $existingData = $this->decodeMetafieldValue($existingValue);
 
                             // Ensure $existingData is an array before filtering
                             if (is_array($existingData)) {
@@ -329,9 +330,12 @@ class LocationProductsTableController extends Controller
                 DB::commit();
 
                 return response()->json(['message' => 'Location Products Data Saved Successfully']);
-            } catch (Exception $e) {
+            } catch (\Throwable $e) {
                 DB::rollBack();
-                Log::error("Error in store method: " . $e->getMessage());
+                Log::error("Error in store method: " . $e->getMessage(), [
+                    'location' => $location,
+                    'inventory_type' => $inventoryType,
+                ]);
                 return response()->json(['message' => 'An error occurred while saving data'], 500);
             }
         // }
@@ -352,6 +356,10 @@ class LocationProductsTableController extends Controller
      */
     protected function fetchExistingMetafields($api, array $productIds, string $metafieldKey)
     {
+        if (empty($productIds)) {
+            return [];
+        }
+
         // GraphQL query to fetch metafields for multiple products
         $productQueries = [];
         foreach ($productIds as $index => $productId) {
@@ -377,21 +385,89 @@ class LocationProductsTableController extends Controller
 
         $existingMetafields = [];
 
-		//if(isset($response['body']['container']['data'])){
-			foreach ($response['body']['container']['data'] as $key => $productData) {
-				if (isset($productData['metafield'])) {
-					$nProductId = explode('gid://shopify/Product/', $productData['id'])[1];
-					$existingMetafields[$nProductId] = [
-						'id' => $nProductId,
-						'metafield_id' => $productData['metafield']['id'],
-						'value' => $productData['metafield']['value'],
-					];
-				}
-			}
-		//}
+        // Shopify API responses can be arrays, ResponseAccess objects, or an
+        // unexpected scalar body. Normalize before reading offsets so a bad
+        // response shape cannot crash the Location Products save request.
+        $bodyArray = [];
+        try {
+            if (isset($response['body'])) {
+                $normalizedBody = is_string($response['body'])
+                    ? json_decode($response['body'], true)
+                    : json_decode(json_encode($response['body']), true);
+
+                if (is_array($normalizedBody)) {
+                    $bodyArray = $normalizedBody;
+                }
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Location Products metafields response could not be normalized', [
+                'metafield_key' => $metafieldKey,
+                'product_ids' => $productIds,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+
+        $dataNode = $bodyArray['data']
+            ?? ($bodyArray['container']['data'] ?? null)
+            ?? ($response['data'] ?? null);
+
+        if (!is_array($dataNode)) {
+            Log::warning('Location Products metafields response missing data node', [
+                'metafield_key' => $metafieldKey,
+                'product_ids' => $productIds,
+                'body_type' => isset($response['body']) ? gettype($response['body']) : 'missing',
+            ]);
+
+            throw new \UnexpectedValueException('Shopify metafields response missing data node.');
+        }
+
+        foreach ($dataNode as $key => $productData) {
+            if (!is_array($productData) || strpos((string) $key, 'product_') !== 0 || empty($productData['id'])) {
+                continue;
+            }
+
+            $nProductId = null;
+            if (preg_match('/Product\/(\d+)/', $productData['id'], $matches)) {
+                $nProductId = $matches[1];
+            }
+
+            if (!$nProductId) {
+                continue;
+            }
+
+            $metafield = $productData['metafield'] ?? null;
+            if (!is_array($metafield) || !array_key_exists('value', $metafield)) {
+                continue;
+            }
+
+            $existingMetafields[$nProductId] = [
+                'id' => $nProductId,
+                'metafield_id' => $metafield['id'] ?? null,
+                'value' => $metafield['value'],
+            ];
+        }
 
 
         return $existingMetafields;
+    }
+
+    protected function decodeMetafieldValue($value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (!is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decodedValue = json_decode($value, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decodedValue)) {
+            return $decodedValue;
+        }
+
+        // Keep a raw legacy value instead of dropping it during a save.
+        return [$value];
     }
 
     /**
@@ -409,7 +485,19 @@ class LocationProductsTableController extends Controller
         // Parse the existing data into a structured array
         $parsedData = [];
         foreach ($existingData as $entry) {
-            [$entryLocation, $entryDate, $entryQuantity] = explode(':', $entry);
+            // Expected Shopify JSON entries look like "Location:dd-mm-YYYY:qty".
+            // Malformed values are skipped so one bad legacy entry cannot block
+            // saving the current location's preorder inventory.
+            if (!is_string($entry)) {
+                continue;
+            }
+
+            $entryParts = explode(':', $entry);
+            if (count($entryParts) !== 3) {
+                continue;
+            }
+
+            [$entryLocation, $entryDate, $entryQuantity] = $entryParts;
             $parsedData[$entryLocation][$entryDate] = $entryQuantity;
         }
 
