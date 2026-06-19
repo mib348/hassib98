@@ -13,6 +13,7 @@
         ['label' => 'Stores', 'path' => '/stores'],
         ['label' => 'Locations Revenue', 'path' => '/locations_revenue'],
         ['label' => 'Location Settings', 'path' => '/locations_text'],
+        ['label' => 'Tech Admin', 'path' => '/tech/admin'],
         ['label' => 'Kitchen', 'path' => '/kitchen/ADMIN?menu=1'],
         ['label' => 'Drivers', 'path' => '/drivers/ADMIN?menu=1'],
         ['label' => 'RPI Order Details', 'path' => '/order_details_for_rpi/ADMIN?menu=1'],

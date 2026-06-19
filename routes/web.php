@@ -16,6 +16,7 @@ use App\Http\Controllers\KitchenController;
 use App\Http\Controllers\OrderDetailsForRpiController;
 use App\Http\Controllers\PersonalNotepadController;
 use App\Http\Controllers\StoresController;
+use App\Http\Controllers\TechAdminController;
 use App\Livewire\Stores\StoresList;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -129,4 +130,9 @@ Route::middleware(['verify.shopify'])->group(function () {
     // store
     Route::get('/getStoresList', [StoresList::class, 'getStoresList'])->name('getStoresList');
     Route::resource('stores', StoresController::class);
+
+    // tech admin / pi heartbeat overview
+    Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
+    Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
+    Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
 });

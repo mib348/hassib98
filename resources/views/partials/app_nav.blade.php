@@ -13,6 +13,7 @@
     <s-link href="/stores">Stores</s-link>
     <s-link href="/locations_revenue">Locations Revenue</s-link>
     <s-link href="/locations_text">Location Settings</s-link>
+    <s-link href="/tech/admin">Tech Admin</s-link>
     <s-link href="/kitchen/ADMIN?menu=1">Kitchen</s-link>
     <s-link href="/drivers/ADMIN?menu=1">Drivers</s-link>
     {{-- Temporarily hidden --}}

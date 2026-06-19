@@ -172,6 +172,17 @@ class MqttHelper
     }
 
     /**
+     * Build the topic where Laravel can request an immediate Pi health reply.
+     *
+     * The Pi should subscribe to this command topic and answer by publishing
+     * a fresh heartbeat on its normal pi/status topic.
+     */
+    public static function piCheckTopic(string $locationName): string
+    {
+        return self::topicEnv().'/location/'.self::locationToTopicSlug($locationName).'/pi/check';
+    }
+
+    /**
      * Convert one Shopify order webhook payload into per-location MQTT payloads.
      *
      * One Shopify order can contain products for more than one pickup location.
@@ -341,6 +352,38 @@ class MqttHelper
                 'location' => $locationName,
                 'event' => $payload['event'] ?? 'order.'.$action,
                 'order_id' => $payload['order_id'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Publish one manual Pi check command without throwing.
+     *
+     * This follows the same QoS and error-handling contract as the order-event
+     * publishers so admin UI actions cannot crash on transient MQTT errors.
+     */
+    public static function publishPiCheck(string $locationName, array $payload): bool
+    {
+        try {
+            $topic = self::piCheckTopic($locationName);
+            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            MQTT::connection('default')->publish($topic, $json, 1, false);
+
+            Log::info('MQTT: Published manual Pi check', [
+                'topic' => $topic,
+                'location' => $locationName,
+                'event' => $payload['event'] ?? 'pi.check',
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('MQTT: Failed to publish manual Pi check', [
+                'location' => $locationName,
+                'event' => $payload['event'] ?? 'pi.check',
                 'error' => $e->getMessage(),
             ]);
 
