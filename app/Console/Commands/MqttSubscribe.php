@@ -288,10 +288,32 @@ class MqttSubscribe extends Command
                 'app_version' => 'nullable|string|max:255',
                 'ip_address' => 'nullable|string|max:255',
                 'door_status' => 'nullable|string|max:255',
-                'wifi_strength' => 'nullable|numeric',
-                'ram_usage' => 'nullable|numeric',
-                'disk_usage' => 'nullable|numeric',
-                'temperature' => 'nullable|numeric',
+                // These telemetry fields are rendered from the raw payload.
+                // Some Pi builds send clean numeric values, while others send
+                // already-formatted strings such as "-64dBm", "25.1%", or "-".
+                // If we keep strict numeric validation here, Laravel rejects
+                // the entire heartbeat and the admin page stays stuck on an
+                // old stale row even though Node-RED shows the fresh message.
+                'wifi_strength' => ['nullable', function ($attribute, $value, $fail) {
+                    if (! is_scalar($value)) {
+                        $fail("The {$attribute} field must be a scalar value.");
+                    }
+                }],
+                'ram_usage' => ['nullable', function ($attribute, $value, $fail) {
+                    if (! is_scalar($value)) {
+                        $fail("The {$attribute} field must be a scalar value.");
+                    }
+                }],
+                'disk_usage' => ['nullable', function ($attribute, $value, $fail) {
+                    if (! is_scalar($value)) {
+                        $fail("The {$attribute} field must be a scalar value.");
+                    }
+                }],
+                'temperature' => ['nullable', function ($attribute, $value, $fail) {
+                    if (! is_scalar($value)) {
+                        $fail("The {$attribute} field must be a scalar value.");
+                    }
+                }],
                 'message' => 'nullable|string|max:1000',
             ]);
 

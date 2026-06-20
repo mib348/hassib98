@@ -31,6 +31,13 @@
         color: #41464b;
     }
 
+    .tech-admin-subtext {
+        color: #6c757d;
+        font-size: 0.8rem;
+        line-height: 1.2;
+        margin-top: 0.25rem;
+    }
+
     .tech-admin-meta {
         color: #6c757d;
         font-size: 0.9rem;
@@ -110,6 +117,12 @@
                 return '<span class="tech-admin-status ' + escapeHtml(normalized) + '">' + escapeHtml(label) + '</span>';
             }
 
+            function renderAppStatusCell(row) {
+                const versionText = row.app_version ? '<div class="tech-admin-subtext">' + escapeHtml(row.app_version) + '</div>' : '';
+
+                return renderStatusBadge(row.app_status) + versionText;
+            }
+
             function renderRow(row) {
                 const checkButton = [
                     '<div class="tech-admin-actions">',
@@ -120,12 +133,12 @@
                 ].join('');
 
                 return [
-                    '<tr>',
+                    '<tr data-location-slug="' + escapeHtml(row.location_slug || '') + '">',
                         '<td>' + escapeHtml(row.location || '-') + '</td>',
                         '<td>' + escapeHtml(row.store || '-') + '</td>',
                         '<td>' + escapeHtml(row.client_id || '-') + '</td>',
                         '<td>' + renderStatusBadge(row.pi_status) + '</td>',
-                        '<td>' + renderStatusBadge(row.app_status) + '</td>',
+                        '<td>' + renderAppStatusCell(row) + '</td>',
                         '<td>' + escapeHtml(row.wifi_status || '-') + '</td>',
                         '<td>' + escapeHtml(row.door_status || '-') + '</td>',
                         '<td>' + escapeHtml(row.online_since || '-') + '</td>',
@@ -140,6 +153,32 @@
                 }
 
                 return rows.map(renderRow).join('');
+            }
+
+            function replaceOrAppendRow(row) {
+                if (!row || !row.location_slug) {
+                    return false;
+                }
+
+                const rowHtml = renderRow(row);
+                const $tbody = $('#techAdminTable tbody');
+                const $existingRow = $tbody.find('tr[data-location-slug="' + row.location_slug + '"]');
+
+                if ($existingRow.length) {
+                    $existingRow.replaceWith(rowHtml);
+                    return true;
+                }
+
+                const hasPlaceholderRow = $tbody.find('tr td[colspan="9"]').length > 0;
+
+                if (hasPlaceholderRow) {
+                    $tbody.html(rowHtml);
+                    return true;
+                }
+
+                $tbody.append(rowHtml);
+
+                return true;
             }
 
             function updateLastUpdatedLabel(isoValue) {
@@ -197,8 +236,15 @@
                         _token: @json(csrf_token()),
                         location: location
                     },
-                    success: function () {
-                        loadStatuses();
+                    success: function (response) {
+                        const latestRow = response && response.data ? response.data.latest_row : null;
+                        const rowWasUpdated = replaceOrAppendRow(latestRow);
+
+                        updateLastUpdatedLabel(response && response.meta ? response.meta.generated_at : null);
+
+                        if (!rowWasUpdated) {
+                            loadStatuses();
+                        }
                     },
                     error: function (xhr) {
                         alert(window.getAjaxErrorMessage(xhr, 'Unable to request PI check.'));

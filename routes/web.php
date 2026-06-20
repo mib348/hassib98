@@ -136,3 +136,17 @@ Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
     Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
 });
+
+// Temporary dev-only debug bypass for the tech admin heartbeat page.
+// We keep this extremely narrow so only the page we are actively debugging,
+// plus its JSON polling/manual-check endpoints, can be opened without the
+// embedded Shopify session on the dev host. Remove this once the MQTT status
+// flow is fully verified on dev.sushi.catering.
+$allowTechAdminDebugAccess = app()->environment(['local', 'testing'])
+    || str_contains((string) config('app.url'), 'dev.sushi.catering');
+
+if ($allowTechAdminDebugAccess) {
+    Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
+    Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
+    Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
+}
