@@ -11,7 +11,37 @@
   "sections": {
     "pf-c272b0f9": {
       "type": "pf-c272b0f9",
-      "settings": {}
+      "settings": {
+        "pf_a29412b9_value": "Unsere Gerichte werden auf Basis der Vorbestellungen&nbsp;eurer Mitarbeiter&nbsp;jeden Tag frisch hergestellt und täglich&nbsp;vor&nbsp;12 Uhr an den Essensautomaten geliefert.&nbsp;Der Essensautomat beinhaltet weiterhin frische Gerichte für Sofortkäufe, welche zusätzlich zu den Vorbestellungen geliefert werden. Damit haben alle Mitarbeiter einen 24/7 Zugang zu frischen Gerichten am Artbeitsplatz. Auf Wunsch kann auch ein Snackautomat mit kalten Getränken und&nbsp;Snacks kostenfrei dazu gestellt werden.",
+        "pf_06d82ad0_value": "Als Mitarbeiter einfach&nbsp;online bestellen, online&nbsp;bezahlen und Bestellung per QR-Code an der Station abholen. QR-Code scannen, Tür öffnen, Gerichte&nbsp;entnehmen, Tür schließen und fertig. Kameras überprüfen die Entnahme.&nbsp;Bestellungen sind ausschließlich online möglich über unsere Webseite und bis 9:45 Uhr am gleichen Tag. Sofortkäufe sind den ganzen Tag möglich und der Bestand ist online einsehbar. Kalte Getränke und Snacks sind natürlich 24/7 zugänglich und erhätlich.",
+        "pf_7d39ac5d_value": "Unsere kostenfreie Poké Bowl Catering-Station für Unternehmen und Behörden erfreut sich großer Beliebtheit. Wenn Sie ein Unternehmen mit mindestens 100 Mitarbeitern diesbzgl. ansprechen/informieren&nbsp;und den Kontakt zwischen uns und dem Unternehmen herstellen, erhalten Sie nach erfolgreicher Installation der kostenfreien Station einen Gutschein in Höhe von 300 €. Sie können auch Ihr eigenes Unternehmen, in dem Sie derzeit tätig sind, vorschlagen.",
+        "pf_9176587c_value": "Der Essensautomat ist für dein Unternehmen komplett kostenfrei und monatlich kündbar. Das gleiche gilt für den Snack- und Getränkeautomaten. Mit unserem IoT-fähigen und innovativen Essensautomaten garantieren wir euren Mitarbeitern den besten Preis für frisch zubereitete und direkt gelieferte Gerichte. Wir liefern unsere Bowls und das Sushi&nbsp;in einer großen Sammellieferung aus und liefern ohne Mindestbestellwert und Liefergebühren.&nbsp;",
+        "pf_6df09f35_successMessage": "<span style=\"color: rgb(0, 0, 0);\"></span><span style=\"color: rgb(0, 0, 0);\"></span><span style=\"color: rgb(29, 28, 28);\"></span><span style=\"background-color: rgb(13, 10, 10);\"></span><span style=\"color: rgb(0, 0, 0);\"></span><span style=\"color: rgb(0, 0, 0);\"></span><span style=\"color: rgb(0, 0, 0);\"><u>Danke für deine Anfrage, wir melden uns bei dir in 24h!</u></span>",
+        "pf_0adcfeb9_checkboxLabel": "Ich habe meinen Kontakt im empfohlenen Unternehmen bzgl. der kostenfreien Station angesprochen und es besteht Interesse an einer Kontaktaufnahme.",
+        "pf_3fb5172a_value": "Frische Versorgung im Unternehmen durch den&nbsp;Essensautomaten 2.0.",
+        "pf_4b23b559_checkboxLabel": "Das empfohlene Unternehmen verfügt über mindestens 75 Mitarbeiter.",
+        "pf_14509e16_value": "Unternehmen empfehlen. 300€ Gutschein sichern.<br>",
+        "pf_1452ea76_label_text": "Catering-Station 300 Euro Gutschein",
+        "pf_7f676db7_placeholder": "Deine Telefonnummer optional",
+        "pf_e6b5fa2a_placeholder": "Catering-Station groß",
+        "pf_282ca412_value": "Online bestellen<br>",
+        "pf_7f676db7_label_text": "Deine Telefonnummer",
+        "pf_d05385f7_label_text": "Deine Telefonnummer",
+        "pf_f7aee71a_label_text": "Du empfiehlst:",
+        "pf_8113229d_value": "Täglich frisch",
+        "pf_3ac3b152_value": "Echt kostenlos",
+        "pf_4a632579_placeholder": "Unternehmen",
+        "pf_0adcfeb9_placeholder": "Deine Email",
+        "pf_0adcfeb9_label_text": "Deine Email",
+        "pf_8cb50adc_label_text": "Deine Email",
+        "pf_4b23b559_label_text": "Deine Email",
+        "pf_cfc66a88_label_text": "Dein Name",
+        "pf_d41f6ddb_label_text": "Dein Name",
+        "pf_4845a5c4_label_text": "Kommentar",
+        "pf_a5c4585d_placeholder": "Optional",
+        "pf_894f9d23_value": "Senden",
+        "pf_cfc66a88_placeholder": "Name"
+      }
     }
   },
   "order": [
