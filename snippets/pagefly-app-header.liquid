@@ -4,6 +4,13 @@
 {% if request.path == '/apps/pagefly' %}
   <meta name="robots" content="noindex">
 {% endif %}
+{% comment %}
+  Keep the Impressum page out of Google results without affecting the rest of the PageFly pages.
+  The `pf-9d217373` template is the current Impressum page in this theme.
+{% endcomment %}
+{% if request.page_type == 'page' and template.suffix == 'pf-9d217373' %}
+  <meta name="robots" content="noindex, nofollow">
+{% endif %}
 {%- liquid
   assign isValidPageBuitByPageFly = true
   if template.suffix != 'blank' and template.suffix contains 'pf-'
