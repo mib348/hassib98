@@ -61,11 +61,11 @@
 <div class="container-fluid p-2">
     <div class="admin-help-row">
         <span class="fw-semibold">Page help</span>
-        @include('partials.admin_help_tooltip', ['text' => 'Use this page to monitor the latest Raspberry Pi heartbeat, WiFi signal, door status, and recent online state for every active location.'])
+        @include('partials.admin_help_tooltip', ['text' => 'Use this page to monitor the latest Raspberry Pi heartbeat, WiFi signal, lock and door-sensor state, and recent online state for every active location.'])
     </div>
     <div class="admin-help-row">
         <span class="fw-semibold">Pi status table</span>
-        @include('partials.admin_help_tooltip', ['text' => 'Each row combines database location and store mapping with the most recent Pi heartbeat stored in Laravel. The Check PI Response button sends a manual MQTT health request and the table refreshes automatically.'])
+        @include('partials.admin_help_tooltip', ['text' => 'Each row combines database location and store mapping with the most recent Pi heartbeat stored in Laravel. The door column prefers lock_status plus door_sensor_status from the Pi payload and falls back to the older legacy door_status when needed.'])
     </div>
     <div class="d-flex justify-content-end mb-2">
         <span class="tech-admin-meta" id="tech-admin-last-updated">Last update: waiting for first refresh</span>
@@ -74,6 +74,7 @@
         <table class="table table-bordered table-striped table-hover table-vcenter" id="techAdminTable">
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>Location</th>
                     <th>Store</th>
                     <th>Client ID</th>
@@ -87,7 +88,7 @@
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="9" class="text-center text-muted">Loading Pi status rows...</td>
+                    <td colspan="10" class="text-center text-muted">Loading Pi status rows...</td>
                 </tr>
             </tbody>
         </table>
@@ -123,7 +124,7 @@
                 return renderStatusBadge(row.app_status) + versionText;
             }
 
-            function renderRow(row) {
+            function renderRow(row, indexLabel) {
                 const checkButton = [
                     '<div class="tech-admin-actions">',
                         '<button type="button" class="btn btn-sm btn-outline-primary js-tech-check-pi" data-location="' + escapeHtml(row.location) + '">',
@@ -134,6 +135,7 @@
 
                 return [
                     '<tr data-location-slug="' + escapeHtml(row.location_slug || '') + '">',
+                        '<td>' + escapeHtml(indexLabel || '-') + '</td>',
                         '<td>' + escapeHtml(row.location || '-') + '</td>',
                         '<td>' + escapeHtml(row.store || '-') + '</td>',
                         '<td>' + escapeHtml(row.client_id || '-') + '</td>',
@@ -149,10 +151,12 @@
 
             function renderRows(rows) {
                 if (!rows.length) {
-                    return '<tr><td colspan="9" class="text-center text-muted">No active locations found.</td></tr>';
+                    return '<tr><td colspan="10" class="text-center text-muted">No active locations found.</td></tr>';
                 }
 
-                return rows.map(renderRow).join('');
+                return rows.map(function (row, index) {
+                    return renderRow(row, (index + 1) + '.');
+                }).join('');
             }
 
             function replaceOrAppendRow(row) {
@@ -160,16 +164,19 @@
                     return false;
                 }
 
-                const rowHtml = renderRow(row);
                 const $tbody = $('#techAdminTable tbody');
                 const $existingRow = $tbody.find('tr[data-location-slug="' + row.location_slug + '"]');
+                const existingIndexLabel = $existingRow.length
+                    ? $existingRow.children().first().text().trim()
+                    : (($tbody.children('tr').length + 1) + '.');
+                const rowHtml = renderRow(row, existingIndexLabel || '-');
 
                 if ($existingRow.length) {
                     $existingRow.replaceWith(rowHtml);
                     return true;
                 }
 
-                const hasPlaceholderRow = $tbody.find('tr td[colspan="9"]').length > 0;
+                const hasPlaceholderRow = $tbody.find('tr td[colspan="10"]').length > 0;
 
                 if (hasPlaceholderRow) {
                     $tbody.html(rowHtml);
@@ -209,7 +216,7 @@
                     error: function (xhr) {
                         const errorMessage = window.getAjaxErrorMessage(xhr, 'Unable to load Pi status rows.');
                         $('#techAdminTable tbody').html(
-                            '<tr><td colspan="9" class="text-center text-danger">' + escapeHtml(errorMessage) + '</td></tr>'
+                            '<tr><td colspan="10" class="text-center text-danger">' + escapeHtml(errorMessage) + '</td></tr>'
                         );
                     },
                     complete: function () {
