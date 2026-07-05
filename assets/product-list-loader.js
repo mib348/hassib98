@@ -129,6 +129,14 @@
     var url = window.location.pathname + '?section_id=dynamic-location-inventory';
     if (qs && qs.length > 1) { url += '&' + qs.slice(1); }
 
+    // Force Shopify to render the section from the current theme version.
+    // Without this, the published section endpoint can lag behind the actual
+    // live theme file and mobile users end up seeing stale markup/CSS.
+    var themeId = container.getAttribute('data-theme-id');
+    if (themeId && url.indexOf('preview_theme_id=') === -1) {
+      url += '&preview_theme_id=' + encodeURIComponent(themeId);
+    }
+
     /* ---------- Robust cache busting strategy ---------- */
     // Combine multiple entropy sources to ensure unique requests:
     // 1. Timestamp - prevents time-based caching
