@@ -174,8 +174,9 @@ class LocationProductsTableController extends Controller
         $api = $shop->api();
 
         $location = $request->input('strFilterLocation');
-        $daysToUpdate = $request->input('day', []);
-        $productData = $request->only(['nProductId', 'nQuantity']);
+        $daysToUpdate = is_array($request->input('day')) ? $request->input('day') : [];
+        $productIdsByDay = $this->normalizePostedDayMatrix($request->input('nProductId'));
+        $quantitiesByDay = $this->normalizePostedDayMatrix($request->input('nQuantity'));
         $inventoryType = $request->input('inventory_type', 'immediate');
 
         // Determine metafield key based on inventory_type
@@ -194,7 +195,7 @@ class LocationProductsTableController extends Controller
         // Collect all product IDs to update
         $productIds = [];
         foreach ($daysToUpdate as $day) {
-            $dayProductIds = $productData['nProductId'][$day] ?? [];
+            $dayProductIds = $productIdsByDay[$day] ?? [];
             foreach (array_filter($dayProductIds) as $productId) {
                 $productIds[] = $productId;
             }
@@ -213,8 +214,8 @@ class LocationProductsTableController extends Controller
                 // Prepare new entries
                 $newEntries = [];
                 foreach ($daysToUpdate as $day) {
-                    $dayProductIds = $productData['nProductId'][$day] ?? [];
-                    $dayQuantities = $productData['nQuantity'][$day] ?? [];
+                    $dayProductIds = $productIdsByDay[$day] ?? [];
+                    $dayQuantities = $quantitiesByDay[$day] ?? [];
 
                     foreach (array_filter($dayProductIds) as $index => $productId) {
                         $quantity = $dayQuantities[$index] ?? null;
@@ -468,6 +469,36 @@ class LocationProductsTableController extends Controller
 
         // Keep a raw legacy value instead of dropping it during a save.
         return [$value];
+    }
+
+    /**
+     * jQuery can post nested day rows as either arrays or single scalar values
+     * depending on how many inputs survived in a row. Converting everything to a
+     * day => array structure here keeps the save flow stable for brand-new or sparse
+     * location setups before we start indexing by weekday.
+     */
+    protected function normalizePostedDayMatrix($value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($value as $day => $entries) {
+            if (is_array($entries)) {
+                $normalized[$day] = $entries;
+                continue;
+            }
+
+            if ($entries === null || $entries === '') {
+                $normalized[$day] = [];
+                continue;
+            }
+
+            $normalized[$day] = [$entries];
+        }
+
+        return $normalized;
     }
 
     /**

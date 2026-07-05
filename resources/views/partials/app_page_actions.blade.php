@@ -10,13 +10,13 @@
     $appPageLinks = [
         ['label' => 'Location Order Overview', 'path' => '/orders'],
         ['label' => 'Location Products', 'path' => '/location_products'],
-        ['label' => 'Stores', 'path' => '/stores'],
+        ['label' => 'Location Stores', 'path' => '/stores'],
         ['label' => 'Locations Revenue', 'path' => '/locations_revenue'],
         ['label' => 'Location Settings', 'path' => '/locations_text'],
         ['label' => 'Tech Admin', 'path' => '/tech/admin'],
-        ['label' => 'Kitchen', 'path' => '/kitchen/ADMIN?menu=1'],
-        ['label' => 'Drivers', 'path' => '/drivers/ADMIN?menu=1'],
-        ['label' => 'RPI Order Details', 'path' => '/order_details_for_rpi/ADMIN?menu=1'],
+        ['label' => 'Admin Kitchen', 'path' => '/kitchen/ADMIN?menu=1'],
+        ['label' => 'Admin Drivers', 'path' => '/drivers/ADMIN?menu=1'],
+        ['label' => 'Admin RPI', 'path' => '/order_details_for_rpi/ADMIN?menu=1'],
     ];
 
     $currentPath = '/'.trim(request()->path(), '/');

@@ -287,6 +287,8 @@ class MqttSubscribe extends Command
                 'uptime_seconds' => 'nullable|integer|min:0',
                 'app_version' => 'nullable|string|max:255',
                 'ip_address' => 'nullable|string|max:255',
+                'lock_status' => 'nullable|string|max:255',
+                'door_sensor_status' => 'nullable|string|max:255',
                 'door_status' => 'nullable|string|max:255',
                 // These telemetry fields are rendered from the raw payload.
                 // Some Pi builds send clean numeric values, while others send

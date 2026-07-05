@@ -10,13 +10,13 @@
 
     {{-- Main navigation links --}}
     <s-link href="/location_products">Location Products</s-link>
-    <s-link href="/stores">Stores</s-link>
+    <s-link href="/stores">Location Stores</s-link>
     <s-link href="/locations_revenue">Locations Revenue</s-link>
     <s-link href="/locations_text">Location Settings</s-link>
     <s-link href="/tech/admin">Tech Admin</s-link>
-    <s-link href="/kitchen/ADMIN?menu=1">Kitchen</s-link>
-    <s-link href="/drivers/ADMIN?menu=1">Drivers</s-link>
+    <s-link href="/kitchen/ADMIN?menu=1">Admin Kitchen</s-link>
+    <s-link href="/drivers/ADMIN?menu=1">Admin Drivers</s-link>
     {{-- Temporarily hidden --}}
     {{-- <s-link href="/home_delivery">Home Delivery Overview</s-link> --}}
-    <s-link href="/order_details_for_rpi/ADMIN?menu=1">RPI Order Details</s-link>
+    <s-link href="/order_details_for_rpi/ADMIN?menu=1">Admin RPI</s-link>
 </s-app-nav>

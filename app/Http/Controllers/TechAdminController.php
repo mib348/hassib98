@@ -163,6 +163,9 @@ class TechAdminController extends Controller
         $payload = is_array($status?->payload) ? $status->payload : [];
         $resolvedPiStatus = $this->resolvePiStatus($status);
         $resolvedAppStatus = $this->resolveAppStatus($status);
+        $lockStatus = $payload['lock_status'] ?? null;
+        $doorSensorStatus = $payload['door_sensor_status'] ?? null;
+        $legacyDoorStatus = $payload['door_status'] ?? null;
 
         return [
             'location' => $locationName,
@@ -174,7 +177,9 @@ class TechAdminController extends Controller
             'app_status_label' => $this->formatAppStatusLabel($resolvedAppStatus, $status?->app_version),
             'wifi_status' => $this->formatWifiStatus($payload['wifi_strength'] ?? null),
             'wifi_strength' => $payload['wifi_strength'] ?? null,
-            'door_status' => $this->formatDoorStatus($payload['door_status'] ?? null),
+            'lock_status' => $this->normalizeStatusValue($lockStatus),
+            'door_sensor_status' => $this->normalizeStatusValue($doorSensorStatus),
+            'door_status' => $this->formatDoorStatus($lockStatus, $doorSensorStatus, $legacyDoorStatus),
             'online_since' => $this->resolveOnlineSince($status),
             'last_seen_at' => $this->formatDateTime($status?->last_seen_at),
             'heartbeat_at' => $this->formatDateTime($status?->heartbeat_at),
@@ -351,11 +356,47 @@ class TechAdminController extends Controller
         return trim((string) $wifiStrength);
     }
 
-    private function formatDoorStatus($doorStatus): string
+    /**
+     * The client now sends two door-related signals:
+     * - lock_status: "locked" or "unlocked"
+     * - door_sensor_status: "opened" or "closed"
+     *
+     * The table still has one door column, so we collapse both values into
+     * a short operator-facing label while keeping backward compatibility with
+     * older payloads that only sent one legacy door_status field.
+     */
+    private function formatDoorStatus($lockStatus, $doorSensorStatus, $legacyDoorStatus): string
     {
-        $normalized = trim((string) ($doorStatus ?? ''));
+        $normalizedLockStatus = $this->normalizeStatusValue($lockStatus);
+        $normalizedDoorSensorStatus = $this->normalizeStatusValue($doorSensorStatus);
 
-        return $normalized !== '' ? $normalized : '-';
+        if ($normalizedLockStatus !== null && $normalizedDoorSensorStatus !== null) {
+            return $normalizedLockStatus.' / '.$normalizedDoorSensorStatus;
+        }
+
+        if ($normalizedLockStatus !== null) {
+            return $normalizedLockStatus;
+        }
+
+        if ($normalizedDoorSensorStatus !== null) {
+            return $normalizedDoorSensorStatus;
+        }
+
+        $normalizedLegacyDoorStatus = $this->normalizeStatusValue($legacyDoorStatus);
+
+        return $normalizedLegacyDoorStatus ?? '-';
+    }
+
+    /**
+     * Status strings in Pi payloads are optional and sometimes blank. This
+     * helper gives the controller one consistent normalization rule for those
+     * simple string fields before we decide how to render them.
+     */
+    private function normalizeStatusValue($value): ?string
+    {
+        $normalized = trim((string) ($value ?? ''));
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     private function formatAppStatusLabel(string $appStatus, ?string $appVersion): string
