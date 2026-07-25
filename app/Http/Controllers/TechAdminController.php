@@ -177,6 +177,13 @@ class TechAdminController extends Controller
             'app_status_label' => $this->formatAppStatusLabel($resolvedAppStatus, $status?->app_version),
             'wifi_status' => $this->formatWifiStatus($payload['wifi_strength'] ?? null),
             'wifi_strength' => $payload['wifi_strength'] ?? null,
+            'wifi_connected' => $payload['wifi_connected'] ?? null,
+            'eth_connected' => $payload['eth_connected'] ?? null,
+            'network_status' => $this->formatNetworkStatus(
+                $payload['eth_connected'] ?? null,
+                $payload['wifi_connected'] ?? null,
+                $payload['wifi_strength'] ?? null
+            ),
             'lock_status' => $this->normalizeStatusValue($lockStatus),
             'door_sensor_status' => $this->normalizeStatusValue($doorSensorStatus),
             'door_status' => $this->formatDoorStatus($lockStatus, $doorSensorStatus, $legacyDoorStatus),
@@ -190,6 +197,7 @@ class TechAdminController extends Controller
             'ram_usage' => $payload['ram_usage'] ?? null,
             'disk_usage' => $payload['disk_usage'] ?? null,
             'temperature' => $payload['temperature'] ?? null,
+            'cpu_temp' => $payload['cpu_temp'] ?? ($payload['temperature'] ?? null),
         ];
     }
 
@@ -354,6 +362,33 @@ class TechAdminController extends Controller
         }
 
         return trim((string) $wifiStrength);
+    }
+
+    /**
+     * Show the active internet path without mislabeling an Ethernet device as
+     * offline merely because its WiFi radio is disconnected.
+     */
+    private function formatNetworkStatus($ethConnected, $wifiConnected, $wifiStrength): string
+    {
+        if ($ethConnected === true) {
+            return 'Ethernet';
+        }
+
+        if ($wifiConnected === true) {
+            $wifiStatus = $this->formatWifiStatus($wifiStrength);
+
+            return $wifiStatus === '-' ? 'WiFi' : "WiFi ({$wifiStatus})";
+        }
+
+        if ($ethConnected === false && $wifiConnected === false) {
+            return 'Disconnected';
+        }
+
+        // Backward compatibility for older Pi clients that only sent signal
+        // strength and did not yet include explicit connection booleans.
+        $wifiStatus = $this->formatWifiStatus($wifiStrength);
+
+        return $wifiStatus === '-' ? '-' : "WiFi ({$wifiStatus})";
     }
 
     /**

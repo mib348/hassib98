@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Helpers\MqttHelper;
+use App\Jobs\SyncPiOrdersJob;
 use App\Models\Fulfillment;
 use App\Models\PiStatus;
 use App\Models\User;
@@ -19,6 +20,7 @@ use PhpMqtt\Client\Facades\MQTT;
  * - Connects to the MQTT broker using the "subscriber" connection (auto-reconnect enabled).
  * - Subscribes to "location/+/orders/fulfilled" (wildcard matches any location slug).
  * - Subscribes to "{env}/location/+/pi/status" for RPi heartbeat/last-will status.
+ * - Subscribes to "{env}/location/+/orders/sync" for reconnect order requests.
  * - When an RPi device publishes a fulfillment confirmation, this command:
  *   1. Validates the JSON payload (same rules as FulfillmentController::store)
  *   2. Saves/updates the fulfillment record in the database
@@ -44,7 +46,7 @@ class MqttSubscribe extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Subscribe to MQTT topics for RPi fulfillment confirmations and Pi status heartbeats (long-running)';
+    protected $description = 'Subscribe to MQTT topics for RPi fulfillment, Pi status, and order sync requests (long-running)';
 
     /**
      * Execute the console command.
@@ -67,6 +69,10 @@ class MqttSubscribe extends Command
             // retained MQTT last-will offline messages from every location in this env.
             $piStatusTopic = MqttHelper::piStatusSubscriptionTopic();
 
+            // Request and response intentionally share this topic. The callback
+            // dispatches only orders.sync.request and ignores Laravel's response.
+            $orderSyncTopic = MqttHelper::orderSyncSubscriptionTopic();
+
             // Subscribe with QoS 1 (at least once delivery) to ensure no messages are lost
             $mqtt->subscribe($fulfillmentTopic, function (string $topic, string $message) {
                 $this->processFulfillmentMessage($topic, $message);
@@ -76,11 +82,17 @@ class MqttSubscribe extends Command
                 $this->processPiStatusMessage($topic, $message);
             }, 1);
 
+            $mqtt->subscribe($orderSyncTopic, function (string $topic, string $message) {
+                $this->processOrderSyncMessage($topic, $message);
+            }, 1);
+
             $this->info("Subscribed to: {$fulfillmentTopic}");
             $this->info("Subscribed to: {$piStatusTopic}");
+            $this->info("Subscribed to: {$orderSyncTopic}");
             Log::info('MQTT Subscriber: Listening on topics', [
                 'fulfillment_topic' => $fulfillmentTopic,
                 'pi_status_topic' => $piStatusTopic,
+                'order_sync_topic' => $orderSyncTopic,
             ]);
 
             // Infinite event loop — blocks here forever, processing incoming messages.
@@ -290,6 +302,8 @@ class MqttSubscribe extends Command
                 'lock_status' => 'nullable|string|max:255',
                 'door_sensor_status' => 'nullable|string|max:255',
                 'door_status' => 'nullable|string|max:255',
+                'wifi_connected' => 'nullable|boolean',
+                'eth_connected' => 'nullable|boolean',
                 // These telemetry fields are rendered from the raw payload.
                 // Some Pi builds send clean numeric values, while others send
                 // already-formatted strings such as "-64dBm", "25.1%", or "-".
@@ -316,6 +330,7 @@ class MqttSubscribe extends Command
                         $fail("The {$attribute} field must be a scalar value.");
                     }
                 }],
+                'cpu_temp' => 'nullable|numeric',
                 'message' => 'nullable|string|max:1000',
             ]);
 
@@ -379,6 +394,110 @@ class MqttSubscribe extends Command
                 'trace' => $e->getTraceAsString(),
             ]);
             $this->error("Error processing Pi status: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Validate and queue one reconnect order synchronization request.
+     *
+     * The topic location is authoritative. Both client_id and location_slug in
+     * the payload must match it, preventing a device from requesting another
+     * location's orders. An orders.sync.response on this same topic is ignored,
+     * which is what prevents Laravel from responding to its own response.
+     */
+    private function processOrderSyncMessage(string $topic, string $message): void
+    {
+        try {
+            $data = json_decode($message, true);
+
+            if (! is_array($data)) {
+                Log::warning('MQTT Subscriber: Invalid order sync JSON received', [
+                    'topic' => $topic,
+                    'raw_message' => $message,
+                ]);
+
+                return;
+            }
+
+            if (($data['event'] ?? null) !== 'orders.sync.request') {
+                return;
+            }
+
+            if (! preg_match('/^([^\/]+)\/location\/([^\/]+)\/orders\/sync$/', $topic, $matches)) {
+                Log::warning('MQTT Subscriber: Order sync topic did not match expected pattern', [
+                    'topic' => $topic,
+                ]);
+
+                return;
+            }
+
+            $topicEnv = $matches[1];
+            $topicLocationSlug = $matches[2];
+
+            if ($topicEnv !== MqttHelper::topicEnv()) {
+                Log::warning('MQTT Subscriber: Ignored order sync request for another environment', [
+                    'topic' => $topic,
+                    'configured_env' => MqttHelper::topicEnv(),
+                ]);
+
+                return;
+            }
+
+            $validator = Validator::make($data, [
+                'event' => 'required|in:orders.sync.request',
+                'request_id' => 'required|uuid',
+                'client_id' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9_]+$/'],
+                'location_slug' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9_]+$/'],
+                'requested_at' => 'required|date',
+                'reason' => 'nullable|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                Log::warning('MQTT Subscriber: Order sync request validation failed', [
+                    'topic' => $topic,
+                    'errors' => $validator->errors()->toArray(),
+                    'data' => $data,
+                ]);
+
+                return;
+            }
+
+            $validatedData = $validator->validated();
+
+            if (
+                $validatedData['location_slug'] !== $topicLocationSlug
+                || $validatedData['client_id'] !== $topicLocationSlug
+            ) {
+                Log::warning('MQTT Subscriber: Order sync identity did not match topic location', [
+                    'topic' => $topic,
+                    'topic_location_slug' => $topicLocationSlug,
+                    'payload_location_slug' => $validatedData['location_slug'],
+                    'client_id' => $validatedData['client_id'],
+                    'request_id' => $validatedData['request_id'],
+                ]);
+
+                return;
+            }
+
+            SyncPiOrdersJob::dispatch(
+                $topicLocationSlug,
+                $validatedData['client_id'],
+                $validatedData['request_id']
+            );
+
+            Log::info('MQTT Subscriber: Order sync request queued', [
+                'topic' => $topic,
+                'request_id' => $validatedData['request_id'],
+                'client_id' => $validatedData['client_id'],
+                'location_slug' => $topicLocationSlug,
+                'reason' => $validatedData['reason'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('MQTT Subscriber: Error processing order sync request', [
+                'topic' => $topic,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
     }
 

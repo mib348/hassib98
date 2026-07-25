@@ -21,6 +21,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Raspberry Pi Order Synchronization
+    |--------------------------------------------------------------------------
+    |
+    | After reconnecting, a Pi requests a fresh order snapshot from Shopify.
+    | Shopify can only search by order fields, while pickup date is stored on
+    | line items, so we query a recent created-order range and then filter the
+    | requested pickup window in PHP using the business timezone.
+    |
+    */
+
+    'order_sync' => [
+        'created_lookback_days' => (int) env('MQTT_ORDER_SYNC_LOOKBACK_DAYS', 15),
+        'pickup_window_days' => (int) env('MQTT_ORDER_SYNC_WINDOW_DAYS', 7),
+        'timezone' => env('MQTT_ORDER_SYNC_TIMEZONE', 'Europe/Berlin'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | MQTT Connections
     |--------------------------------------------------------------------------
     |

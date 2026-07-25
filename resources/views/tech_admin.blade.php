@@ -61,7 +61,7 @@
 <div class="container-fluid p-2">
     <div class="admin-help-row">
         <span class="fw-semibold">Page help</span>
-        @include('partials.admin_help_tooltip', ['text' => 'Use this page to monitor the latest Raspberry Pi heartbeat, WiFi signal, lock and door-sensor state, and recent online state for every active location.'])
+        @include('partials.admin_help_tooltip', ['text' => 'Use this page to monitor the latest Raspberry Pi heartbeat, Ethernet or WiFi connection, CPU temperature, lock and door-sensor state, and recent online state for every active location.'])
     </div>
     <div class="admin-help-row">
         <span class="fw-semibold">Pi status table</span>
@@ -80,7 +80,8 @@
                     <th>Client ID</th>
                     <th>PI Status</th>
                     <th>App Status</th>
-                    <th>WiFi Status</th>
+                    <th>Network</th>
+                    <th>CPU Temp</th>
                     <th>Door Status</th>
                     <th>Online Since</th>
                     <th>Check PI Response</th>
@@ -88,7 +89,7 @@
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="10" class="text-center text-muted">Loading Pi status rows...</td>
+                    <td colspan="11" class="text-center text-muted">Loading Pi status rows...</td>
                 </tr>
             </tbody>
         </table>
@@ -141,7 +142,8 @@
                         '<td>' + escapeHtml(row.client_id || '-') + '</td>',
                         '<td>' + renderStatusBadge(row.pi_status) + '</td>',
                         '<td>' + renderAppStatusCell(row) + '</td>',
-                        '<td>' + escapeHtml(row.wifi_status || '-') + '</td>',
+                        '<td>' + escapeHtml(row.network_status || '-') + '</td>',
+                        '<td>' + escapeHtml(row.cpu_temp === null || row.cpu_temp === undefined ? '-' : row.cpu_temp + ' C') + '</td>',
                         '<td>' + escapeHtml(row.door_status || '-') + '</td>',
                         '<td>' + escapeHtml(row.online_since || '-') + '</td>',
                         '<td>' + checkButton + '</td>',
@@ -151,7 +153,7 @@
 
             function renderRows(rows) {
                 if (!rows.length) {
-                    return '<tr><td colspan="10" class="text-center text-muted">No active locations found.</td></tr>';
+                    return '<tr><td colspan="11" class="text-center text-muted">No active locations found.</td></tr>';
                 }
 
                 return rows.map(function (row, index) {
@@ -176,7 +178,7 @@
                     return true;
                 }
 
-                const hasPlaceholderRow = $tbody.find('tr td[colspan="10"]').length > 0;
+                const hasPlaceholderRow = $tbody.find('tr td[colspan="11"]').length > 0;
 
                 if (hasPlaceholderRow) {
                     $tbody.html(rowHtml);
@@ -216,7 +218,7 @@
                     error: function (xhr) {
                         const errorMessage = window.getAjaxErrorMessage(xhr, 'Unable to load Pi status rows.');
                         $('#techAdminTable tbody').html(
-                            '<tr><td colspan="10" class="text-center text-danger">' + escapeHtml(errorMessage) + '</td></tr>'
+                            '<tr><td colspan="11" class="text-center text-danger">' + escapeHtml(errorMessage) + '</td></tr>'
                         );
                     },
                     complete: function () {

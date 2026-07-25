@@ -20,6 +20,7 @@ use PhpMqtt\Client\Facades\MQTT;
  *   {env}/location/{slug}/orders/cancelled  <- Server publishes cancelled orders
  *   {env}/location/{slug}/orders/updated    <- Server publishes changed orders
  *   {env}/location/{slug}/orders/fulfilled  <- RPi publishes pickup confirmations
+ *   {env}/location/{slug}/orders/sync       <- RPi requests and server responds
  *   {env}/location/{slug}/pi/status         <- RPi publishes heartbeat/status
  *
  * The {env} prefix (e.g. "dev" or "live") is read from MQTT_TOPIC_ENV
@@ -140,6 +141,31 @@ class MqttHelper
     public static function fulfillmentSubscriptionTopic(): string
     {
         return self::topicEnv().'/location/+/orders/fulfilled';
+    }
+
+    /**
+     * Build the single bidirectional order synchronization topic.
+     *
+     * The Pi publishes an orders.sync.request event to this topic and Laravel
+     * publishes the matching orders.sync.response event back to the same topic.
+     * Both sides inspect the event field and ignore the opposite direction.
+     *
+     * @param  string  $locationName  Human name or existing slug
+     * @return string                 e.g. "live/location/test_location/orders/sync"
+     */
+    public static function orderSyncTopic(string $locationName): string
+    {
+        return self::topicEnv().'/location/'.self::locationToTopicSlug($locationName).'/orders/sync';
+    }
+
+    /**
+     * Build the wildcard topic Laravel listens to for order sync requests.
+     *
+     * @return string  e.g. "live/location/+/orders/sync"
+     */
+    public static function orderSyncSubscriptionTopic(): string
+    {
+        return self::topicEnv().'/location/+/orders/sync';
     }
 
     /**
@@ -352,6 +378,41 @@ class MqttHelper
                 'location' => $locationName,
                 'event' => $payload['event'] ?? 'order.'.$action,
                 'order_id' => $payload['order_id'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Publish one order snapshot response on the same topic as its request.
+     *
+     * Retain stays false because every reconnect must receive fresh Shopify
+     * data rather than an old snapshot left on the broker. QoS 1 provides
+     * at-least-once delivery; request_id lets the Pi correlate the response.
+     */
+    public static function publishOrderSyncResponse(string $locationSlug, array $payload): bool
+    {
+        try {
+            $topic = self::orderSyncTopic($locationSlug);
+            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            MQTT::connection('default')->publish($topic, $json, 1, false);
+
+            Log::info('MQTT: Published order sync response', [
+                'topic' => $topic,
+                'request_id' => $payload['request_id'] ?? null,
+                'location_slug' => $locationSlug,
+                'success' => $payload['success'] ?? false,
+                'order_count' => $payload['order_count'] ?? 0,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('MQTT: Failed to publish order sync response', [
+                'request_id' => $payload['request_id'] ?? null,
+                'location_slug' => $locationSlug,
                 'error' => $e->getMessage(),
             ]);
 

@@ -49,12 +49,13 @@ class MqttTopics extends Command
                 MqttHelper::cancelledOrderTopic($name),
                 MqttHelper::updatedOrderTopic($name),
                 $env.'/location/'.$slug.'/orders/fulfilled',
+                MqttHelper::orderSyncTopic($name),
                 MqttHelper::piStatusTopic($name),
             ];
         }
 
         $this->table(
-            ['Location', 'Slug', 'MQTT ClientId', 'New Orders Topic', 'Cancelled Orders Topic', 'Updated Orders Topic', 'Fulfillment Topic (RPi publishes)', 'Pi Status Topic (RPi publishes)'],
+            ['Location', 'Slug', 'MQTT ClientId', 'New Orders Topic', 'Cancelled Orders Topic', 'Updated Orders Topic', 'Fulfillment Topic (RPi publishes)', 'Order Sync Topic (bidirectional)', 'Pi Status Topic (RPi publishes)'],
             $rows
         );
 
