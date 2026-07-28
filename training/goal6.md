@@ -500,7 +500,20 @@ to a scratch directory; `/ai` was not touched.
 |---|---|
 | `export_text_prompts.py --device cpu` | **works** — 252 MB ONNX, embeddings `.npy`, manifest with all 7 prompts |
 | `sahi_inference.py --provider cpu` | **works** — `status: success`, 9 detections on statista, per-class counts emitted |
-| frozen 8-case count gate | **DOES NOT EXIST** — described in `.claude/skills/autoresearch-loop/SKILL.md`, implemented nowhere |
+| frozen 8-case count gate | **was missing — now built and proven** (`run_frozen_count_gate.py`) |
+
+The gate was written, wired to the reviewer's own counts (8 cases, 42 assertions from the V48
+corrections), and executed against the exported ONNX:
+
+    assertion_pass_rate=0.2143 (9/42)  cases=0/8  gate_opened=False
+
+That is the correct result. The drill used STOCK weights, so a passing gate would have meant the
+gate was broken. It refuses to open, exits non-zero, and prints per-assertion diagnostics
+(`red teriyaki sauce cup: expected 10, got 1`) rather than a bare verdict.
+
+One result carries past the drill: `wooden chopstick tip: expected 13, got 0` on techhub. The
+chopstick recall failure measured in the label factory reproduces in the SHIPPED inference path,
+confirming it is a model problem and not an artifact of the proposal lanes.
 | `/ai` re-enable | correctly still gated |
 
 Local dependency versions match the Kaggle pins exactly (ultralytics 8.4.93, onnx 1.22, onnxruntime
