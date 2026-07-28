@@ -491,6 +491,32 @@ NOT claimed as a gate improvement. SAM 3.1 refinement (L3) runs between the repl
 shipped polygons, so the union replay cannot prove what the real pipeline will produce. V57 is the
 measurement that settles it, and its raw dump will make this comparison exact rather than inferred.
 
+### L6 CPU dry run — 3 of 4 links proven, the 4th does not exist (2026-07-28)
+
+The whole L6 chain was exercised locally on CPU, with no GPU and nothing promoted. All artifacts went
+to a scratch directory; `/ai` was not touched.
+
+| link | result |
+|---|---|
+| `export_text_prompts.py --device cpu` | **works** — 252 MB ONNX, embeddings `.npy`, manifest with all 7 prompts |
+| `sahi_inference.py --provider cpu` | **works** — `status: success`, 9 detections on statista, per-class counts emitted |
+| frozen 8-case count gate | **DOES NOT EXIST** — described in `.claude/skills/autoresearch-loop/SKILL.md`, implemented nowhere |
+| `/ai` re-enable | correctly still gated |
+
+Local dependency versions match the Kaggle pins exactly (ultralytics 8.4.93, onnx 1.22, onnxruntime
+1.27, sahi 0.12.1), so a CPU export here is a faithful rehearsal of the release export.
+
+**The finding that matters:** L6's final acceptance gate was never written. Every plan revision has
+listed "frozen 8-case count gate (assertion_pass_rate >= 0.95)" as the last step before `/ai`, and
+there is no code behind it. Discovering that after training the release model would have stalled the
+ship at the final step; it is now a known, GPU-free task that can be built and tested against the
+existing SAHI output format before quota returns.
+
+Note: the drill used stock `yoloe-26x-seg.pt`, not the bootstrap checkpoint — two `best.pt` files
+exist in the v53-bootstrap-train output but both `artifacts/best.pt` and
+`runs/segment/train/weights/best.pt` return 404 from the download API, and the flat file listing hides
+the true prefix. Architecture is identical, so the chain validation holds; only the weights differ.
+
 ### Superseded: "the single blocker" (kept for the record)
 
 Every layer that can be advanced without a GPU has been advanced. What remains is not unimplemented
