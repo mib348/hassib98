@@ -1168,3 +1168,43 @@ traceback.
 Timing note: shard 1/7 on Colab runs far slower than the ~13 min Kaggle estimate (90+ minutes and
 still going). RAM is the likely cause — 13.6 GB vs Kaggle's ~30 GB, on a job that loads SAM 3.1.
 Budget accordingly, and prefer running several shards in ONE runtime since setup is amortised.
+
+## C2 part 3 — why Colab felt impossibly slow: --image-shard never sharded the expensive loop
+
+**The flag did not do what it said.** `--image-shard` narrowed only `target_paths`, which feeds the
+visual-prompt lane. SAM 3.1 semantic discovery, rescue, correction-guided recovery and L3
+refinement all run in `for image_name in manifest["image_names"]` — and that loop was never
+narrowed. So every shard still processed all twenty images.
+
+Measured on a Colab T4: `--image-shard 1/14`, nominally ONE image, ran **60+ minutes** — about what
+a full pass costs — while producing an **incomplete** result, because the other thirteen targets
+were written without their visual-prompt lane. The help text promised "roughly 13 minutes instead
+of 90"; that was never true. This is also why the earlier 1/7 shard ran 60+ minutes.
+
+Fixed: the per-image loop now skips targets outside the shard and never skips references, which is
+what the surrounding comment already claimed. **A full pass is bit-for-bit unaffected** —
+`sharded_target_names` is None unless `--image-shard` is passed. Regression tests pin all of it.
+
+**Consequence for planning: shards were never the answer here.** Because each shard re-pays the
+reference calibration, the right move on Colab is ONE full pass, which is what is now running.
+
+## Colab free tier: the two operational limits that actually bite
+
+- **Sessions get reclaimed.** One was taken mid-shard after ~2.5h ("No active sessions"), and the
+  VM disk goes with it — so anything not copied off the VM is lost.
+- **Drive is not a free lunch.** Caching the 3.5 GB SAM 3.1 + 171 MB checkpoint on Drive would make
+  a fresh session cheap, but the consent Google actually requests is **see/edit/create/delete ALL
+  Drive files plus Google Photos** — far beyond a cache folder, so it was declined. The code treats
+  Drive as strictly optional and falls back to downloading. It also now mounts with `timeout_ms`:
+  an unbounded `drive.mount()` after declined consent **hangs the cell forever** (observed 12+
+  minutes, no output, where the same cell took ~3 minutes with Drive skipped).
+- A CPU runtime has **no nvidia-smi at all**, so the GPU probe had to survive FileNotFoundError or
+  the actionable "pick a T4" message is replaced by a bare traceback.
+
+## Honest cost comparison, now that the numbers are real
+
+A full 20-image pass is ~90 minutes on a dedicated Kaggle T4. On free Colab the same work is
+several times slower (RAM is 13.6 GB against Kaggle's ~30 GB, on a job that loads a 3.5 GB SAM 3.1)
+and the session can be reclaimed from under it. Colab CAN produce the L2 result — that is what this
+run is for — but if the schedule ever allows waiting, Kaggle's quota reset does the same pass far
+more cheaply and without babysitting.
