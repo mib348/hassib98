@@ -431,6 +431,45 @@ per-drop arbitration reasons examined case by case — real work, but **local wo
 So the corrected blocker is: **chopstick-tip recall on 3 images genuinely needs the GPU; the sauce-cup
 shortfalls on the rest do not.**
 
+### The arbitration work, performed — and its negative result (2026-07-28)
+
+The correction above pointed at `drop_cross_class_duplicate_proposals`. Doing the work changed the
+diagnosis a second time. **The dedup is not deleting objects.** Counting cup OBJECTS after the full
+chain, against the human cup total:
+
+| image | cup objects after dedup | human cup total | per class (found/human) |
+|---|---|---|---|
+| garbe | 23 | 10 | black 12/1, teriyaki 3/2, wayo 5/7, chili 3/0 |
+| zeisehof | 18 | 12 | black 8/5, teriyaki 5/3, wayo 3/2, chili 2/2 |
+| statista | 31 | 38 | black 6/12, teriyaki 10/10, wayo 9/8, chili 6/8 |
+| startup-labs | 10 | 8 | black 3/3, teriyaki 3/2, wayo 2/1, chili 2/2 |
+| techhub | 7 | 6 | black 2/2, teriyaki 0/0, wayo 4/2, chili 1/2 |
+
+Four of five have *more* cup objects than the reviewer counted. The cups are found. They are wearing
+the **wrong colour class** — garbe proposes 12 black soya where 1 exists. This is class confusion at
+the proposal source, not loss in arbitration.
+
+Three local levers were then tested against the pre-filter union (total cup class error, summed
+|found - human| over classes 1-4, and the gate):
+
+| change | cup class error | gate |
+|---|---|---|
+| baseline, `SAUCE_CUP_COLOR_DECISIVE_MARGIN = 0.30` | **392** | 5/10 |
+| margin 0.10 | 398 | 4/10 |
+| margin 0.05 | 396 | 4/10 |
+| margin 0.00 (colour always decides collisions) | 396 | 4/10 |
+| colour-relabel EVERY cup box, not just collisions | **921** | 5/10 |
+
+All negative. 0.30 is the best value on the sweep, which independently re-confirms the earlier revert
+of 0.05. The measured colour reference is strong enough to break a tie between two boxes on one
+object, and far too weak to classify a cup on its own — relabelling everything more than doubles the
+error.
+
+**Conclusion.** The local levers are exhausted. Cup colour confusion lives in the text-prompt
+embeddings, so it is fixed by prompts or fine-tuning, both of which need the GPU. This is a negative
+result, not an unattempted task: the arbitration was examined, three candidate fixes were measured,
+and none of them is worth shipping.
+
 ### Superseded: "the single blocker" (kept for the record)
 
 Every layer that can be advanced without a GPU has been advanced. What remains is not unimplemented
