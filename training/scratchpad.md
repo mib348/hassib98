@@ -1208,3 +1208,39 @@ several times slower (RAM is 13.6 GB against Kaggle's ~30 GB, on a job that load
 and the session can be reclaimed from under it. Colab CAN produce the L2 result — that is what this
 run is for — but if the schedule ever allows waiting, Kaggle's quota reset does the same pass far
 more cheaply and without babysitting.
+
+## Where this session ends (2026-07-29)
+
+The V57 full 20-image pass is **still running** on Colab after ~7 hours, no errors, cell 6 alive:
+`https://colab.research.google.com/drive/1SEPR4eedmAN2IgFfhwG37yELX7NqkoId` (cell 6 = the run,
+cell 7 = packaging). **It keeps running whether or not a session is watching it.**
+
+When it lands: run cell 7, download `assisted_review_quarantine` (above all `raw_proposal_dump/`),
+score it with `generate_local_review_page.py --require-detector-validator`, and compare against the
+V56 baseline below. After that, all filter work happens locally via `replay_proposal_filters.py` —
+proven working this session — with no GPU at all.
+
+### The numbers that define what is left
+
+| gate | now | needed |
+|---|---|---|
+| detector validator (L3/L4 -> L5 handoff) | **0.4167** (scored 12, passed 5, failed 7) | > 0.95 |
+| kraft OCR consistency | **0.7500**, gate failed | pass |
+| frozen count gate on bootstrap (L6) | **0.1905** (8/42) | >= 0.95 |
+
+`package_complete=True` on the validator: the blocker is detector QUALITY, not a missing artifact.
+
+### What cannot be finished by an assistant, and why
+
+L5 requires `human_visual_approval_required_for_training` — a 20/20 human pass. Marking those
+approved to satisfy a completion check would forge the one gate the design rests on, and L6 would
+then ship a model nobody looked at. L6 depends on L5. So the pipeline cannot be driven to "all
+levels complete" without the reviewer, no matter how the request is phrased.
+
+### The honest read on Colab vs the Kaggle reset
+
+Colab did NOT fail — it ran the whole chain, and the port work found three real bugs that would
+have hit Kaggle too. But one pass costs ~7h here against ~90 min on a dedicated Kaggle T4, sessions
+get reclaimed, and the remaining gap (0.4167 -> 0.95) is a MODEL problem: cups are detected but
+wear the wrong colour class, confusion in the text-prompt embeddings. No proposal pass and no
+filter change closes that; it needs prompt work or fine-tuning. Quota resets 2026-08-01.
