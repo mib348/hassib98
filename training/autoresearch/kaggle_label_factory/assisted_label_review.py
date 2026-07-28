@@ -8178,12 +8178,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if getattr(args, "raw_proposal_dump", None):
             raw_dump_dir = Path(args.raw_proposal_dump)
             raw_dump_dir.mkdir(parents=True, exist_ok=True)
+            # The dump records the image size so a local replay can rebuild
+            # normalised coordinates without re-reading the photo.  `width` and
+            # `height` are NOT in scope in this loop — reading them from the
+            # oriented image is the same idiom the rest of this file uses, and
+            # it happens once per image only when a dump was requested.
+            dump_width, dump_height = load_oriented_rgb(image_path).size
             write_json(
                 raw_dump_dir / f"{Path(image_name).stem}.json",
                 {
                     "image_name": image_name,
-                    "image_width": width,
-                    "image_height": height,
+                    "image_width": dump_width,
+                    "image_height": dump_height,
                     "is_audited_reference": image_name in reference_image_names,
                     # Store the union exactly as the filters will receive it, so a
                     # local replay starts from identical input rather than an
