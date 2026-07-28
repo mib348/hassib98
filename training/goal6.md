@@ -470,6 +470,27 @@ embeddings, so it is fixed by prompts or fine-tuning, both of which need the GPU
 result, not an unattempted task: the arbitration was examined, three candidate fixes were measured,
 and none of them is worth shipping.
 
+### zeisehof isolated (2026-07-28) — the second loss is one class, and N1 may have fixed it
+
+The correction above noted zeisehof is short of nothing after the full chain yet still failed V55,
+and that a second loss existed somewhere downstream. Isolated:
+
+| class | human | replay from union (current filters) | V55 shipped |
+|---|---|---|---|
+| kraft paper bowl | 9 | 9 | 9 |
+| **black soya cup** | 5 | **8** | **4** |
+| red teriyaki | 3 | 5 | 3 |
+| white wayo | 2 | 3 | 2 |
+| orange chili | 2 | 2 | 2 |
+
+Exactly one class loses boxes. The likely mechanism is N1 itself: the adjacent-cabinet filter removes
+2 boxes at zeisehof's frame post (x=0.786), and removing them BEFORE the cross-class dedup changes
+which boxes win arbitration — so the soya cups that V55 lost now survive.
+
+NOT claimed as a gate improvement. SAM 3.1 refinement (L3) runs between the replay point and the
+shipped polygons, so the union replay cannot prove what the real pipeline will produce. V57 is the
+measurement that settles it, and its raw dump will make this comparison exact rather than inferred.
+
 ### Superseded: "the single blocker" (kept for the record)
 
 Every layer that can be advanced without a GPU has been advanced. What remains is not unimplemented
