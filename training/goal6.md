@@ -530,6 +530,23 @@ exist in the v53-bootstrap-train output but both `artifacts/best.pt` and
 `runs/segment/train/weights/best.pt` return 404 from the download API, and the flat file listing hides
 the true prefix. Architecture is identical, so the chain validation holds; only the weights differ.
 
+### The exact V57 build command (recorded so it is reproducible)
+
+The bundle lives in a scratch directory and is therefore disposable; this command is the durable
+part. Run it from the repo root. `MSYS_NO_PATHCONV=1` is required under Git Bash, which otherwise
+rewrites `/kaggle/working/...` into `C:/Program Files/Git/kaggle/...` and silently produces a bundle
+that cannot run.
+
+```
+MSYS_NO_PATHCONV=1 .venv/Scripts/python.exe   training/autoresearch/kaggle_label_factory/prepare_kaggle_assisted_label_bundle.py   --output-dir <scratch>/v57_bundle --dataset-output-dir <scratch>/v57_dataset   --kernel-id mib348/v57-raw-dump --kernel-title "V57 raw dump"   --correction-manifest training/autoresearch/results/yoloe26x_sam31_assisted_review_kaggle_v48_20260726/review_corrections_current/review_correction_manifest.json   --text-prompt-primary   --kernel-source mib348/v53-bootstrap-train   --text-prompt-checkpoint-glob "/kaggle/input/**/artifacts/best.pt"   --visual-prompt-model /kaggle/working/yoloe-26x-seg.pt   --raw-proposal-dump /kaggle/working/assisted_review_quarantine/raw_proposal_dump   --clean
+```
+
+**Unresolved before the push:** the checkpoint glob above is unverified. Two `best.pt` files exist in
+the `v53-bootstrap-train` output, but the download API returns 404 for both `artifacts/best.pt` and
+`runs/segment/train/weights/best.pt`, and the flat file listing hides the true prefix. The notebook
+now fails loudly rather than falling back to stock weights, so a wrong glob costs a push, not a
+silently wrong result.
+
 ### Superseded: "the single blocker" (kept for the record)
 
 Every layer that can be advanced without a GPU has been advanced. What remains is not unimplemented
