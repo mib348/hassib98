@@ -1136,3 +1136,35 @@ a 10–25 minute flaky step into a few seconds for every one of the 7 shards. Th
 - Cells that look "not running" are often **queued** — the tooltip says so; execution counts only
   move on completion. Do not conclude Run-all halted from counts alone.
 - Free tier allows **one** GPU session, and any modal dialog blocks queued execution.
+
+## C2 continued — the run reached the GPU and found a real bug
+
+Two further corrections after the port was working:
+
+**`/kaggle/input` is kagglehub's MOUNT ROOT on Colab, not a compat shim.** kagglehub *mounts* Kaggle
+**models** under `/kaggle/input/...` (datasets always download, which is why the 55 MB bundle worked
+at 61 MB/s and the 3.5 GB model did not). Unmounting `/kaggle/input` to stage inputs therefore made
+the model mount target a path that no longer existed, and it hung — 18+ minutes on
+`Mounting files to /kaggle/input/sam3-1/pytorch/default/1...` with no error. The preamble now sets
+**`DISABLE_COLAB_CACHE=1`** before any kagglehub call, so it downloads instead of mounting. The
+umount and that env var must stay together; a test enforces the ordering.
+
+**`--raw-proposal-dump` crashed every V57 run: `NameError: name 'width' is not defined`.** The dump
+was written last session and never executed, because V57 never ran. `width`/`height` are not in
+scope in `run()`'s per-image loop, so it raised at the exact SAVE POINT it exists to serve — after
+the ~10 minutes of GPU work for the image, and *after* `mkdir` had already created
+`raw_proposal_dump/`, so the directory looked like the feature had worked. Fixed to read the size
+from the oriented image (the idiom used elsewhere in the file); a scope-aware AST scan now reports
+zero unbound `width`/`height` references.
+
+Neither bug is Colab-specific — **both would have hit the first Kaggle V57 run too.** The port paid
+for itself by finding them.
+
+How the NameError was found: the subprocess's stderr never reached the notebook output, but the
+runtime records failures in `assisted_review_quarantine/generation_diagnostics.json` — that file
+held the exception type and message. Check it first when a run exits non-zero with no visible
+traceback.
+
+Timing note: shard 1/7 on Colab runs far slower than the ~13 min Kaggle estimate (90+ minutes and
+still going). RAM is the likely cause — 13.6 GB vs Kaggle's ~30 GB, on a job that loads SAM 3.1.
+Budget accordingly, and prefer running several shards in ONE runtime since setup is amortised.
