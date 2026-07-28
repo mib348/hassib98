@@ -28,6 +28,29 @@ SAM3_EXPECTED_SIZE = 3_502_755_717
 # framework/variation/version suffix is required by Kaggle's kernel metadata
 # contract and is intentionally pinned alongside the official HF revision.
 SAM3_KAGGLE_MODEL_SOURCE = "safebet1034/sam3-1/pytorch/default/1"
+# --- Colab target ----------------------------------------------------------
+# Kaggle's GPU quota is weekly; Colab's free T4 is the fallback compute.  The
+# notebook body is NOT rewritten for Colab.  Instead one preamble cell makes a
+# Colab VM look like a Kaggle kernel, so a Colab result stays directly
+# comparable with the Kaggle runs it has to be compared against.
+#
+# Colab differs from Kaggle in exactly four ways that matter here:
+#   1. /kaggle/input and /kaggle/working do not exist  -> created (Colab is uid 0)
+#   2. dataset and model inputs are not mounted        -> pulled with kagglehub
+#   3. the `kaggle_secrets` module does not exist      -> shimmed onto Colab userdata
+#   4. the base image ships NumPy 2.x                  -> pinned back below
+#
+# The pinned official SAM 3.1 dependency contract requires NumPy <2, and the
+# notebook's own preflight refuses to continue otherwise.  Kaggle's image
+# already satisfies this, so this pin only ever takes effect on Colab.  1.26.4
+# is the last 1.x release and was verified on Colab to import cleanly alongside
+# the preinstalled CUDA torch/torchvision.
+COLAB_NUMPY_PIN = "numpy==1.26.4"
+# Colab's session-storage upload lands here.  kagglehub reads the token from
+# ~/.kaggle/access_token, so the preamble moves it there rather than asking for
+# the secret VALUE to be pasted into a cell.
+COLAB_UPLOADED_TOKEN_PATH = "/content/access_token"
+COLAB_TOKEN_DESTINATION = "/root/.kaggle/access_token"
 SAM31_SEMANTIC_THRESHOLDS = [
     0.45,
     0.45,
@@ -142,6 +165,9 @@ class BundleConfig:
         raw_proposal_dump: str | None = None,
         yoloe_text_checkpoint_glob: str | None = None,
         kernel_sources: list[str] | None = None,
+        colab: bool = False,
+        colab_checkpoint_source: str | None = None,
+        image_shard: str | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.batch_root = Path(batch_root).resolve()
@@ -158,6 +184,34 @@ class BundleConfig:
         self.raw_proposal_dump = raw_proposal_dump or None
         self.yoloe_text_checkpoint_glob = yoloe_text_checkpoint_glob or None
         self.kernel_sources = list(kernel_sources or [])
+        self.colab = bool(colab)
+        self.colab_checkpoint_source = colab_checkpoint_source or None
+        self.image_shard = image_shard or None
+        # Validate the shard shape here so a typo fails at build time rather
+        # than after a GPU runtime has already been allocated.  The runtime
+        # performs the authoritative range check against the real image list.
+        if self.image_shard:
+            parts = str(self.image_shard).split("/")
+            if len(parts) != 2 or not all(p.strip().isdigit() for p in parts):
+                raise ValueError(
+                    f"--image-shard expects K/N, for example 1/7, not {self.image_shard!r}."
+                )
+            shard_index, shard_count = (int(p) for p in parts)
+            if shard_count < 1 or not 1 <= shard_index <= shard_count:
+                raise ValueError(
+                    f"--image-shard {self.image_shard} is out of range; "
+                    "the index must be between 1 and the count."
+                )
+        # Validate the checkpoint reference at BUILD time.  A malformed source
+        # discovered on Colab costs a runtime allocation; discovered here it
+        # costs nothing.
+        if self.colab_checkpoint_source:
+            parse_colab_checkpoint_source(self.colab_checkpoint_source)
+        if self.colab_checkpoint_source and not self.colab:
+            raise ValueError(
+                "--colab-checkpoint-source only applies to a Colab bundle; "
+                "pass --colab as well, or drop it."
+            )
         self.correction_manifest = (
             Path(correction_manifest).resolve()
             if correction_manifest is not None
@@ -403,6 +457,271 @@ def notebook_cell(cell_type: str, source: str) -> dict[str, Any]:
     return cell
 
 
+def parse_colab_checkpoint_source(value: str) -> tuple[str, str, str]:
+    """Split ``owner/kernel:path/inside/output`` into its three usable parts.
+
+    The bootstrap checkpoint lives in a Kaggle *kernel output*, which Colab
+    cannot mount.  It can still be downloaded, but only at its true path.  The
+    flat file listing returned by Kaggle's API hides directory prefixes, which
+    is why ``artifacts/best.pt`` looks right and returns 404 while the real
+    ``yoloe26x_bootstrap/artifacts/best.pt`` returns the file.  Making the
+    caller state the full path keeps that trap out of the code.
+
+    Returns ``(owner_slug, kernel_slug, output_path)``.
+    """
+    if ":" not in value:
+        raise ValueError(
+            "A Colab checkpoint source must be 'owner/kernel:path/in/output', "
+            "e.g. 'mib348/v53-bootstrap-train:yoloe26x_bootstrap/artifacts/best.pt'. "
+            f"Got: {value!r}"
+        )
+    kernel_ref, output_path = value.split(":", 1)
+    kernel_ref = kernel_ref.strip("/")
+    output_path = output_path.strip("/")
+    if kernel_ref.count("/") != 1 or not all(kernel_ref.split("/")):
+        raise ValueError(f"Expected 'owner/kernel' before the colon; got {kernel_ref!r}")
+    if not output_path:
+        raise ValueError("The path inside the kernel output must not be empty.")
+    owner_slug, kernel_slug = kernel_ref.split("/")
+    return owner_slug, kernel_slug, output_path
+
+
+def colab_preamble_cell(
+    dataset_id: str,
+    colab_checkpoint_source: str | None = None,
+) -> dict[str, Any]:
+    """Build the one cell that turns a Colab VM into a Kaggle-shaped kernel.
+
+    Every cell AFTER this one is byte-identical to the Kaggle notebook.  That
+    is the whole point: the comparison against V55/V56 stays honest because the
+    pipeline did not change, only the machine under it.
+    """
+    checkpoint_block = """
+# (6) No bootstrap checkpoint was requested, so the text lane runs on whatever
+#     the notebook's own glob resolves to.
+print("No Colab checkpoint source configured.")
+"""
+    if colab_checkpoint_source:
+        owner_slug, kernel_slug, output_path = parse_colab_checkpoint_source(
+            colab_checkpoint_source
+        )
+        # Mirror the file under a directory whose tail matches the notebook's
+        # existing glob, so the SAME --text-prompt-checkpoint-glob value works
+        # unchanged on both platforms.
+        checkpoint_block = f"""
+# (6) The bootstrap checkpoint lives in a Kaggle kernel OUTPUT, which Colab
+#     cannot mount.  Download it to the path the notebook's glob expects.
+#
+#     Two measured hazards make this more than a one-line fetch:
+#       * The prefix is load-bearing.  Kaggle's flat file listing hides
+#         directory prefixes, so a shorter-looking path returns 404.
+#       * This endpoint serves at only ~1.3 MB/s and CLOSES THE CONNECTION
+#         EARLY.  A plain read() therefore returns a short file with no
+#         exception - a silently truncated checkpoint, which is worse than a
+#         failure.  So: ask for the total up front, resume with Range on every
+#         reconnect, and refuse to continue unless the final size matches.
+_ckpt_dest = COLAB_INPUT_ROOT / {kernel_slug!r} / {str(Path(output_path).parent).replace(chr(92), "/")!r}
+_ckpt_dest.mkdir(parents=True, exist_ok=True)
+_ckpt_file = _ckpt_dest / {Path(output_path).name!r}
+_ckpt_url = (
+    "https://www.kaggle.com/api/v1/kernels/output/download/"
+    + {owner_slug!r} + "/" + {kernel_slug!r} + "/" + {output_path!r}
+)
+_auth = {{"Authorization": "Bearer " + _kaggle_token}}
+
+
+def _checkpoint_total_bytes():
+    # Total size the server reports, so truncation is detectable.
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(_ckpt_url, headers=_auth), timeout=120
+        ) as probe:
+            length = probe.headers.get("Content-Length")
+            return int(length) if length else None
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            "Could not reach the bootstrap checkpoint at "
+            + _ckpt_url
+            + " (HTTP " + str(exc.code) + "). Kaggle's flat listing hides "
+            "directory prefixes, so verify the FULL path with "
+            "GET /api/v1/kernels/output?userName=...&kernelSlug=..."
+        ) from exc
+
+
+_expected_bytes = _checkpoint_total_bytes()
+if _expected_bytes is None:
+    raise RuntimeError(
+        "Kaggle did not report a Content-Length for the bootstrap checkpoint, "
+        "so a truncated download could not be detected. Refusing to continue."
+    )
+
+for _attempt in range(1, 13):
+    _have = _ckpt_file.stat().st_size if _ckpt_file.is_file() else 0
+    if _have >= _expected_bytes:
+        break
+    _headers = dict(_auth)
+    _headers["Range"] = "bytes=" + str(_have) + "-"
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(_ckpt_url, headers=_headers), timeout=120
+        ) as _resp:
+            _resuming = _resp.status == 206
+            if not _resuming:
+                _have = 0
+            with open(_ckpt_file, "ab" if _resuming else "wb") as _fh:
+                while True:
+                    _chunk = _resp.read(1 << 20)
+                    if not _chunk:
+                        break
+                    _fh.write(_chunk)
+                    _have += len(_chunk)
+    except Exception as exc:
+        print("checkpoint attempt", _attempt, "interrupted:", type(exc).__name__, exc)
+    print("checkpoint", _ckpt_file.stat().st_size, "/", _expected_bytes, "bytes")
+
+_final_bytes = _ckpt_file.stat().st_size if _ckpt_file.is_file() else 0
+if _final_bytes != _expected_bytes:
+    raise RuntimeError(
+        "The bootstrap checkpoint is incomplete: got "
+        + str(_final_bytes) + " of " + str(_expected_bytes) + " bytes. "
+        "Running on a truncated checkpoint would silently answer a different "
+        "question, so this run stops here."
+    )
+print("Bootstrap checkpoint ready:", _ckpt_file, _final_bytes, "bytes")
+"""
+
+    source = f"""
+# ===========================================================================
+# COLAB PREAMBLE - makes this VM look like a Kaggle kernel.
+#
+# Read this once and the rest of the notebook needs no Colab-specific reading:
+# every cell below is EXACTLY the cell that runs on Kaggle.  Only the machine
+# changes, never the pipeline, so a Colab result stays comparable with the
+# Kaggle runs it is measured against.
+#
+# Prerequisite (one manual step): upload your Kaggle API token to Colab's
+# session storage via the Files pane, so it appears at
+# {COLAB_UPLOADED_TOKEN_PATH}.  Nothing else needs configuring.
+# ===========================================================================
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+# (1) Fail before spending ten minutes downloading 3.5 GB onto a CPU runtime.
+if subprocess.run(["nvidia-smi"], capture_output=True).returncode != 0:
+    raise RuntimeError(
+        "No GPU is attached. Choose Runtime > Change runtime type > T4 GPU, "
+        "then run this notebook again."
+    )
+
+# (2) Kaggle's two well-known directories.
+#
+#     Colab ships its own Kaggle-compatibility shim: it bind-mounts /dev/sda1
+#     at /kaggle/input READ-ONLY (and noexec).  /kaggle and /kaggle/working are
+#     ordinary writable directories, but /kaggle/input is not, so staging into
+#     it fails with "OSError: [Errno 30] Read-only file system".  Colab runs as
+#     uid 0, so the mount can simply be removed, which turns the path back into
+#     a normal empty directory we own.
+COLAB_INPUT_ROOT = pathlib.Path("/kaggle/input")
+COLAB_WORKING_ROOT = pathlib.Path("/kaggle/working")
+if os.path.ismount(str(COLAB_INPUT_ROOT)):
+    subprocess.run(["umount", str(COLAB_INPUT_ROOT)], check=True)
+    if os.path.ismount(str(COLAB_INPUT_ROOT)):
+        raise RuntimeError(
+            "/kaggle/input is still a read-only mount after umount; the inputs "
+            "cannot be staged where the notebook expects them."
+        )
+for _directory in (COLAB_INPUT_ROOT, COLAB_WORKING_ROOT):
+    _directory.mkdir(parents=True, exist_ok=True)
+os.chdir(COLAB_WORKING_ROOT)
+
+# (3) Restore the NumPy <2 contract the pinned SAM 3.1 build requires.  Colab
+#     ships NumPy 2.x; the notebook's own preflight refuses to run against it.
+#     Installing it FIRST means the later pins resolve against a 1.x baseline.
+subprocess.run(
+    [sys.executable, "-m", "pip", "install", "--quiet", {COLAB_NUMPY_PIN!r}],
+    check=True,
+)
+
+# (4) `kaggle_secrets` is a Kaggle-only module, and a later cell imports it at
+#     module level.  This shim satisfies that import by reading Colab's own
+#     secret store, so the import works whether or not a secret is ever needed.
+_shim = COLAB_WORKING_ROOT / "kaggle_secrets.py"
+_shim.write_text(
+    "class UserSecretsClient:\\n"
+    "    def get_secret(self, name):\\n"
+    "        from google.colab import userdata\\n"
+    "        return userdata.get(name)\\n",
+    encoding="utf-8",
+)
+if str(COLAB_WORKING_ROOT) not in sys.path:
+    sys.path.insert(0, str(COLAB_WORKING_ROOT))
+
+# (5) Authenticate, then stage the inputs Kaggle would have mounted.
+#     kagglehub reads ~/.kaggle/access_token, so an uploaded token file is all
+#     that is needed - the secret value never has to be pasted into a cell.
+_uploaded_token = pathlib.Path({COLAB_UPLOADED_TOKEN_PATH!r})
+_kaggle_token_path = pathlib.Path({COLAB_TOKEN_DESTINATION!r})
+if _uploaded_token.is_file() and not _kaggle_token_path.is_file():
+    _kaggle_token_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(_uploaded_token, _kaggle_token_path)
+    os.chmod(_kaggle_token_path, 0o600)
+if not _kaggle_token_path.is_file():
+    raise RuntimeError(
+        "No Kaggle credentials. Upload your API token to Colab session storage "
+        "so it lands at " + {COLAB_UPLOADED_TOKEN_PATH!r} + ", then re-run."
+    )
+_kaggle_token = _kaggle_token_path.read_text().strip()
+
+import kagglehub
+
+print("Authenticated with Kaggle as:", kagglehub.whoami())
+
+# The frozen 20-image input bundle.  The next cell verifies its SHA-256, so a
+# stale dataset version fails loudly instead of quietly reviewing old images.
+_dataset_dir = pathlib.Path(kagglehub.dataset_download({dataset_id!r}))
+_staged_inputs = COLAB_INPUT_ROOT / {dataset_id.split("/")[-1]!r}
+_staged_inputs.mkdir(parents=True, exist_ok=True)
+for _bundle in _dataset_dir.rglob("*" + {INPUT_ARCHIVE_FILENAME!r}):
+    _target = _staged_inputs / {INPUT_ARCHIVE_FILENAME!r}
+    if not _target.exists():
+        _target.symlink_to(_bundle)
+
+# The pinned official SAM 3.1 checkpoint (3.5 GB).  The notebook accepts at
+# most one copy under /kaggle/input, so link exactly the one file.
+_sam3_dir = pathlib.Path(kagglehub.model_download({SAM3_KAGGLE_MODEL_SOURCE!r}))
+_staged_sam3 = COLAB_INPUT_ROOT / "sam3-1"
+_staged_sam3.mkdir(parents=True, exist_ok=True)
+for _weights in _sam3_dir.rglob({SAM3_FILENAME!r}):
+    _target = _staged_sam3 / {SAM3_FILENAME!r}
+    if not _target.exists():
+        _target.symlink_to(_weights)
+    break
+
+# Guard the two counts the next cells assert on, so a duplicate is reported
+# here with context rather than as a bare count mismatch further down.
+_bundles = [p for p in COLAB_INPUT_ROOT.rglob("*.bundle") if p.is_file()]
+if len(_bundles) != 1:
+    raise RuntimeError(
+        "Expected exactly one .bundle under /kaggle/input; found "
+        + str(len(_bundles)) + ": " + str(_bundles)
+    )
+_sam3_copies = [p for p in COLAB_INPUT_ROOT.rglob({SAM3_FILENAME!r}) if p.is_file()]
+if len(_sam3_copies) != 1:
+    raise RuntimeError(
+        "Expected exactly one SAM 3.1 checkpoint under /kaggle/input; found "
+        + str(len(_sam3_copies))
+    )
+{checkpoint_block}
+print("Colab preamble complete; the Kaggle notebook body follows unchanged.")
+"""
+    return notebook_cell("code", source)
+
+
 def build_notebook(
     runtime_bytes: bytes,
     runtime_hash: str,
@@ -412,6 +731,8 @@ def build_notebook(
     sam31_smoke_only: bool = False,
     run_mode_arguments: list[str] | None = None,
     yoloe_text_checkpoint_glob: str | None = None,
+    colab: bool = False,
+    colab_checkpoint_source: str | None = None,
 ) -> dict[str, Any]:
     RUN_MODE_ARGUMENTS = list(run_mode_arguments or [])
     YOLOE_TEXT_CHECKPOINT_GLOB = yoloe_text_checkpoint_glob or ""
@@ -1187,6 +1508,11 @@ print(smoke_result_path.read_text(encoding="utf-8"))
 """,
             )
         ]
+    if colab:
+        # Prepend, never rewrite.  Keeping the Kaggle cells untouched is what
+        # makes a Colab run comparable with the Kaggle runs it is measured
+        # against; the delta is exactly this one cell.
+        cells = [colab_preamble_cell(DEFAULT_DATASET_ID, colab_checkpoint_source)] + cells
     return {
         "cells": cells,
         "metadata": {
@@ -1465,6 +1791,12 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         run_mode_arguments += ["--visual-prompt-model", str(config.visual_prompt_model)]
     if config.raw_proposal_dump:
         run_mode_arguments += ["--raw-proposal-dump", str(config.raw_proposal_dump)]
+    if config.image_shard:
+        # Sharding is what makes a free/preemptible runtime survivable: a
+        # reclaimed session costs one shard (~13 min) instead of the whole
+        # ~90-minute pass.  It belongs in run_mode_arguments so the shard that
+        # produced a result is recorded in the manifest, not hand-edited in.
+        run_mode_arguments += ["--image-shard", str(config.image_shard)]
 
     notebook = build_notebook(
         runtime_bytes,
@@ -1475,6 +1807,8 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         sam31_smoke_only=config.sam31_smoke_only,
         run_mode_arguments=run_mode_arguments,
         yoloe_text_checkpoint_glob=config.yoloe_text_checkpoint_glob,
+        colab=config.colab,
+        colab_checkpoint_source=config.colab_checkpoint_source,
     )
     write_json(config.output_dir / NOTEBOOK_FILENAME, notebook)
     write_json(config.output_dir / "kernel-metadata.json", kernel_metadata(config))
@@ -1569,6 +1903,11 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         # so a downloaded result always states the mode that produced it.
         "run_mode_arguments": run_mode_arguments,
         "yoloe_text_checkpoint_glob": config.yoloe_text_checkpoint_glob,
+        # Which platform this notebook was built for. A Colab bundle differs
+        # from the Kaggle one by exactly one prepended preamble cell, and
+        # recording that here keeps a downloaded result self-describing.
+        "execution_platform": "colab" if config.colab else "kaggle",
+        "colab_checkpoint_source": config.colab_checkpoint_source,
         "runtime_sha256": runtime_hash,
         "input_archive_sha256": input_archive_hash,
         "input_dataset": {
@@ -1693,6 +2032,38 @@ def parse_args() -> argparse.Namespace:
         help="Build a short one-audited-box SAM 3.1 diagnostic notebook without YOLOE proposal generation.",
     )
     parser.add_argument(
+        "--image-shard",
+        default=None,
+        help=(
+            "Run only shard K of N images, as K/N. Every shard still loads all "
+            "six audited references for calibration; only the TARGET images are "
+            "split. With 20 images, 1/7 is roughly 13 minutes instead of 90, so "
+            "a preempted free runtime costs one shard rather than the whole pass."
+        ),
+    )
+    parser.add_argument(
+        "--colab",
+        action="store_true",
+        help=(
+            "Prepend a preamble cell that makes a Google Colab VM look like a "
+            "Kaggle kernel: creates /kaggle/input and /kaggle/working, pulls the "
+            "input bundle and SAM 3.1 with kagglehub, shims kaggle_secrets, and "
+            "pins NumPy <2. Every other cell stays byte-identical to the Kaggle "
+            "notebook, which is what keeps a Colab run comparable with V55/V56."
+        ),
+    )
+    parser.add_argument(
+        "--colab-checkpoint-source",
+        default=None,
+        help=(
+            "Bootstrap checkpoint to download on Colab, as "
+            "'owner/kernel:path/inside/output' - Colab cannot mount a Kaggle "
+            "kernel output. State the FULL path: Kaggle's flat file listing "
+            "hides directory prefixes, so 'artifacts/best.pt' 404s while "
+            "'yoloe26x_bootstrap/artifacts/best.pt' returns the file."
+        ),
+    )
+    parser.add_argument(
         "--correction-manifest",
         type=Path,
         default=default_correction_manifest,
@@ -1726,6 +2097,9 @@ def main() -> None:
             raw_proposal_dump=args.raw_proposal_dump,
             yoloe_text_checkpoint_glob=args.text_prompt_checkpoint_glob,
             kernel_sources=args.kernel_sources,
+            colab=args.colab,
+            colab_checkpoint_source=args.colab_checkpoint_source,
+            image_shard=args.image_shard,
         )
     )
     print(json.dumps(manifest, indent=2))

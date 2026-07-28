@@ -567,3 +567,76 @@ One item to confirm at push time: the bootstrap checkpoint must be reachable at
 `/kaggle/input/**/artifacts/best.pt`. V57's `dataset_sources` currently lists only the inputs
 dataset. The notebook now aborts with a clear message if the glob matches nothing, so this cannot
 silently degrade a run into a stock-weights run — but the checkpoint dataset may need attaching.
+
+### C2 — V57 ported to Google Colab (2026-07-28)
+
+Kaggle's GPU quota is spent until 2026-08-01, so V57 runs on a free Colab T4. The port does **not**
+rewrite the notebook. The builder gained `--colab`, which *prepends one preamble cell* and leaves
+every existing cell byte-identical, so a Colab result stays directly comparable with V55/V56. The
+manifest records `execution_platform`, and `--image-shard K/N` is now a builder flag rather than a
+hand-edit, so each shard is reproducible from a command.
+
+#### The bootstrap checkpoint was never unreachable — the listing hid the prefix
+
+The previous session concluded `best.pt` "404s from Kaggle's download API" and recommended a
+~40-minute retrain. That was wrong, and the retrain is **not needed**. `GET /api/v1/kernels/output`
+returns `fileName` values *with* directories, and the real paths are:
+
+    yoloe26x_bootstrap/artifacts/best.pt                                  <- 200, 171,641,721 bytes
+    yoloe26x_bootstrap/runs/yoloe_26x_seg_gold_standard/weights/best.pt
+    artifacts/best.pt                                                     <- 404 (the old guess)
+
+Two mistakes compounded: the flat file listing (and the MCP `list_notebook_files` view, which also
+reports nonsense sizes like 677 bytes for a 171 MB checkpoint) hides the `yoloe26x_bootstrap/`
+prefix; and the second copy was guessed as ultralytics' default `runs/segment/train/`, when the
+project uses a custom run name. **Always resolve the full path from the JSON listing endpoint before
+concluding a file is missing.**
+
+#### The measured Colab envelope, and the four things that actually differ
+
+| | Kaggle (V55/V56) | Colab free |
+|---|---|---|
+| GPU | T4 16 GB | T4 15 GB (15360 MiB) |
+| RAM | ~30 GB | **13.6 GB** |
+| disk free | — | 70.8 GB |
+| NumPy | <2 | 2.0.2 |
+
+1. `/kaggle/input` and `/kaggle/working` do not exist — created (Colab is uid 0).
+2. Inputs are not mounted — pulled with kagglehub inside the runtime.
+3. `kaggle_secrets` does not exist, and a cell imports it at module level — shimmed onto Colab
+   `userdata`.
+4. The base image ships NumPy 2.x — pinned to 1.26.4. Verified on a real runtime: a fresh process
+   then imports `1.26.4 2.11.0+cu128 0.26.0+cu128 4.13.0 True`, i.e. NumPy <2 with a working CUDA
+   torch. pip warns that jax/cupy/rasterio/opencv-contrib want NumPy >=2; none is in this pipeline.
+
+#### Trap: /kaggle/input is a read-only mount on Colab
+
+Colab ships its own Kaggle-compatibility shim and bind-mounts `/dev/sda1` at `/kaggle/input`
+**read-only and noexec**. `/kaggle` and `/kaggle/working` are ordinary writable directories, so a
+`/kaggle/working` write test passes and hides the problem — staging inputs then dies with
+`OSError: [Errno 30] Read-only file system`. Colab runs as uid 0, so the preamble simply
+`umount`s it (verified rc=0, writes succeed afterwards) and recreates it as a normal directory.
+
+#### Credential delivery
+
+SAM 3.1 needs a credential on both routes — HF `facebook/sam3.1` is gated (401 `GatedRepo`) and the
+unauthenticated Kaggle model download 404s. kagglehub resolves `~/.kaggle/access_token`, so the
+token is delivered by **uploading that file** to Colab session storage; the secret value never has
+to be pasted into a cell. The Kaggle API keeps working with GPU quota exhausted — only GPU
+*sessions* are blocked, so dataset/model/kernel-output downloads are unaffected.
+
+#### Reproducible build command (Colab, shard 1 of 7)
+
+Run from the repo root. `MSYS_NO_PATHCONV=1` stops Git Bash rewriting `/kaggle/...`, but note it
+also stops `/c/...` being translated, so pass **Windows-style** output paths or the bundle lands in
+`C:\c\...`.
+
+```
+MSYS_NO_PATHCONV=1 .venv/Scripts/python.exe training/autoresearch/kaggle_label_factory/prepare_kaggle_assisted_label_bundle.py   --output-dir <scratch>/v57_colab_shard1 --dataset-output-dir <scratch>/v57_dataset   --kernel-id mib348/v57-raw-dump --kernel-title "V57 raw dump"   --correction-manifest training/autoresearch/results/yoloe26x_sam31_assisted_review_kaggle_v48_20260726/review_corrections_current/review_correction_manifest.json   --text-prompt-primary   --kernel-source mib348/v53-bootstrap-train   --text-prompt-checkpoint-glob "/kaggle/input/**/artifacts/best.pt"   --visual-prompt-model /kaggle/working/yoloe-26x-seg.pt   --raw-proposal-dump /kaggle/working/assisted_review_quarantine/raw_proposal_dump   --colab   --colab-checkpoint-source "mib348/v53-bootstrap-train:yoloe26x_bootstrap/artifacts/best.pt"   --image-shard 1/7   --clean
+```
+
+Driving Colab: the UI uses closed shadow roots, so `document.querySelector` cannot reach the
+toolbar, but `window.monaco.editor.getEditors()[i].getModel().setValue(...)` and
+`window.colab.global.notebook.cells[i].manualExecute()` work, and `cell.lastExecutionError` carries
+the real traceback. Free tier allows **one** GPU session, and modal dialogs silently block queued
+executions.
