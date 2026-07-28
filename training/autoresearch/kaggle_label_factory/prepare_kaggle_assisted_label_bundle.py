@@ -141,6 +141,7 @@ class BundleConfig:
         visual_prompt_model: str | None = None,
         raw_proposal_dump: str | None = None,
         yoloe_text_checkpoint_glob: str | None = None,
+        kernel_sources: list[str] | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.batch_root = Path(batch_root).resolve()
@@ -156,6 +157,7 @@ class BundleConfig:
         self.visual_prompt_model = visual_prompt_model or None
         self.raw_proposal_dump = raw_proposal_dump or None
         self.yoloe_text_checkpoint_glob = yoloe_text_checkpoint_glob or None
+        self.kernel_sources = list(kernel_sources or [])
         self.correction_manifest = (
             Path(correction_manifest).resolve()
             if correction_manifest is not None
@@ -1224,7 +1226,9 @@ def kernel_metadata(config: BundleConfig) -> dict[str, Any]:
         "enable_internet": True,
         "dataset_sources": [config.dataset_id],
         "competition_sources": [],
-        "kernel_sources": [],
+        # Attaching the training kernel is what makes a fine-tuned
+        # checkpoint reachable at /kaggle/input/**/artifacts/best.pt.
+        "kernel_sources": list(config.kernel_sources),
         "model_sources": [SAM3_KAGGLE_MODEL_SOURCE],
     }
 
@@ -1654,6 +1658,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--kernel-source",
+        action="append",
+        default=[],
+        dest="kernel_sources",
+        help=(
+            "Kaggle kernel whose OUTPUT is mounted under /kaggle/input, repeatable. "
+            "Required to reach a checkpoint produced by a training kernel, e.g. "
+            "mib348/v53-bootstrap-train for artifacts/best.pt."
+        ),
+    )
+    parser.add_argument(
         "--text-prompt-checkpoint-glob",
         default=None,
         help=(
@@ -1710,6 +1725,7 @@ def main() -> None:
             visual_prompt_model=args.visual_prompt_model,
             raw_proposal_dump=args.raw_proposal_dump,
             yoloe_text_checkpoint_glob=args.text_prompt_checkpoint_glob,
+            kernel_sources=args.kernel_sources,
         )
     )
     print(json.dumps(manifest, indent=2))
