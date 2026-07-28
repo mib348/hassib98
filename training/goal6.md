@@ -261,10 +261,46 @@ live in the count-tolerant classes that nothing was checking:
    stroeer was reported PASS. FIXED: `filter_implausible_packet_proposals` (size 3.94-15.41% of
    width, aspect 0.38-2.13, both from the reviewer's own 20 packet rectangles) removes 251 of 493
    (no-limits 75->18, mutabor 59->28, statista 20->4).
-2. **Adjacent fridge counted through the door glass.** OPEN — see below.
-3. **Kraft bowls double-outlined blue+purple** (bowl and packet on the same object). OPEN.
+2. **Adjacent fridge counted through the door glass.** FIXED (2026-07-28) — see below.
+3. **Kraft bowls double-outlined blue+purple** (bowl and packet on the same object). FIXED (2026-07-28) — see below.
 
-### OPEN DEFECT: adjacent cabinet is not a "pane"
+### FIXED: adjacent cabinet is not a "pane" (was OPEN)
+
+Resolved without a GPU, because both defects are FILTERS — they live below the seam, so
+`replay_proposal_filters.py` verifies them against polygons already on disk.
+
+**The signal.** Two cabinets standing side by side meet at their frame posts, forming a dark vertical
+band. `locate_adjacent_cabinet_frame_post` finds that band in the image rather than inferring it from
+how boxes happen to be spread out. Each column is compared against the image's **own** median column,
+which is what makes one threshold hold across a bright showroom and a dim basement kitchen — an
+absolute brightness cut would fire everywhere in one and nowhere in the other.
+
+| image | darkest column in 0.75–0.97 | vs own median | boxes removed |
+|---|---|---|---|
+| mutabor | x=0.841 | 0.53x | 12 |
+| no-limits | x=0.900 | 0.33x | 8 |
+| zeisehof / techhub / stroeer / startup-labs | 0.786–0.910 | 0.48–0.53x | 1–2 each |
+| **saco** (5 GENUINE right-edge items, no neighbour) | — | **0.99x → no post** | **0** |
+
+saco is the control: a blanket "right-edge" rule would have destroyed it, and saco is a *passing*
+image. Two refusals to act are built in — no post found → keep everything; a cut that would remove
+more than 25% of the frame → keep everything, since a post that deep was mis-located.
+
+### FIXED: kraft bowl double-outlined as a packet (was OPEN)
+
+A bowl's printed dish label is a white sticker with black text; so is a soya sachet. 160 of 473 packet
+boxes were the bowl's own label outlined a second time (up to 55% on one image).
+
+The reviewer's own rectangles decide whether that configuration is ever real: **0 of 20 human packet
+rectangles fall inside a kraft bowl.** Sachets are stocked beside the bowls, never on them — so
+containment is always the sticker, not a near-miss needing arbitration. IoU-based dedup could never
+have caught this: a small packet box *inside* a large bowl box has low IoU but ~1.0 containment.
+
+**Both filters are gate-neutral: 185 boxes removed, no image changes pass/fail.** Verified with a
+control run — an apparent 6/12→4/12 drop turned out to be the known artifact of replaying
+already-filtered polygons (the control measured 4/12 too), not a regression from the new code.
+
+### Historical: why the pane rule missed it
 
 `detect_fridge_door_pane_indices` was built for a MIRRORED column separated from the shelf by the
 dark door frame. mutabor and no-limits show something different: a neighbouring cabinet that ABUTS,
@@ -345,3 +381,24 @@ downstream can create a detection that was never made. This is measured, not ass
 
 L3 and L4 are not "unrun" — they run inside every Kaggle pass and their records are in the V55
 manifest. What is missing is a PASSING result from them, which is an L2 detector-quality problem.
+
+### The single blocker, stated plainly (2026-07-28)
+
+Every layer that can be advanced without a GPU has been advanced. What remains is not unimplemented
+code, an undecided design, or an unwritten test — it is **recall**: the detector does not yet find
+enough real objects on 6 of the 10 scored images, and no filter, threshold or scoring change can
+create a detection that was never made.
+
+Recall improves only by running the model, which needs a T4. Quota is spent:
+
+    used 117,693s of 108,000s allowed — refreshes 2026-08-01T00:00:00Z
+
+So L2 (quality), and therefore L3/L4 (a passing result), L5 (the single review) and L6 (bake and
+ship) are date-blocked, not work-blocked. **V57 is staged and is one push when quota returns**, with
+the current runtime hash embedded and its run mode recorded in the manifest instead of hand-edited
+into the notebook.
+
+One item to confirm at push time: the bootstrap checkpoint must be reachable at
+`/kaggle/input/**/artifacts/best.pt`. V57's `dataset_sources` currently lists only the inputs
+dataset. The notebook now aborts with a clear message if the glob matches nothing, so this cannot
+silently degrade a run into a stock-weights run — but the checkpoint dataset may need attaching.
