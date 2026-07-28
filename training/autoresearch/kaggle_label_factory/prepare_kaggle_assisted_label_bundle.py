@@ -51,6 +51,13 @@ COLAB_NUMPY_PIN = "numpy==1.26.4"
 # the secret VALUE to be pasted into a cell.
 COLAB_UPLOADED_TOKEN_PATH = "/content/access_token"
 COLAB_TOKEN_DESTINATION = "/root/.kaggle/access_token"
+# Free Colab reclaims a session after a couple of hours and the VM disk dies
+# with it.  Re-fetching 3.5 GB of SAM 3.1 plus a 171 MB checkpoint every time
+# costs more than some shards do, so the big read-only inputs are cached on
+# Google Drive, which outlives the runtime.  Drive is mounted read-write
+# because populating the cache is the entire point.
+COLAB_DRIVE_MOUNT = "/content/drive"
+COLAB_DRIVE_ROOT = "/content/drive/MyDrive"
 SAM31_SEMANTIC_THRESHOLDS = [
     0.45,
     0.45,
@@ -168,6 +175,7 @@ class BundleConfig:
         colab: bool = False,
         colab_checkpoint_source: str | None = None,
         image_shard: str | None = None,
+        colab_drive_cache: str | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.batch_root = Path(batch_root).resolve()
@@ -186,6 +194,7 @@ class BundleConfig:
         self.kernel_sources = list(kernel_sources or [])
         self.colab = bool(colab)
         self.colab_checkpoint_source = colab_checkpoint_source or None
+        self.colab_drive_cache = colab_drive_cache or None
         self.image_shard = image_shard or None
         # Validate the shard shape here so a typo fails at build time rather
         # than after a GPU runtime has already been allocated.  The runtime
@@ -489,6 +498,7 @@ def parse_colab_checkpoint_source(value: str) -> tuple[str, str, str]:
 def colab_preamble_cell(
     dataset_id: str,
     colab_checkpoint_source: str | None = None,
+    colab_drive_cache: str | None = None,
 ) -> dict[str, Any]:
     """Build the one cell that turns a Colab VM into a Kaggle-shaped kernel.
 
@@ -496,6 +506,30 @@ def colab_preamble_cell(
     is the whole point: the comparison against V55/V56 stays honest because the
     pipeline did not change, only the machine under it.
     """
+    # Without a configured cache the Drive block is omitted entirely rather
+    # than emitted as dead `if None:` code, so the generated notebook only
+    # ever contains machinery it will actually use.
+    drive_block = "_drive_cache = None\n"
+    if colab_drive_cache:
+        drive_block = f"""
+# Drive-backed cache for the two big read-only inputs.  A reclaimed session
+# destroys the VM disk, and re-fetching 3.5 GB of SAM 3.1 plus the checkpoint
+# can cost more than a shard does.  Drive survives the runtime, so a fresh
+# session becomes a copy instead of a download.  Entirely optional: if Drive
+# will not mount, the run continues and simply pays the download.
+_drive_cache = None
+try:
+    from google.colab import drive as _colab_drive
+
+    if not pathlib.Path({COLAB_DRIVE_ROOT!r}).is_dir():
+        _colab_drive.mount({COLAB_DRIVE_MOUNT!r})
+    _drive_cache = pathlib.Path({COLAB_DRIVE_ROOT!r}) / {colab_drive_cache!r}
+    _drive_cache.mkdir(parents=True, exist_ok=True)
+    print("Drive cache:", _drive_cache)
+except Exception as exc:
+    print("Drive cache unavailable, falling back to downloads:", exc)
+    _drive_cache = None
+"""
     checkpoint_block = """
 # (6) No bootstrap checkpoint was requested, so the text lane runs on whatever
 #     the notebook's own glob resolves to.
@@ -555,6 +589,14 @@ if _expected_bytes is None:
         "so a truncated download could not be detected. Refusing to continue."
     )
 
+# A cached checkpoint skips the slow endpoint entirely.  Size must match what
+# Kaggle just reported, so a truncated cache entry is rejected, not trusted.
+if not _ckpt_file.is_file() and _drive_cache is not None:
+    _cached_ckpt = _drive_cache / {Path(output_path).name!r}
+    if _cached_ckpt.is_file() and _cached_ckpt.stat().st_size == _expected_bytes:
+        shutil.copy(_cached_ckpt, _ckpt_file)
+        print("Adopted cached checkpoint from Drive:", _cached_ckpt)
+
 # Escape hatch for a slow endpoint.  Measured at ~1.3 MB/s, this one file can
 # cost 20+ minutes of a preemptible free runtime - longer than the shard it is
 # meant to serve.  So if a copy has been uploaded to Colab session storage,
@@ -603,6 +645,14 @@ if _final_bytes != _expected_bytes:
         "Running on a truncated checkpoint would silently answer a different "
         "question, so this run stops here."
     )
+if _drive_cache is not None:
+    _cache_target = _drive_cache / {Path(output_path).name!r}
+    if not _cache_target.is_file() or _cache_target.stat().st_size != _expected_bytes:
+        try:
+            shutil.copy(_ckpt_file, _cache_target)
+            print("Cached checkpoint on Drive for the next session.")
+        except Exception as exc:
+            print("Could not cache the checkpoint:", exc)
 print("Bootstrap checkpoint ready:", _ckpt_file, _final_bytes, "bytes")
 """
 
@@ -636,12 +686,17 @@ if subprocess.run(["nvidia-smi"], capture_output=True).returncode != 0:
 
 # (2) Kaggle's two well-known directories.
 #
-#     Colab ships its own Kaggle-compatibility shim: it bind-mounts /dev/sda1
-#     at /kaggle/input READ-ONLY (and noexec).  /kaggle and /kaggle/working are
-#     ordinary writable directories, but /kaggle/input is not, so staging into
-#     it fails with "OSError: [Errno 30] Read-only file system".  Colab runs as
-#     uid 0, so the mount can simply be removed, which turns the path back into
-#     a normal empty directory we own.
+#     /kaggle/input is kagglehub's MOUNT ROOT on Colab, not a plain directory:
+#     it arrives as a READ-ONLY (and noexec) bind mount, and kagglehub mounts
+#     Kaggle *models* underneath it instead of downloading them.  /kaggle and
+#     /kaggle/working are ordinary writable directories, so a write test there
+#     passes and hides the problem; staging into /kaggle/input then fails with
+#     "OSError: [Errno 30] Read-only file system".
+#
+#     Colab runs as uid 0, so the mount is simply removed here, which turns the
+#     path back into a normal directory this notebook owns.  That is only safe
+#     because DISABLE_COLAB_CACHE is set below - without it kagglehub would try
+#     to mount into the path we just unmounted and hang indefinitely.
 COLAB_INPUT_ROOT = pathlib.Path("/kaggle/input")
 COLAB_WORKING_ROOT = pathlib.Path("/kaggle/working")
 if os.path.ismount(str(COLAB_INPUT_ROOT)):
@@ -693,9 +748,40 @@ if not _kaggle_token_path.is_file():
     )
 _kaggle_token = _kaggle_token_path.read_text().strip()
 
+# Make kagglehub DOWNLOAD rather than MOUNT.  Inside Colab, kagglehub mounts
+# Kaggle models under /kaggle/input via a FUSE-style cache; step (2) removed
+# that mount so the inputs could be staged, and a mount attempt into an
+# unmounted path hangs forever (observed: 18+ minutes on "Mounting files to
+# /kaggle/input/sam3-1/pytorch/default/1..." with no error).  Datasets are
+# unaffected - they always download - which is why the bundle worked and the
+# model did not.  Downloading is also simply faster here: 61 MB/s measured.
+os.environ["DISABLE_COLAB_CACHE"] = "1"
+
 import kagglehub
 
 print("Authenticated with Kaggle as:", kagglehub.whoami())
+
+{drive_block}
+
+def _cached(name, expected_bytes, fetch):
+    # Return a local path for `name`, preferring the Drive cache.
+    #
+    # A cache entry is only trusted when its size matches, so a partial copy
+    # left behind by a reclaimed session can never be mistaken for the real
+    # file.  Anything freshly fetched is written back for the next session.
+    if _drive_cache is not None:
+        hit = _drive_cache / name
+        if hit.is_file() and (expected_bytes is None or hit.stat().st_size == expected_bytes):
+            print("cache hit:", name, hit.stat().st_size, "bytes")
+            return hit
+    fetched = fetch()
+    if _drive_cache is not None and fetched is not None and pathlib.Path(fetched).is_file():
+        try:
+            shutil.copy(fetched, _drive_cache / name)
+            print("cached for next session:", name)
+        except Exception as exc:
+            print("could not populate cache for", name, "-", exc)
+    return fetched
 
 # The frozen 20-image input bundle.  The next cell verifies its SHA-256, so a
 # stale dataset version fails loudly instead of quietly reviewing old images.
@@ -709,14 +795,21 @@ for _bundle in _dataset_dir.rglob("*" + {INPUT_ARCHIVE_FILENAME!r}):
 
 # The pinned official SAM 3.1 checkpoint (3.5 GB).  The notebook accepts at
 # most one copy under /kaggle/input, so link exactly the one file.
-_sam3_dir = pathlib.Path(kagglehub.model_download({SAM3_KAGGLE_MODEL_SOURCE!r}))
+def _fetch_sam3():
+    _dir = pathlib.Path(kagglehub.model_download({SAM3_KAGGLE_MODEL_SOURCE!r}))
+    for _found in _dir.rglob({SAM3_FILENAME!r}):
+        return _found
+    return None
+
+
+_sam3_source = _cached({SAM3_FILENAME!r}, {SAM3_EXPECTED_SIZE}, _fetch_sam3)
+if _sam3_source is None:
+    raise RuntimeError("The SAM 3.1 checkpoint could not be resolved.")
 _staged_sam3 = COLAB_INPUT_ROOT / "sam3-1"
 _staged_sam3.mkdir(parents=True, exist_ok=True)
-for _weights in _sam3_dir.rglob({SAM3_FILENAME!r}):
-    _target = _staged_sam3 / {SAM3_FILENAME!r}
-    if not _target.exists():
-        _target.symlink_to(_weights)
-    break
+_target = _staged_sam3 / {SAM3_FILENAME!r}
+if not _target.exists():
+    _target.symlink_to(_sam3_source)
 
 # Guard the two counts the next cells assert on, so a duplicate is reported
 # here with context rather than as a bare count mismatch further down.
@@ -749,6 +842,7 @@ def build_notebook(
     yoloe_text_checkpoint_glob: str | None = None,
     colab: bool = False,
     colab_checkpoint_source: str | None = None,
+    colab_drive_cache: str | None = None,
 ) -> dict[str, Any]:
     RUN_MODE_ARGUMENTS = list(run_mode_arguments or [])
     YOLOE_TEXT_CHECKPOINT_GLOB = yoloe_text_checkpoint_glob or ""
@@ -1528,7 +1622,11 @@ print(smoke_result_path.read_text(encoding="utf-8"))
         # Prepend, never rewrite.  Keeping the Kaggle cells untouched is what
         # makes a Colab run comparable with the Kaggle runs it is measured
         # against; the delta is exactly this one cell.
-        cells = [colab_preamble_cell(DEFAULT_DATASET_ID, colab_checkpoint_source)] + cells
+        cells = [
+            colab_preamble_cell(
+                DEFAULT_DATASET_ID, colab_checkpoint_source, colab_drive_cache
+            )
+        ] + cells
     return {
         "cells": cells,
         "metadata": {
@@ -1825,6 +1923,7 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         yoloe_text_checkpoint_glob=config.yoloe_text_checkpoint_glob,
         colab=config.colab,
         colab_checkpoint_source=config.colab_checkpoint_source,
+        colab_drive_cache=config.colab_drive_cache,
     )
     write_json(config.output_dir / NOTEBOOK_FILENAME, notebook)
     write_json(config.output_dir / "kernel-metadata.json", kernel_metadata(config))
@@ -1924,6 +2023,7 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         # recording that here keeps a downloaded result self-describing.
         "execution_platform": "colab" if config.colab else "kaggle",
         "colab_checkpoint_source": config.colab_checkpoint_source,
+        "colab_drive_cache": config.colab_drive_cache,
         "runtime_sha256": runtime_hash,
         "input_archive_sha256": input_archive_hash,
         "input_dataset": {
@@ -2058,6 +2158,16 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--colab-drive-cache",
+        default=None,
+        help=(
+            "Folder under Google Drive's MyDrive used to cache the big "
+            "read-only inputs (SAM 3.1, the bootstrap checkpoint). Free Colab "
+            "reclaims sessions and destroys the VM disk; Drive outlives it, so "
+            "a fresh session becomes a copy instead of a multi-GB download."
+        ),
+    )
+    parser.add_argument(
         "--colab",
         action="store_true",
         help=(
@@ -2115,6 +2225,7 @@ def main() -> None:
             kernel_sources=args.kernel_sources,
             colab=args.colab,
             colab_checkpoint_source=args.colab_checkpoint_source,
+            colab_drive_cache=args.colab_drive_cache,
             image_shard=args.image_shard,
         )
     )
