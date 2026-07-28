@@ -678,7 +678,14 @@ import urllib.error
 import urllib.request
 
 # (1) Fail before spending ten minutes downloading 3.5 GB onto a CPU runtime.
-if subprocess.run(["nvidia-smi"], capture_output=True).returncode != 0:
+#     On a CPU runtime nvidia-smi is not merely unhappy, it is ABSENT, so this
+#     has to survive FileNotFoundError as well as a non-zero exit - otherwise
+#     the clear "pick a T4" message is replaced by a bare FileNotFoundError.
+try:
+    _gpu_probe = subprocess.run(["nvidia-smi"], capture_output=True).returncode
+except FileNotFoundError:
+    _gpu_probe = 127
+if _gpu_probe != 0:
     raise RuntimeError(
         "No GPU is attached. Choose Runtime > Change runtime type > T4 GPU, "
         "then run this notebook again."
