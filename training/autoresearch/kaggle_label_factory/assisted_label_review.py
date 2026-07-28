@@ -7703,6 +7703,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     # Proposals are produced per image and written per image, so the shards can
     # simply be merged afterwards. The detector validator still demands all
     # twenty, which is deliberate: a partial run must never be scoreable.
+    # `sharded_target_names` is None for a full pass, which leaves every loop
+    # below iterating over all twenty images exactly as before.  It is only
+    # non-None for a sharded run, so this cannot change a full pass at all.
+    sharded_target_names: set[str] | None = None
     if args.image_shard:
         shard_index, shard_count = args.image_shard
         if shard_index < 1 or shard_index > shard_count:
@@ -7710,22 +7714,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 f"--image-shard {shard_index}/{shard_count} is out of range; "
                 f"index must be between 1 and {shard_count}."
             )
-        selected = [
-            path
-            for position, path in enumerate(target_paths)
+        selected_names = [
+            name
+            for position, name in enumerate(manifest["target_image_names"])
             if position % shard_count == (shard_index - 1)
         ]
-        if not selected:
+        if not selected_names:
             raise SystemExit(
                 f"--image-shard {shard_index}/{shard_count} selected no images "
-                f"from {len(target_paths)} targets."
+                f"from {len(manifest['target_image_names'])} targets."
             )
+        sharded_target_names = set(selected_names)
         print(
             f"[shard {shard_index}/{shard_count}] "
-            f"{len(selected)} of {len(target_paths)} target images: "
-            + ", ".join(path.name for path in selected)
+            f"{len(selected_names)} of {len(manifest['target_image_names'])} "
+            "target images: " + ", ".join(selected_names)
         )
-        target_paths = selected
+        target_paths = [oriented_image_paths[name] for name in selected_names]
     visual_predictions = visual_prompt_targets(
         model=visual_model,
         visual_prompt_plans=visual_prompt_plans,
@@ -7918,6 +7923,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     correction_guided_records: list[dict[str, Any]] = []
     correction_tiled_recovery_records: list[dict[str, Any]] = []
     for image_name in manifest["image_names"]:
+        # THE shard has to be applied here too, not only to the visual-prompt
+        # lane above.  This loop is where SAM 3.1 semantic discovery, rescue,
+        # correction-guided recovery and L3 refinement run, and that is the
+        # dominant cost of a pass.  Sharding only `target_paths` left this loop
+        # processing all twenty images, so `--image-shard 1/14` cost almost as
+        # much as a full pass (measured: 60+ minutes on a Colab T4) while
+        # producing an INCOMPLETE result - the other thirteen targets were
+        # written without their visual-prompt lane.  References are never
+        # skipped: every shard needs them to stay comparable.
+        if (
+            sharded_target_names is not None
+            and image_name not in reference_image_names
+            and image_name not in sharded_target_names
+        ):
+            continue
         image_path = oriented_image_paths[image_name]
         correction = corrections[image_name]
         semantic_instances: list[dict[str, Any]] = []
@@ -9685,10 +9705,12 @@ def parse_args() -> argparse.Namespace:
         metavar="K/N",
         help=(
             "Process only every Nth TARGET image, starting at K (1-based), so a "
-            "long pass can be split into short ones. At the measured ~4.5 min "
-            "per image, --image-shard 1/7 is roughly 13 minutes instead of 90. "
-            "Reference images are never sharded: every shard needs all of them "
-            "to stay comparable. Shards write per-image artifacts and merge."
+            "long pass can be split into short ones. Reference images are never "
+            "sharded: every shard needs all of them to stay comparable, so each "
+            "shard pays the reference calibration again and shards do NOT divide "
+            "wall-clock evenly. Shards write per-image artifacts and merge; the "
+            "detector validator still demands all twenty, so a partial run is "
+            "never scoreable."
         ),
     )
     parser.add_argument(
