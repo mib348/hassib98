@@ -640,3 +640,39 @@ toolbar, but `window.monaco.editor.getEditors()[i].getModel().setValue(...)` and
 `window.colab.global.notebook.cells[i].manualExecute()` work, and `cell.lastExecutionError` carries
 the real traceback. Free tier allows **one** GPU session, and modal dialogs silently block queued
 executions.
+
+### L6 exercised end-to-end on the BOOTSTRAP checkpoint (2026-07-29)
+
+The L6 chain had only ever been run against stock `yoloe-26x-seg.pt`. With the bootstrap checkpoint
+now recovered locally (171,641,721 bytes, sha256 `db607d7b12c1808969f7c565…`), the whole chain was
+run against **real fine-tuned weights** for the first time, on CPU. Nothing was promoted and `/ai`
+was not touched.
+
+| link | result |
+|---|---|
+| `export_text_prompts.py --device cpu` | **works** — ONNX + manifest in 38.4s, all 7 prompts bound |
+| `run_frozen_count_gate.py --provider cpu` | **works** — 8 cases, 42 assertions, scored end to end |
+
+    assertion_pass_rate=0.1905 (8/42)  cases=0/8  gate_opened=False
+
+**The bootstrap checkpoint is not better than stock on the shipped path — it is slightly worse.**
+Stock scored 0.2143 (9/42) in the earlier drill; the bootstrap checkpoint scores 0.1905 (8/42) on
+the same 42 assertions. That is not a contradiction of Layer 1's purpose (it teaches "one cup is one
+object" from coarse rectangles, and is non-promotable by construction), but it does settle a
+question that was open: **shipping the bootstrap checkpoint is not an option, and no amount of L6
+work changes that.** L6 completion requires the L5 release model.
+
+Two failures worth carrying forward:
+
+- `kraft paper bowl: expected 22, got 0` (statista) and `expected 9, got 0` (zeisehof) — the
+  bootstrap model finds **no** kraft bowls on some images through the shipped path.
+- `wooden chopstick tip: expected 13, got 0` reproduces on both startup-labs and techhub, which is
+  the same chopstick recall failure already measured in the label factory and in the earlier stock
+  drill. It is a model problem, not a proposal-lane artifact, and it survives export.
+
+The gate did exactly what it exists for: it refused. The 0.95 bar was not touched, and
+`reviewed_fridge_counts.json` was not edited.
+
+Caution when reading gate exit codes from a shell: piping the command (`... | tail`) makes `$?` the
+exit status of `tail`, so `EXIT=0` can appear next to `gate_opened=False`. Read the printed verdict
+or the JSON report, not the piped exit code.
