@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "description": "Eight frozen count cases taken verbatim from the reviewer's own corrections. Never edit a case to make a model pass.",
+  "source_manifest": "training/autoresearch/results/yoloe26x_sam31_assisted_review_kaggle_v48_20260726/review_corrections_current/review_correction_manifest.json",
+  "cases": [
+    {
+      "image_name": "garbe-hafencity-2026-05-28-o3SCe5us55.jpg",
+      "expected_counts": {
+        "black and white soya sauce packet": 1,
+        "black soya sauce cup": 1,
+        "red teriyaki sauce cup": 2,
+        "white wayo dip cup": 7
+      },
+      "source": "reviewer_correction_manifest_v48"
+    },
+    {
+      "image_name": "mb-energy-hafencity-2026-05-27-qoyLKgpg1a.jpg",
+      "expected_counts": {
+        "black soya sauce cup": 7,
+        "orange chili mayo cup": 6,
+        "red teriyaki sauce cup": 4,
+        "white wayo dip cup": 6,
+        "wooden chopstick tip": 36
+      },
+      "source": "reviewer_correction_manifest_v48"
+    },
+    {
+      "image_name": "searenergy-neustadt-2026-05-20-wtgoympVmU.jpg",
+      "expected_counts": {
+        "black and white soya sauce packet": 6,
+        "black soya sauce cup": 2,
+        "orange chili mayo cup": 2,
+        "red teriyaki sauce cup": 2,
+        "white wayo dip cup": 2
+      },
+      "source": "reviewer_correction_manifest_v48"
+    },
+    {
+      "image_name": "startup-labs-bahrenfeld-2026-05-26-O18c1zqTZc.jpg",
+      "expected_counts": {
+        "black and white soya sauce packet": 12,
+        "black soya sauce cup": 3,
+        "orange chili mayo cup": 2,
+        "red teriyaki sauce cup": 2,
+        "white wayo dip cup": 1,
+        "wooden chopstick tip": 13
+      },
+      "source": "reviewer_correction_manifest_v48"
+    },
+    {
+      "image_name": "statista-hamburg-2026-05-27-Bvzf0qFTl4.jpg",
+      "expected_counts": {
+        "black and white soya sauce packet": 4,
+        "black soya sauce cup": 12,
+        "kraft paper bowl": 22,
+        "orange chili mayo cup": 8,
+        "red teriyaki sauce cup": 10,
+        "white wayo dip cup": 8
+      },
+      "source": "reviewer_correction_manifest_v48"
+    },
+    {
+      "image_name": "stroeer-hamburg-2026-05-27-wDrWF2LhIj.jpg",
+      "expected_counts": {
+        "black and white soya sauce packet": 8,
+        "black soya sauce cup": 4,
+        "orange chili mayo cup": 3,
+        "red teriyaki sauce cup": 6,
+        "white wayo dip cup": 3
+      },
+      "source": "reviewer_correction_manifest_v48"
+    },
+    {
+      "image_name": "techhub-lurup-2026-05-22-n7HxPKNSvB.jpg",
+      "expected_counts": {
+        "black and white soya sauce packet": 5,
+        "black soya sauce cup": 2,
+        "orange chili mayo cup": 2,
+        "red teriyaki sauce cup": 0,
+        "white wayo dip cup": 2,
+        "wooden chopstick tip": 13
+      },
+      "source": "reviewer_correction_manifest_v48"
+    },
+    {
+      "image_name": "zeisehof-22765-2026-05-27-lFBj3c3NwF.jpg",
+      "expected_counts": {
+        "black soya sauce cup": 5,
+        "kraft paper bowl": 9,
+        "orange chili mayo cup": 2,
+        "red teriyaki sauce cup": 3,
+        "white wayo dip cup": 2
+      },
+      "source": "reviewer_correction_manifest_v48"
+    }
+  ]
+}
