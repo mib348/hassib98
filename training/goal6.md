@@ -676,3 +676,27 @@ The gate did exactly what it exists for: it refused. The 0.95 bar was not touche
 Caution when reading gate exit codes from a shell: piping the command (`... | tail`) makes `$?` the
 exit status of `tail`, so `EXIT=0` can appear next to `gate_opened=False`. Read the printed verdict
 or the JSON report, not the piped exit code.
+
+### L5 handoff gate verified, and the V56 baseline V57 has to beat (2026-07-29)
+
+`generate_local_review_page.py --require-detector-validator` was run against the real V56
+quarantine artifact. It refused, and — the part that matters — **it wrote no `review.html` at all**;
+the output directory was left empty. The hard rule ("no review page until the detector validator
+allows handoff") is enforced in code, not just in the plan.
+
+    Detector validator BLOCKS human handoff: required-item count accuracy 0.4167 is not > 0.95
+    (scored=12, passed=5, failed=7, package_complete=True,
+     kraft_ocr_consistency=0.7500 over 20 images, kraft_ocr_gate_passed=False)
+
+This is the number V57 has to move: **0.4167 → >0.95**, i.e. 5 of 12 scored images passing today
+against 12 of 12 required. `package_complete=True` confirms the blocker is detector QUALITY, not a
+missing artifact — which is the same conclusion the earlier arbitration work reached from the other
+direction. A second, independent gate is also failing: `kraft_ocr_gate_passed=False` at 0.7500
+consistency over the twenty images.
+
+Two things follow. First, L5 is genuinely blocked by L2 quality and nothing else, so there is no L5
+work to do until a better proposal pass exists. Second, the gap is large: this is not a case where
+a marginally better pass tips it over. Note also that the earlier "4 of 10 detector images pass"
+figure is superseded — the validator scores 12 images, not 10.
+
+Nothing was promoted, no review page was produced, and the >0.95 bar was not touched.
