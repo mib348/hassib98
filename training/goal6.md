@@ -700,3 +700,27 @@ a marginally better pass tips it over. Note also that the earlier "4 of 10 detec
 figure is superseded — the validator scores 12 images, not 10.
 
 Nothing was promoted, no review page was produced, and the >0.95 bar was not touched.
+
+### The local replay path is proven, and it is the real unlock (2026-07-29)
+
+`replay_proposal_filters.py` was written last session and, like the raw dump and `--image-shard`,
+had never been executed — because V57 had never run, so no dump existed to replay. Both of the
+other two turned out to be broken. This one was smoke-tested against a schema-exact synthetic dump
+built from the real twenty images, and **it works**:
+
+    accuracy=0.0833 scored=12 passed=1 handoff=False
+
+The numbers are meaningless as quality (the boxes are synthetic, one per class). What matters is
+the plumbing: it read all twenty dump files, ran the filter stages, and scored **12 images** —
+the same `scored=12` the detector validator reports on a real artifact, which confirms the replay
+and the gate share a scoring path rather than approximating each other.
+
+**Why this matters more than the V57 numbers themselves.** Once a raw dump exists, every downstream
+question — thresholds, size bounds, arbitration rules, scoring policy — is answerable locally in
+seconds with no GPU. That is what makes the remaining work tractable on any schedule, and it
+survives a reclaimed Colab session, because the dump is a file and not a runtime.
+
+It does NOT cover anything above the seam: prompts, checkpoints, tiling and confidence floors still
+need a GPU pass. Since the measured blocker is cup colour confusion in the text-prompt embeddings —
+a MODEL problem — the replay path cannot fix the 0.4167, but it can prove cheaply that no filter
+change will either.
