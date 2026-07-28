@@ -724,3 +724,45 @@ It does NOT cover anything above the seam: prompts, checkpoints, tiling and conf
 need a GPU pass. Since the measured blocker is cup colour confusion in the text-prompt embeddings —
 a MODEL problem — the replay path cannot fix the 0.4167, but it can prove cheaply that no filter
 change will either.
+
+### The prepared next experiment: separate the PROMPT from the CLASS IDENTITY (2026-07-29)
+
+The measured blocker is cup colour confusion in the text-prompt embeddings, and `goal6.md` already
+records that this is fixed by prompts or fine-tuning, not by filters. This is the concrete
+experiment, written down so it is one run rather than a fresh investigation.
+
+**The mechanism to test.** The four cup prompts are
+
+    "black soya sauce cup"   "red teriyaki sauce cup"   "white wayo dip cup"   "orange chili mayo cup"
+
+They differ by a colour adjective plus a sauce name, and the sauce name is **not visually
+observable** — it is at best printed on a small sticker. Three of the four words in each phrase are
+therefore either shared ("sauce cup") or unreadable at this resolution, which leaves one adjective
+carrying the entire discriminative burden. That is a plausible mechanism for garbe proposing 12
+black soya cups where 1 exists.
+
+**Candidate prompt sets** (class ORDER must not change — the ids are load-bearing):
+
+| variant | cup prompts |
+|---|---|
+| A — lid made explicit | `sauce cup with a black lid`, `... red lid`, `... white lid`, `... orange lid` |
+| B — drop the unobservable noun | `black cup`, `red cup`, `white cup`, `orange cup` |
+| C — lid only | `black lid`, `red lid`, `white lid`, `orange lid` |
+
+**The safety constraint, and why it is easy to satisfy.** `FIXED_CLASS_NAMES` is class IDENTITY —
+correction manifests and per-class thresholds key on those strings, and
+`FIXED_CLASS_NAMES.index(...)` is used for the packet and chopstick classes. It must NOT change.
+The reviewer's frozen counts use a *different* vocabulary again (`sojasauce_cup`,
+`teriyakisauce_cup`, ids 0-5), so the reviewer's file is already decoupled and does not need
+touching either — which matters, because editing it is forbidden.
+
+So the change is: add a separate prompt list used ONLY where the embedding is built
+(`get_text_pe` / `set_classes` in `export_text_prompts.py`, and the text lane in the runtime),
+defaulting to `FIXED_CLASS_NAMES` so existing behaviour is bit-identical unless a variant is
+selected. Identity stays put; only the words handed to the text encoder move.
+
+**How to evaluate cheaply.** Prompts live ABOVE the replay seam, so `replay_proposal_filters.py`
+cannot score them — each variant needs its own proposal pass. But the frozen count gate does NOT:
+`export_text_prompts.py` + `run_frozen_count_gate.py` score a variant end to end on CPU in about
+two minutes (measured: 38.4s export, gate a few minutes). That is the fast screen. Run the full
+label-factory pass only for a variant that moves the gate off 0.1905.
