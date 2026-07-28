@@ -555,6 +555,22 @@ if _expected_bytes is None:
         "so a truncated download could not be detected. Refusing to continue."
     )
 
+# Escape hatch for a slow endpoint.  Measured at ~1.3 MB/s, this one file can
+# cost 20+ minutes of a preemptible free runtime - longer than the shard it is
+# meant to serve.  So if a copy has been uploaded to Colab session storage,
+# adopt it instead, but ONLY when its size matches what Kaggle reports, so a
+# hand-placed file can never quietly substitute for the real checkpoint.
+_seeded_ckpt = pathlib.Path("/content") / {Path(output_path).name!r}
+if not _ckpt_file.is_file() and _seeded_ckpt.is_file():
+    if _seeded_ckpt.stat().st_size == _expected_bytes:
+        shutil.copy(_seeded_ckpt, _ckpt_file)
+        print("Adopted pre-staged checkpoint from", _seeded_ckpt)
+    else:
+        print(
+            "Ignoring pre-staged", _seeded_ckpt, "- it is",
+            _seeded_ckpt.stat().st_size, "bytes, expected", _expected_bytes,
+        )
+
 for _attempt in range(1, 13):
     _have = _ckpt_file.stat().st_size if _ckpt_file.is_file() else 0
     if _have >= _expected_bytes:
