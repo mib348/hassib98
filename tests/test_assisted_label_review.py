@@ -4442,6 +4442,40 @@ class AssistedLabelReviewTest(unittest.TestCase):
         filtered = self.module.filter_by_reference_support(instances, minimum=2)
         self.assertEqual([row["class_id"] for row in filtered], [1, 2])
 
+    def test_image_shards_cover_every_target_exactly_once(self) -> None:
+        """Chunking must partition the targets, not sample them.
+
+        A full pass is ~4.5 min/image, so 20 images is ~90 minutes -- too long
+        for a Colab runtime that can be reclaimed mid-pass, and far too long a
+        feedback loop. Shards make that ~13-minute pieces, but only if the
+        shards form a true partition: an image dropped by every shard would
+        silently never be proposed, and one counted twice would be processed at
+        double cost. Both failures are invisible in a single shard's output.
+        """
+        import argparse
+
+        parse = self.module.parse_image_shard
+        self.assertEqual(parse("1/7"), (1, 7))
+        self.assertEqual(parse("7/7"), (7, 7))
+        for malformed in ("0/7", "8/7", "abc", "3", "1/0"):
+            with self.subTest(value=malformed):
+                # Rejected at parse time, before any model loads -- on a metered
+                # GPU, failing late costs real money.
+                with self.assertRaises(argparse.ArgumentTypeError):
+                    parse(malformed)
+
+        for target_count in (14, 20):
+            for shard_count in (2, 3, 7):
+                covered: list[int] = []
+                for shard_index in range(1, shard_count + 1):
+                    covered += [
+                        position
+                        for position in range(target_count)
+                        if position % shard_count == (shard_index - 1)
+                    ]
+                with self.subTest(targets=target_count, shards=shard_count):
+                    self.assertEqual(sorted(covered), list(range(target_count)))
+
     def test_packet_box_on_a_kraft_bowls_own_label_is_dropped(self) -> None:
         """One object, one outline: the bowl's dish label is not a sachet.
 

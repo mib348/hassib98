@@ -1716,6 +1716,37 @@ def filter_adjacent_cabinet_instances(
     return kept, record
 
 
+def parse_image_shard(value: str) -> tuple[int, int]:
+    """Parse a "K/N" shard argument into (index, count).
+
+    Validated here rather than at use time so a typo fails immediately, before
+    any model is loaded. On a metered GPU the difference between failing at
+    argument-parse time and failing three minutes into a run is real money.
+    """
+
+    text = str(value).strip()
+    if "/" not in text:
+        raise argparse.ArgumentTypeError(
+            f"--image-shard expects K/N, for example 1/7, not {value!r}."
+        )
+    raw_index, _, raw_count = text.partition("/")
+    try:
+        index, count = int(raw_index), int(raw_count)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"--image-shard expects two integers as K/N, not {value!r}."
+        ) from None
+    if count < 1:
+        raise argparse.ArgumentTypeError(
+            f"--image-shard count must be at least 1, got {count}."
+        )
+    if index < 1 or index > count:
+        raise argparse.ArgumentTypeError(
+            f"--image-shard index must be between 1 and {count}, got {index}."
+        )
+    return index, count
+
+
 def filter_implausible_packet_proposals(
     instances: list[dict[str, Any]],
     image_width: int,
@@ -7653,6 +7684,48 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     visual_prompt_model_path = args.visual_prompt_model or args.yoloe_model
     visual_model = YOLOE(str(visual_prompt_model_path))
     target_paths = [oriented_image_paths[name] for name in manifest["target_image_names"]]
+
+    # --- Chunking: run a SLICE of the target images instead of all of them.
+    #
+    # One full pass measured ~4.5 minutes per image, so twenty images is ~90
+    # minutes of uninterrupted GPU time. That is fine on a dedicated Kaggle
+    # kernel and hostile everywhere else: a Colab free tier can reclaim the
+    # runtime mid-pass, and 90 minutes is far too long a feedback loop to
+    # iterate against. Splitting the run into shards of three images turns it
+    # into ~13-minute pieces that can be run back to back, resumed after a
+    # disconnect, and spread across sessions.
+    #
+    # Only the TARGET images are sharded. Reference images carry the reviewer's
+    # rectangles and are what every other lane calibrates against -- exemplar
+    # crops, colour references, the kraft ruler -- so every shard must see all
+    # of them or shards would not be comparable to each other.
+    #
+    # Proposals are produced per image and written per image, so the shards can
+    # simply be merged afterwards. The detector validator still demands all
+    # twenty, which is deliberate: a partial run must never be scoreable.
+    if args.image_shard:
+        shard_index, shard_count = args.image_shard
+        if shard_index < 1 or shard_index > shard_count:
+            raise SystemExit(
+                f"--image-shard {shard_index}/{shard_count} is out of range; "
+                f"index must be between 1 and {shard_count}."
+            )
+        selected = [
+            path
+            for position, path in enumerate(target_paths)
+            if position % shard_count == (shard_index - 1)
+        ]
+        if not selected:
+            raise SystemExit(
+                f"--image-shard {shard_index}/{shard_count} selected no images "
+                f"from {len(target_paths)} targets."
+            )
+        print(
+            f"[shard {shard_index}/{shard_count}] "
+            f"{len(selected)} of {len(target_paths)} target images: "
+            + ", ".join(path.name for path in selected)
+        )
+        target_paths = selected
     visual_predictions = visual_prompt_targets(
         model=visual_model,
         visual_prompt_plans=visual_prompt_plans,
@@ -9597,6 +9670,19 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Keep a target proposal only when at least this many independent visual references agree. "
             "Two is conservative against hallucinations but may reduce recall."
+        ),
+    )
+    parser.add_argument(
+        "--image-shard",
+        type=parse_image_shard,
+        default=None,
+        metavar="K/N",
+        help=(
+            "Process only every Nth TARGET image, starting at K (1-based), so a "
+            "long pass can be split into short ones. At the measured ~4.5 min "
+            "per image, --image-shard 1/7 is roughly 13 minutes instead of 90. "
+            "Reference images are never sharded: every shard needs all of them "
+            "to stay comparable. Shards write per-image artifacts and merge."
         ),
     )
     parser.add_argument(
