@@ -1047,3 +1047,92 @@ on Colab (~40 min) rather than fighting the download API for a file we can regen
   destroying cups; it only ever runs inside the visual and audited-recovery lanes, never on the
   union. The conclusion was wrong.
 - The exact V57 build command is recorded in `goal6.md`.
+
+
+---
+
+# SESSION 2026-07-28 (C2) — V57 ported to Colab; the checkpoint 404 was a wrong path
+
+## The headline: no retrain was ever needed
+
+The previous handoff recommended re-running bootstrap training (~40 min) because `best.pt` "404s
+from Kaggle's download API". **That diagnosis was wrong and the retrain is cancelled.** The file is
+reachable; the path was. `GET /api/v1/kernels/output?userName=..&kernelSlug=..` returns `fileName`
+values WITH directories:
+
+    yoloe26x_bootstrap/artifacts/best.pt                                 -> 200, 171,641,721 bytes
+    yoloe26x_bootstrap/runs/yoloe_26x_seg_gold_standard/weights/best.pt  -> exists
+    artifacts/best.pt                                                    -> 404  (the old guess)
+
+Two things hid it: the flat listing (and the MCP `list_notebook_files` view, which also reports
+absurd sizes — 677 bytes for a 171 MB checkpoint) drops the `yoloe26x_bootstrap/` prefix; and the
+second copy was guessed as ultralytics' default `runs/segment/train/`, but the project uses a custom
+run name. Downloaded and verified end to end: **171,641,721 bytes, sha256 `db607d7b12c1808969f7c565…`**.
+Rule going forward: resolve the FULL path from the JSON listing endpoint before declaring a file gone.
+
+## Shipped (2 commits, tests green)
+
+- **`--colab`** on the bundle builder. It *prepends one preamble cell* and leaves every existing
+  cell byte-identical — the machine changes, the pipeline does not, so a Colab result stays
+  comparable with V55/V56. Manifest records `execution_platform`.
+- **`--colab-checkpoint-source owner/kernel:full/path`** — forces the caller to state the full path,
+  which is exactly the trap above.
+- **`--image-shard K/N` is now a BUILD flag**, not a hand-edit, so every shard is reproducible from
+  a command (V55/V56 got their run modes by editing notebook JSON).
+- Tests: **16 passed, 7 subtests** in `tests/test_prepare_kaggle_assisted_label_bundle.py`
+  (note: `tests/` and `training/autoresearch` are gitignored by project config, so the test file
+  itself is not version-controlled — same as the earlier 107).
+
+## Colab facts, measured on a real free T4 — not assumed
+
+| | Kaggle (V55/V56) | Colab free |
+|---|---|---|
+| GPU | T4 16 GB | T4 **15360 MiB** |
+| RAM | ~30 GB | **13.6 GB** ← the main untested risk for SAM 3.1 |
+| disk free | — | 70.8 GB |
+| NumPy | <2 | 2.0.2, pinned back to 1.26.4 |
+
+**Proven on the runtime, in order:** preamble → env gate with **bundle SHA-256 match** (so the
+existing Kaggle dataset v5 is already byte-identical to a fresh build — no re-upload needed) →
+pinned pip stack + CUDA/NumPy preflight → embedded 476 KB runtime → SAM 3.1 resolve. Cells 0–5 all
+completed with no error. A fresh process imports `1.26.4 2.11.0+cu128 0.26.0+cu128 4.13.0 True`.
+
+## Two traps that cost this session, both now handled in code
+
+- **`/kaggle/input` is a READ-ONLY bind mount on Colab** (`/dev/sda1 … ro,nosuid,nodev,noexec`) —
+  Colab's own Kaggle-compat shim. `/kaggle` and `/kaggle/working` ARE writable, so a working-dir
+  write test passes and hides it; staging then dies with `OSError: [Errno 30]`. Colab is uid 0, so
+  the preamble `umount`s it first (verified rc=0, writes succeed after).
+- **The kernel-output endpoint serves ~1.3 MB/s and closes the connection early**, so a plain
+  `read()` returns a **silently truncated** file — the host's first attempt got 113,950,009 of
+  171,641,721 bytes with no exception. The preamble now takes the reported `Content-Length`, resumes
+  with `Range`, and refuses to continue unless the final size matches.
+
+## NOT DONE: shard 1/7 has not produced its artifact
+
+Everything upstream of it works. The blocker is purely **getting the 171 MB checkpoint into the
+Colab VM**, and both routes are slow, not broken:
+- Kaggle kernel-output → Colab: works with the resumable loop (one run completed and verified), but
+  takes ~10–25 min per runtime.
+- Host → Colab session upload: also slow (host uplink; ~20 MB per 5 min observed).
+
+The size guard proved its worth here — the notebook **refused a still-uploading partial file**
+instead of running the shard against a truncated checkpoint.
+
+**Recommended next step:** publish the verified `best.pt` once as its own private Kaggle *dataset*.
+Dataset pulls into Colab ran at **61 MB/s** (the 55 MB bundle landed in under a second), which turns
+a 10–25 minute flaky step into a few seconds for every one of the 7 shards. The verified file is at
+`<scratch>/ckpt/best.pt`. This is the only remaining piece between here and a V57 result.
+
+## Driving Colab (hard-won, saves an hour next time)
+
+- The UI uses **closed shadow roots**: `document.querySelector` cannot reach the toolbar; the
+  accessibility snapshot can. Click cells via their own "Run cell" buttons from a fresh snapshot.
+- `window.monaco.editor.getEditors()[i]` is **NOT** cell `i` — editors are recycled as cells
+  virtualize. Bind by DOM containment: find the editor whose `getDomNode()` is inside
+  `colab.global.notebook.cells[i].element_`. Getting this wrong silently edits the wrong cell.
+- `cells[i].manualExecute()` silently no-ops on virtualized cells; `cell.lastExecutionError` carries
+  the real traceback when output rendering does not.
+- Cells that look "not running" are often **queued** — the tooltip says so; execution counts only
+  move on completion. Do not conclude Run-all halted from counts alone.
+- Free tier allows **one** GPU session, and any modal dialog blocks queued execution.
