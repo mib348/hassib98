@@ -382,7 +382,56 @@ downstream can create a detection that was never made. This is measured, not ass
 L3 and L4 are not "unrun" — they run inside every Kaggle pass and their records are in the V55
 manifest. What is missing is a PASSING result from them, which is an L2 detector-quality problem.
 
-### The single blocker, stated plainly (2026-07-28)
+### CORRECTION (2026-07-28, later): recall is NOT the blocker on most images
+
+The claim below — that the only thing left is recall, and that it needs a GPU — is **wrong**, and it
+was wrong because nobody had looked at the pre-filter union. `assisted_review_quarantine/vp_predictions/*.json`
+carries `instances`: the union of all three lanes, before any filter. It has been on disk since V55.
+
+Comparing that union against the human counts, **8 of 12 shortfalls were proposed and then lost
+downstream**:
+
+| image | class | human | final | PRE-FILTER union | verdict |
+|---|---|---|---|---|---|
+| statista | red teriyaki | 10 | 6 | **30** | proposed, lost |
+| statista | black soya | 12 | 7 | 18 | proposed, lost |
+| statista | orange chili | 8 | 7 | 11 | proposed, lost |
+| garbe | white wayo | 7 | 4 | 13 | proposed, lost |
+| zeisehof | black soya | 5 | 4 | 14 | proposed, lost |
+| techhub | black soya / chili | 2 / 2 | 1 / 1 | 6 / 5 | proposed, lost |
+| startup-labs | black soya | 3 | 1 | 8 | proposed, lost |
+| mega-eg, techhub, startup-labs | chopstick tip | 28/13/13 | 0/0/1 | **0/0/1** | genuinely never proposed |
+| statista | kraft bowl | 22 | 19 | 11 | genuinely under-proposed |
+
+Replaying the union through the real filter chain then locates the loss in
+`drop_cross_class_duplicate_proposals`:
+
+| image | class | pre-dedup | post-dedup | human |
+|---|---|---|---|---|
+| statista | black soya | 18 | 6 | 12 |
+| statista | orange chili | 10 | 6 | 8 |
+| garbe | white wayo | 13 | 5 | 7 |
+| techhub | orange chili | 5 | 1 | 2 |
+| **zeisehof** | — | — | — | **nothing short after the full chain** |
+
+zeisehof has enough of every class after every filter, yet it failed V55 — so a second loss exists
+between that point and the final polygons (SAM 3.1 refinement or arbitration), not yet isolated.
+
+**Scope note, learned the hard way in this same investigation:** a first trace also ran
+`filter_by_reference_support` over the union and appeared to show it annihilating cups (31→5, 18→0).
+That was invalid — the function is applied *inside the visual lane* (line 3983) and to the audited
+recovery lane (4177), never to the union; the text lane never passes through it. Verify the call site
+before attributing a loss to a stage.
+
+**Why no fix is applied here.** `drop_cross_class_duplicate_proposals` exists to close the trimmer
+loophole, where duplicate boxes wearing a second class label produced fake exact matches. Loosening
+it to recover cups could re-open that hole, which is worse than a failing image. The fix needs the
+per-drop arbitration reasons examined case by case — real work, but **local work**, needing no GPU.
+
+So the corrected blocker is: **chopstick-tip recall on 3 images genuinely needs the GPU; the sauce-cup
+shortfalls on the rest do not.**
+
+### Superseded: "the single blocker" (kept for the record)
 
 Every layer that can be advanced without a GPU has been advanced. What remains is not unimplemented
 code, an undecided design, or an unwritten test — it is **recall**: the detector does not yet find
