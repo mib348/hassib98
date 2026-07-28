@@ -522,7 +522,12 @@ try:
     from google.colab import drive as _colab_drive
 
     if not pathlib.Path({COLAB_DRIVE_ROOT!r}).is_dir():
-        _colab_drive.mount({COLAB_DRIVE_MOUNT!r})
+        # ALWAYS bound the mount.  Drive access needs an interactive consent,
+        # and if that consent is declined or simply never given, an unbounded
+        # mount() blocks the cell forever - observed hanging a run for 12+
+        # minutes with no output.  The cache is an optimisation, so a timeout
+        # that falls through to downloading is strictly better than a hang.
+        _colab_drive.mount({COLAB_DRIVE_MOUNT!r}, timeout_ms=90000)
     _drive_cache = pathlib.Path({COLAB_DRIVE_ROOT!r}) / {colab_drive_cache!r}
     _drive_cache.mkdir(parents=True, exist_ok=True)
     print("Drive cache:", _drive_cache)
