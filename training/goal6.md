@@ -810,3 +810,55 @@ power. Any variant verdict measured at 0.25 is weaker evidence than it looks.
 **Cheaper method for any future sweep.** `sahi_inference.py` emits every detection with its
 confidence, so one run per image at floor 0.01 permits scoring *any* threshold offline in
 milliseconds, instead of one full inference pass per candidate threshold.
+
+### The prompt experiment: a clean negative, and the threshold ceiling that settles L6 (2026-07-29)
+
+**Prompt variants, scored by the documented CPU screen** (bootstrap checkpoint, 8 frozen cases):
+
+| variant | cup prompts | assertion_pass_rate |
+|---|---|---|
+| baseline | shipped wording | **0.1905** (8/42) |
+| lid | `sauce cup with a black lid`, ... | 0.1667 |
+| colour | `black cup`, ... | 0.1667 |
+| lid_only | `black lid`, ... | 0.1667 |
+
+No variant moves the gate off 0.1905, so by the rule written down in advance none earns a GPU pass.
+All three land on *exactly* the same score, which is itself informative: the cup wording did not
+change which assertions pass at all.
+
+Two caveats keep this honest. The screen ran at the 0.25 floor, where two of seven classes are
+identically zero for every variant, so it had less discriminative power than it looks. And the
+screen scores the SHIPPED ONNX path, which is not the label-factory path whose cup confusion is the
+recorded blocker — it is a proxy, as the plan acknowledged.
+
+**The ceiling that actually settles L6.** `sahi_inference.py` records every detection with its
+confidence, so one pass per image at floor 0.01 permits scoring any per-class threshold offline.
+Choosing the best floor per class *using the answers* — a strict upper bound, not an achievable
+configuration — gives:
+
+| class | best floor | passes | of | rule |
+|---|---|---|---|---|
+| black and white soya sauce packet | 0.005 | 6 | 6 | presence |
+| wooden chopstick tip | 0.005 | 3 | 3 | presence |
+| black soya sauce cup | 0.26 | 2 | 8 | exact |
+| red teriyaki sauce cup | 0.325 | 2 | 8 | exact |
+| white wayo dip cup | 0.42 | 3 | 8 | exact |
+| orange chili mayo cup | 0.39 | 3 | 7 | exact |
+| kraft paper bowl | 0.005 | 0 | 2 | exact |
+
+    CEILING 19/42 = 0.4524      BAR 40/42 = 0.95      current 8/42 = 0.1905
+
+**Threshold tuning cannot open the gate.** Even with an oracle it reaches less than half the bar, so
+no operating point on this checkpoint ships. This independently confirms what V56's L6 run already
+concluded — L6 cannot complete without the L5 release model — and now bounds it with a number
+instead of an inference.
+
+What tuning *would* buy is still real: 8 -> 19 assertions, and both advisory classes go from failing
+to fully passing (chopstick tips 3/3, packets 6/6) purely by lowering the floor, because presence is
+all they require. The exact-count classes are where the model genuinely cannot count: kraft paper
+bowls are 0/2 at ANY floor.
+
+**Consequence for the plan.** The remaining distance is model quality, not configuration, and the
+only lever that produces a better model is L5's retrain on traced polygons — which is gated behind
+the detector validator's >95%, which is an L2 problem. That ordering is unchanged; what is new is
+that no amount of threshold or prompt work shortcuts it.
