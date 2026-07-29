@@ -1335,3 +1335,32 @@ downloadable at no cost: `mib348/v56-colour-margin-and-tip-tiles` ->
 `yoloe26x_sam31_semantic_assisted_review_quarantine.zip`, 164,496,383 bytes,
 HTTP 200. Extracted polygons reproduce all 20 report kraft counts exactly, so
 the box set is now verified rather than assumed.
+
+### A blur threshold would be oracle-fitting — not proposed
+
+To make "this photo is unreadable" objective rather than my assertion, sharpness
+(variance of Laplacian) was measured on all 20 images. It does NOT support a
+threshold rule, and the negative result is recorded so nobody retries it:
+
+Whole image — the idea fails outright. zeisehof is lowest at 15.1, but techhub
+sits at 18.9 and reads 1/1 perfectly; saco at 27.9 reads 5/5. Worse, mutabor is
+the SHARPEST image in the set (559.5) and still misses a sticker, so the
+off-by-one misses are not a quality effect at all.
+
+Within the kraft crops — better, still not separable:
+
+| image | bowl-crop sharpness | kraft | ocr |
+|---|---|---|---|
+| zeisehof | 29.0 | 9 | **0** |
+| saco | 45.2 | 5 | 5 |
+| techhub | 58.9 | 1 | 1 |
+| mutabor | 1623.8 | 17 | 16 |
+
+zeisehof ranks lowest, but saco reads every sticker at only 1.6x its sharpness
+and there is no gap to cut on. Any threshold separating them would be fitted to
+this one image — the same move as shipping oracle-fitted per-class thresholds,
+which was refused earlier in this goal. So it is refused here too.
+
+The honest position stands without it: zeisehof cannot be read, three recovery
+methods failed, and what to do about it is a call for the reviewer to make, not
+a threshold for me to tune.
