@@ -1432,3 +1432,34 @@ to passing and the other further from it. Necessary, not sufficient.
 | L6 bake/ship | machinery proven on the bootstrap checkpoint | cannot ship the real model until L5 produces one |
 
 L4 returning False is the gate working, not the gate broken.
+
+### Colab GPU is still refused, and v58_conf was the wrong notebook
+
+Checked rather than assumed, since the whole plan routes through Colab. The
+runtime reported `kernelConnected: true`, which is misleading — that is a CPU
+VM. Requesting the accelerator returns:
+
+> **Cannot connect to GPU backend.** You cannot currently connect to a GPU due
+> to usage limits in Colab.
+
+So both providers are shut: Colab refuses now, Kaggle resets 2026-08-01.
+
+Verifying the notebook BEFORE spending the window caught a real trap. The
+notebook sitting in Drive as `v58_conf.ipynb` carried:
+
+    '--confidence', '0.01', '--image-shard', '4/7'
+
+That is the pre-fix flag bug — `--confidence` alone moves the VISUAL lane, while
+the TEXT lane (~98% of the union) would have stayed at its 0.05 default. The run
+would have reported the floor lever failing when it had never been applied. It
+was also a single shard, not the full pass.
+
+A cell-by-cell diff against the correct local build showed the two notebooks
+differ in exactly ONE line of cell 2, so the Drive notebook was corrected in
+place through monaco rather than re-uploading 700 KB:
+
+    '--confidence', '0.01', '--text-confidence', '0.01'      (shard removed)
+
+Cell 2 is now 3270 chars, byte-identical to `v58_floor_full`, and saved. The
+bundle SHA check is computed over the input archive, not the cell, so editing
+the cell does not disturb it. The notebook is armed for the next GPU window.
