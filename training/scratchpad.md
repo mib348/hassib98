@@ -1244,3 +1244,56 @@ have hit Kaggle too. But one pass costs ~7h here against ~90 min on a dedicated 
 get reclaimed, and the remaining gap (0.4167 -> 0.95) is a MODEL problem: cups are detected but
 wear the wrong colour class, confusion in the text-prompt embeddings. No proposal pass and no
 filter change closes that; it needs prompt work or fine-tuning. Quota resets 2026-08-01.
+
+## 2026-07-29 — the prompt experiment ran, and the answer bounds L6
+
+**Two measurement bugs made the documented screen impossible to run.** Both are fixed and tested.
+`export_text_prompts.py` had `PROMPT_VARIANTS` and `resolve_prompts` but no CLI flag, so every
+"variant" run silently exported the shipped wording, and `main()` printed `TEXT_PROMPTS` regardless
+of variant. Then `sahi_inference.py` refused any variant manifest outright, so all three scored
+0.0000 — a crash, not a measurement. Reading that as "the variants are worse" would have been
+completely wrong, and it is exactly the shape of mistake the DO-NOT-REDO list exists to prevent.
+
+The release contract is unchanged: a baseline manifest must still carry the exact approved wording.
+A DECLARED variant is accepted for screening and checked just as strictly on what ids depend on —
+seven prompts, no duplicates, identity anchors 0/5/6 byte-identical.
+
+**Result: a clean negative.** baseline 0.1905, and lid / colour / lid_only all 0.1667 — identical to
+each other, so the cup wording changed which assertions pass not at all. Pre-registered rule says no
+variant earns a GPU pass.
+
+**The gate was scoring its own confidence floor.** At `sahi_inference`'s default of 0.25, kraft paper
+bowls returned 0 of 31 and chopstick tips 0 of 62 across the eight cases, while every other class sat
+within ~30% of truth. The same model finds 4 bowls and 14 soya cups on zeisehof at 0.05. The gate now
+takes `--confidence` / `--class-thresholds` and records both beside the score. The 0.95 bar is
+deliberately NOT a flag.
+
+**The number that settles L6.** Detections carry their confidences, so one pass per image at floor
+0.01 lets any threshold be scored offline. With per-class floors chosen USING THE ANSWERS — an upper
+bound, not a shippable config:
+
+    CEILING 19/42 = 0.4524      BAR 40/42 = 0.95      current 8/42 = 0.1905
+
+Threshold tuning cannot open the gate on this checkpoint at any operating point. Tuning would still
+buy 8 -> 19, and both advisory classes go from failing to fully passing purely by lowering the floor
+(presence is all they require) — but kraft paper bowls are 0/2 at ANY floor. **Not shipped:** those
+thresholds were fitted to the gate's own cases, and shipping them would make the gate score a
+configuration fitted to itself, which is the same corruption as editing a case to pass.
+
+**Where that leaves the layers.** L0/L1 complete. L2 remains the binding constraint, and the
+remaining distance is model quality rather than configuration — neither prompts nor thresholds
+shortcut it. L3/L4 execute but cannot pass while L2 is short. L5 is correctly gate-blocked, and it is
+the only lever that produces a better model (retrain on traced polygons). L6 is bounded above at
+0.4524 until that model exists. So "all levels complete" is a model-quality outcome, not an
+execution one.
+
+**Colab, now that --image-shard actually shards.** A fresh T4 ran preamble -> bundle SHA -> pinned pip
++ CUDA preflight -> embedded runtime -> SAM 3.1 -> YOLOE + checkpoint glob with no errors, and went
+into the shard. Notebook: v57_shard1_fixed.ipynb. Do NOT pass --colab-drive-cache without deciding
+about consent: Google asks for see/edit/create/delete on ALL Drive files plus Photos, which is far
+beyond a cache folder.
+
+**Two process notes.** Delete a staged upload only AFTER the browser upload completes — removing the
+token immediately after `setFiles` made cell 0 fail with "No Kaggle credentials". And a Windows CRLF
+image list silently broke a whole dump loop: every path carried a trailing \r, every inference failed
+into /dev/null, and the loop still printed "done" for all eight.
