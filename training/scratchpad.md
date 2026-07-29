@@ -1376,3 +1376,35 @@ real cup-sized impostors). So no floor reaches the >0.95 bar.
 whenever the union holds at least the human count, because the trim removes the excess. Lowering a
 floor therefore improves it almost by construction, and a floor low enough to pass it by flooding
 (0.001 tips statista) would hand the reviewer a sheet of 0.1%-confidence boxes. Not done.
+
+## SESSION 2026-07-29 — the OCR gate, and why the GPU stopped mattering
+
+Prompted by "why rapidocr, can't YOLOE/SAM read text?" — the right question,
+and it relocated the blocker.
+
+- YOLOE has no character decoder; it matches prompt embeddings to regions. SAM
+  emits masks. Neither reads. Independently: OCR's worth as a gate IS its
+  independence — if YOLOE fed both `kraft_proposal_count` and `sticker_count`,
+  the detector would confirm itself and the gate could never fail.
+- Dish names are NOT hardcoded. `kraft_bowl_dish_name` dropped the allow-list
+  because the menu changes. I claimed otherwise from a stale docstring; both are
+  corrected in 0ff4a3f9.
+- zeisehof reads 0 of 9 because the photo is motion-blurred. The 05-26 shot of
+  the same fridge reads LACHS/CHICKEN/BOWL at 0.99 through the identical path.
+  Crop OCR, 4x+unsharp, and Richardson-Lucy over 216 PSFs all fail.
+- **The gate needs 20/20, not 19/20** — 19/20 = 0.9500 is not > 0.95. So fixing
+  all four off-by-ones still fails on zeisehof alone.
+- A blur-threshold escape was measured and REFUSED: saco reads 5/5 at 1.6x
+  zeisehof's crop sharpness with no gap to cut on, so any cutoff would be fitted
+  to one image. Same sin as the oracle-fitted class thresholds already refused.
+
+**The GPU is no longer the bottleneck.** Floor 0.01 and the OCR gate pull in
+opposite directions: the lower floor lifts statista kraft 19 -> 22 against
+ocr=18, widening the blocking gap. A T4 pass would improve a count accuracy that
+already replays at 1.0000 while making the actual blocker worse. Paying for
+compute would have bought a regression.
+
+Open: (1) the four off-by-one misses — classification running, and mutabor being
+the sharpest image in the set means they are physical, not quality; (2) zeisehof,
+which is the reviewer's call — the sharp 05-26 photo exists but carries no human
+counts, and reviewed_fridge_counts.json is off-limits.
