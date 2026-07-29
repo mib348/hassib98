@@ -1297,3 +1297,46 @@ beyond a cache folder.
 token immediately after `setFiles` made cell 0 fail with "No Kaggle credentials". And a Windows CRLF
 image list silently broke a whole dump loop: every path carried a trailing \r, every inference failed
 into /dev/null, and the loop still printed "done" for all eight.
+
+## 2026-07-29 (late) — every GPU-free lever driven to its end; both GPUs now spent
+
+**Availability is the binding constraint, and it is external.** Colab now refuses: "You cannot
+currently connect to a GPU due to usage limits." Kaggle refreshes 2026-08-01. Two Colab runs were
+consumed reaching this point, and only one of them was avoidable: the first was a disguised full
+pass (the `--image-shard` defect), the second was shard 1/7 = fischerappelt + searenergy, which the
+modulo mapping shows are **both already-passing images**. Pick a shard by the failing image it
+contains: mega-eg 4/7, mb-energy + startup-labs 3/7, techhub 6/7, zeisehof 7/7, garbe 2/7,
+statista 4/7.
+
+**The Colab port itself is finished and proven.** A fresh T4 ran preamble -> bundle SHA -> pinned pip
++ CUDA preflight -> embedded runtime -> SAM 3.1 -> YOLOE + checkpoint glob with zero errors and
+entered the shard. Four environment differences are handled in one prepended cell (umount of
+/kaggle/input, DISABLE_COLAB_CACHE, kaggle_secrets shim, NumPy <2), and every other cell is
+byte-identical to the Kaggle notebook.
+
+**L2 is now a list, not an impression.** 7 of 12 scored images fail. Of the ten failing
+(image, class) rows: **7 are colour confusion, 3 are chopstick tips never proposed, 1 is genuine
+kraft recall. None is a filter bug.** Stage tracing puts every downstream change at exactly one
+filter, `drop_cross_class_duplicate_proposals`, and counting cup OBJECTS shows three of four images
+have MORE cups than the human counted (mb-energy: 62 black soya where 7 exist). The downstream half
+is confirmed exhausted, now from real data rather than by assertion.
+
+**The one lever left, with its premise verified.** mega-eg's only mismatch is chopstick presence.
+The tips exist at 0.0224 and 0.0104, below the 0.05 proposal floor, so `--proposal-confidence 0.01`
+should clear it: 5/12 -> 6/12. Bundle already built at `<scratch>/v58_conf`
+(`--confidence 0.01 --image-shard 4/7`). NOT a result until the pass runs — and note techhub
+contradicts the simple story (a tip at 0.0648, above the floor, yet absent from the factory union),
+so the floor may not explain all three.
+
+**What "complete" would require.** The two completion flags are the validator's
+`human_handoff_allowed` and the gate's `gate_opened`. Today they read `False` at 0.4000 and `False`
+at 0.1905. The validator's policy is `strictly_greater_than_minimum` over 12 images, so 11/12
+(0.9167) still fails — **all twelve must pass**. L6 is bounded at 0.4524 even with oracle
+thresholds, so it cannot open without the L5 release model, and L5 is gated behind the validator.
+That ordering is unchanged; what is new is that every rung below it has now been measured rather
+than assumed.
+
+**Three traps worth not repeating.** Deleting a staged upload before the browser finishes sending it
+(cost a run: "No Kaggle credentials"). A Windows CRLF image list that silently failed eight
+inferences while printing "done" for each. And reading "present in the raw union" as "recoverable
+downstream" — it is not, and it would send someone hunting a filter bug that does not exist.
