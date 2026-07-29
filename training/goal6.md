@@ -1563,3 +1563,24 @@ entirely, and `kernelConnected` returns true again on reopening. The run is NOT
 tied to the tab. But the runtime's progress goes to subprocess stderr, which
 never reaches notebook output, so a long pass gives no positive progress signal
 at all — only "still running, no error".
+
+### The real cost driver: SAM 3.1 refines ~1 object every 4 seconds
+
+`window.colab.global.notebook.viewRuntimeLogs()` exposes the subprocess stderr
+that never reaches cell output — the progress signal this goal has been blind to
+across several long runs. Use it FIRST on any future long pass.
+
+Measured live during the floor-0.01 run:
+
+    INFO 22:23:16 sam3_multiplex_tracking.py: [rank=0] Adding new object with id 0 at frame 0.
+    INFO 22:23:12 ...
+    INFO 22:23:08 ...
+
+Ten objects in 37 seconds — **~3.7-4.1 s per instance**, steady. Each refinement
+opens its own SAM tracking session ("Adding new object with id 0 at frame 0"),
+so cost is linear in instance count with a large constant.
+
+Planning rule that follows: expected wall time = total proposal instances x ~4s.
+That is why floor 0.01 on both lanes runs for hours — the floor multiplies the
+instance count, and every extra instance costs four seconds of T4 time. Earlier
+estimates in this file assumed 0.3-1 s per instance and were wrong by 5-10x.
