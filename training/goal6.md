@@ -1393,3 +1393,42 @@ The premise in goal-objective2.md — "kraft bowl labels should be exact because
 they are not hard to read via ocr" — holds for 15 of 20 photos and is false for
 the rest, for physical reasons: stickers face away, sit behind other bowls, or
 sit in a frame too blurred to resolve.
+
+### CORRECTION: a GPU run is still necessary — just not sufficient
+
+Verifying every layer against artifacts rather than memory caught a wrong claim
+made earlier this session ("the GPU is no longer the bottleneck"). It is not.
+
+V56 as shipped:
+
+    required_item_count_accuracy = 0.4167   (5 of 12 scored; >0.95 needs 12/12)
+    meets_accuracy_bar = False
+    kraft_ocr_gate_passed = False
+    human_handoff_allowed = False
+
+The 1.0000 recorded earlier was a REPLAY at floor 0.01 over 10 images, not a
+shipped run. So BOTH gates currently fail, for different reasons and with
+different remedies:
+
+| gate | state | remedy |
+|---|---|---|
+| count accuracy | 0.4167, needs 12/12 | GPU re-run at the lower floor — replay evidence says 10/10 on replayable images |
+| kraft OCR | 0.75, needs 20/20 | none in code; zeisehof is unreadable and the off-by-ones are physical |
+
+The two pull against each other: the floor that fixes counts lifts statista
+kraft 19 -> 22 against ocr=18, widening the OCR gap. So a T4 pass moves one gate
+to passing and the other further from it. Necessary, not sufficient.
+
+### Layer status, verified against artifacts (2026-07-29)
+
+| layer | state | evidence |
+|---|---|---|
+| L0 human truth | done | 8 frozen cases, untouched |
+| L1 bootstrap | trained on Kaggle | local `yoloe-26x-seg.pt` is 171,640,453 B vs the bootstrap `best.pt` at 171,641,721 B — NOT the same file, so the fine-tune is not verified local |
+| L2 proposers | ran | 14 target `vp_predictions` + 6 references = 20 |
+| L3 SAM refinement | done | 20 refined polygon files, reproducing all 20 report kraft counts exactly |
+| L4 arbitration | done, and correctly REFUSING | validator runs and returns handoff=False on real evidence |
+| L5 reviewer pass | **blocked** | gated on the validator; also needs the human, who reviews once |
+| L6 bake/ship | machinery proven on the bootstrap checkpoint | cannot ship the real model until L5 produces one |
+
+L4 returning False is the gate working, not the gate broken.
