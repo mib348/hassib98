@@ -4376,11 +4376,31 @@ def weak_visual_prompt_targets(
     ]
 
 
-def load_text_prompt_model(model_path: Path, yoloe_class: Any) -> Any:
-    """Load an untouched checkpoint and bind the complete fixed text bank."""
+def load_text_prompt_model(
+    model_path: Path,
+    yoloe_class: Any,
+    text_prompts: list[str] | None = None,
+) -> Any:
+    """Load an untouched checkpoint and bind the complete fixed text bank.
+
+    ``text_prompts`` changes only the WORDS handed to the text encoder, never
+    class identity: the ids stay positional and `FIXED_CLASS_NAMES` still keys
+    the correction manifests, the per-class thresholds and
+    `FIXED_CLASS_NAMES.index(...)` for the packet and chopstick classes.  It
+    exists because the one measured blocker is cup colour confusion in these
+    embeddings, so the experiment that targets it has to be able to move the
+    wording without disturbing anything downstream.  Defaults to the shipped
+    names, which keeps every existing run bit-identical.
+    """
+    prompts = list(text_prompts or FIXED_CLASS_NAMES)
+    if len(prompts) != len(FIXED_CLASS_NAMES):
+        raise RuntimeError(
+            f"Text prompt bank must have exactly {len(FIXED_CLASS_NAMES)} entries "
+            f"in the fixed class order; received {len(prompts)}."
+        )
     model = yoloe_class(str(model_path))
-    embeddings = model.get_text_pe(FIXED_CLASS_NAMES)
-    model.set_classes(FIXED_CLASS_NAMES, embeddings)
+    embeddings = model.get_text_pe(prompts)
+    model.set_classes(prompts, embeddings)
 
     # Ultralytics 8.4.93 may skip rebinding when the checkpoint already has
     # the same *set* of names, even if those names are in a different order.
@@ -4390,7 +4410,7 @@ def load_text_prompt_model(model_path: Path, yoloe_class: Any) -> Any:
     # occupy exactly the fixed positions used by the annotations and UI.
     bound_names = getattr(model, "names", None)
     if isinstance(bound_names, dict):
-        expected_ids = list(range(len(FIXED_CLASS_NAMES)))
+        expected_ids = list(range(len(prompts)))
         ordered_names = (
             [str(bound_names[class_id]) for class_id in expected_ids]
             if sorted(bound_names) == expected_ids
@@ -4400,7 +4420,7 @@ def load_text_prompt_model(model_path: Path, yoloe_class: Any) -> Any:
         ordered_names = [str(name) for name in bound_names]
     else:
         ordered_names = []
-    if ordered_names != FIXED_CLASS_NAMES:
+    if ordered_names != prompts:
         raise RuntimeError(
             "YOLOE text prompts were not bound in the exact fixed class order."
         )
