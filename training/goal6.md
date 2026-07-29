@@ -766,3 +766,47 @@ cannot score them — each variant needs its own proposal pass. But the frozen c
 `export_text_prompts.py` + `run_frozen_count_gate.py` score a variant end to end on CPU in about
 two minutes (measured: 38.4s export, gate a few minutes). That is the fast screen. Run the full
 label-factory pass only for a variant that moves the gate off 0.1905.
+
+### The frozen count gate was scoring its own confidence floor (2026-07-29)
+
+The gate shells out to `sahi_inference.py` and passed no thresholds, so every run used that script's
+default confidence floor of **0.25**. On the bootstrap checkpoint that floor is destructive, not
+conservative. Summed over the eight frozen cases:
+
+| class | expected | detected @0.25 |
+|---|---|---|
+| black and white soya sauce packet | 36 | 47 |
+| black soya sauce cup | 36 | 38 |
+| **kraft paper bowl** | **31** | **0** |
+| orange chili mayo cup | 25 | 30 |
+| red teriyaki sauce cup | 29 | 38 |
+| white wayo dip cup | 31 | 18 |
+| **wooden chopstick tip** | **62** | **0** |
+
+Two entire classes — 93 of 250 expected objects, 37% of the bar — returned **exactly zero**, while
+every other class sat within ~30% of truth. Kraft bowls are the largest objects in frame, so zero of
+31 is not a detector failing to see them.
+
+Confirmed by re-running one image at two floors. zeisehof, human truth kraft 9 / soya 5 / teriyaki 3
+/ wayo 2 / chili 2:
+
+| floor | kraft | soya | teriyaki | wayo | chili | total |
+|---|---|---|---|---|---|---|
+| 0.25 | 0 | 0 | 1 | 1 | 0 | 9 |
+| 0.20 | 1 | 1 | 2 | 1 | 1 | 17 |
+| 0.15 | 1 | 2 | 5 | 1 | 5 | 31 |
+| 0.10 | 2 | 6 | 5 | 1 | 5 | 46 |
+| 0.05 | 4 | 14 | 15 | 3 | 6 | 89 |
+
+The objects are decoded and then discarded. `--confidence` and `--class-thresholds` now pass
+through the gate and **both are recorded in the report**, because a pass rate without its operating
+point is not a measurement. The 0.95 bar is deliberately NOT exposed as a flag: tuning where the
+model operates is legitimate, moving the bar is not.
+
+**Methodological consequence.** The prompt screen was run at this floor, where two of seven classes
+are identically zero for every variant — which strips the comparison of much of its discriminative
+power. Any variant verdict measured at 0.25 is weaker evidence than it looks.
+
+**Cheaper method for any future sweep.** `sahi_inference.py` emits every detection with its
+confidence, so one run per image at floor 0.01 permits scoring *any* threshold offline in
+milliseconds, instead of one full inference pass per candidate threshold.
