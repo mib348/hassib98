@@ -1081,3 +1081,38 @@ cross-class one more.
 magnification AND operating point: chopstick tips are invisible in a whole-image predict at 1280 and
 visible under tiling, and kraft bowls sit below 0.05 in numbers. The earlier estimate that this
 lever was worth "5/12 -> 6/12" was a significant under-call.
+
+### What the 0.9000 actually means — the validator is a RECALL gate (2026-07-29)
+
+The honest run, same floor applied to all fourteen images rather than only the failing ones:
+
+    all 14 @ floor 0.01   accuracy=0.9000  scored=10  passed=9  handoff=False
+
+The four previously-passing images did NOT break under +4,561 extra proposals, so the earlier
+failing-images-only number was not flattered. Only statista remains, on
+`kraft paper bowl: final=11 human=22`.
+
+**Then read `enforce_exact_human_estimate_counts` before believing it.** Its contract is explicit:
+*"if the model found more than the human estimate, keep the highest-priority / highest-confidence
+proposals up to the estimate and drop the extras. Shortfalls stay short."*
+
+So a count assertion passes exactly when the union holds **at least** the human count for that class
+after filtering. The validator is therefore a **recall gate**, not an accuracy gate — and lowering
+the proposal floor improves recall almost by construction. That is not cheating (recovering objects
+the floor was hiding is the whole point), but it means:
+
+- **Real:** the three `wooden chopstick tip ... found none` fixes. That class was absent from the
+  union entirely and is now present; the rule for it is presence, and presence is genuinely restored.
+- **Weaker than it looks:** the cup count fixes. They pass because enough proposals now exist to
+  trim down to the human number, not because the detector became better at telling the colours apart.
+  The colour confusion measured earlier is untouched by this.
+- **Unverified:** precision. Of the boxes a reviewer would actually see, the share below 0.05
+  confidence is 13-32%, and median confidence falls (garbe 0.2297 -> 0.1338, mb-energy 0.2091 ->
+  0.1371). The counts are right; whether the boxes sit on the right objects is exactly what L5's
+  human pass decides.
+
+**statista is reachable but only by flooding.** Kraft survives at 21 of 22 at floor 0.003 and 23 of
+22 at 0.001 — so 0.001 would tip the replay to 10/10. That is deliberately NOT claimed as a result:
+at 0.001 the union is mostly noise, and passing a recall gate by flooding it would hand the reviewer
+a contact sheet full of 0.1%-confidence boxes. The right floor is the one that recovers genuinely
+missing classes, not the one that makes the arithmetic land.
