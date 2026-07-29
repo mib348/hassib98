@@ -1180,3 +1180,31 @@ effect rather than noise.
 
 And the ceiling still binds: statista fails at every floor on `kraft paper bowl 11 vs 22`, which the
 ruler analysis showed is genuine recall, so no floor reaches the >0.95 bar.
+
+### Ready state for the next GPU slot (2026-07-29)
+
+`v58_floor_full` is built and verified. Every check below is automated against the artifact itself,
+so the next session does not have to re-derive any of it:
+
+    8 cells (preamble + the 7 Kaggle cells)     preamble parses as Python
+    umount / DISABLE_COLAB_CACHE                pre-staged checkpoint adoption
+    resumable Range download + size check       full bootstrap checkpoint path
+    --confidence 0.01        (visual lane)      --text-confidence 0.01  (TEXT lane)
+    --text-prompt-primary                       --raw-proposal-dump set
+    full pass, no --image-shard                 execution_platform=colab
+    embedded runtime sha256 == local fixed runtime
+    training_authorized=False  promotion_authorized=False  release gate still 0.95
+
+Both floors are present deliberately: `--confidence` is the VISUAL lane and `--text-confidence` the
+TEXT lane, they default to 0.05 independently, and all of the chopstick evidence is in the text one.
+A bundle carrying only the first would have produced no tips and looked like the lever failed.
+
+**Run it as a FULL pass, not shards.** Every shard re-pays calibration on all six audited
+references, so seven shards cost far more than one pass. And if a shard is ever wanted, choose it by
+the failing image it contains — 1/7 is fischerappelt + searenergy, both already passing, which is
+how one GPU slot was spent on zero information.
+
+**What to read when it finishes:** `assisted_review_quarantine/detector_validator_report.json` for
+`required_item_count_accuracy` and `human_handoff_allowed`, and
+`generation_diagnostics.json` first if the run exits non-zero, because a subprocess traceback does
+not always reach the notebook output.
