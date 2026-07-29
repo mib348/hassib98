@@ -1945,7 +1945,14 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         # chopstick tips occupy a 0.01-0.07 confidence band while the runtime
         # default floor is 0.05, which cuts most of them off - and the
         # validator only needs that class DETECTED, not counted.
+        # BOTH lanes, deliberately. --confidence feeds the VISUAL lane and
+        # --text-confidence the TEXT lane, and they default to 0.05
+        # separately. Emitting only the first would lower the visual floor
+        # and leave the text lane untouched - which is the lane the
+        # chopstick-tip evidence was measured in, so the experiment would
+        # have changed the wrong thing and failed for no real reason.
         run_mode_arguments += ["--confidence", str(config.proposal_confidence)]
+        run_mode_arguments += ["--text-confidence", str(config.proposal_confidence)]
     if config.text_prompts:
         # Prompts live ABOVE the replay seam, so a variant cannot be scored
         # locally - it needs its own proposal pass.  Emitting the words from a
