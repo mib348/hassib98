@@ -901,3 +901,43 @@ time and again in the runtime.
 re-pays calibration on all six audited references, so 7 x `--image-shard k/7` costs far more than one
 full pass. For a COMPLETE dump, run a full pass. Use shards only when the goal is a partial result
 that must survive a reclaimed session.
+
+### L2, itemised: what actually fails, and the one untested lever (2026-07-29)
+
+V56's `detector_validator_report.json` scores 12 images at 0.4167 against a 0.95 bar. Because the
+policy is `strictly_greater_than_minimum` over 12 images, 11/12 = 0.9167 still fails — **all twelve
+must pass**. The seven failures, exactly as recorded:
+
+| image | mismatches |
+|---|---|
+| mega-eg | `wooden chopstick tip: final=0 human=28 (class must be detected, found none)` |
+| mb-energy | `orange chili mayo cup: final=5 human=6` |
+| garbe | `white wayo dip cup: final=5 human=7` |
+| zeisehof | `orange chili mayo cup: final=1 human=2` + kraft OCR `sticker_count=0 != proposals=9` |
+| techhub | soya 1v2, chili 1v2, `chopstick tip final=0 human=13` |
+| startup-labs | soya 1v3, chili 1v2, teriyaki 1v2, `chopstick tip final=0 human=13` |
+| statista | soya 6v12, kraft 19v22, chili 7v8, teriyaki 6v10, + kraft OCR mismatch |
+
+Three of the seven fail on `wooden chopstick tip ... found none`, and on **mega-eg that is the ONLY
+mismatch** — one class stands between it and a pass. Four more are off by exactly one or two on a
+single cup class.
+
+**The chopstick class is not missing, it is under the floor.** Read from the shipped export's own
+detections, best chopstick-tip confidence per image:
+
+    techhub 0.0648   searenergy 0.0590   zeisehof 0.0447
+    mb-energy 0.0379   statista 0.0135   startup-labs 0.0116   garbe/stroeer none
+
+The runtime's proposal floor is **0.05**, which sits inside that band and cuts most of them off. The
+validator requires only that the class be DETECTED, not counted, so surfacing a single tip changes a
+verdict. This is the one lever that is neither in the exhausted downstream set nor in the
+already-measured prompt set.
+
+It lives ABOVE the replay seam, so it cannot be scored locally and needs its own proposal pass.
+`--proposal-confidence` now exists on the builder for exactly that, emitting `--confidence` into
+`run_mode_arguments` so the floor is recorded beside its result.
+
+**Honest bound on what it can buy.** Even if every chopstick verdict flips, mega-eg is the only image
+whose sole blocker is chopsticks; techhub and startup-labs still carry cup mismatches, and statista is
+short by 6 on soya and 4 on teriyaki. So this lever plausibly moves 5/12 to 6/12, not to 12/12.
+Reaching the bar still needs the counts to be right, which is model quality.
