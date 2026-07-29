@@ -1116,3 +1116,28 @@ the floor was hiding is the whole point), but it means:
 at 0.001 the union is mostly noise, and passing a recall gate by flooding it would hand the reviewer
 a contact sheet full of 0.1%-confidence boxes. The right floor is the one that recovers genuinely
 missing classes, not the one that makes the arithmetic land.
+
+### statista's kraft shortfall is real recall, not a filter bug (2026-07-29)
+
+The kraft ruler is `1.6 x median sauce-cup width`, so flooding the cup classes could in principle
+move the ruler and start rejecting real bowls. Measured on statista, it does not:
+
+| dump | cups | median cup width | ruler (1.6x) | kraft in union | pass ruler |
+|---|---|---|---|---|---|
+| V56 baseline | 76 | 125.8 | 201.3 | 11 | 11 |
+| floor 0.01 | 291 | 131.9 | 211.1 | 19 | 12 |
+
+The ruler moves by 10 pixels on a 4x larger cup population, and the 7 rejected bowls are genuinely
+narrower than a real bowl — cup-sized boxes wearing class 0, which is exactly what the filter exists
+to remove. So the ruler is behaving correctly and statista is short of real kraft bowls: 12 of 22 at
+a defensible floor. That is detector recall, and no downstream change reaches it.
+
+### What "all levels complete" requires that is not code
+
+L5 is `generate_local_review_page.py --require-detector-validator`, and then **20/20 pass by the
+reviewer** before `ingest_review_decisions.py` and the retrain. That pass is a HUMAN judgement on
+twenty contact sheets. The standing rule — SAM/YOLOE output is proposal-only, never ground truth —
+means it cannot be self-approved by the agent that produced the proposals. So L5, and therefore the
+L6 release model that depends on it, cannot be completed by tooling alone no matter how much GPU is
+available. The sequence is: a proposal pass good enough that the validator allows handoff, then the
+reviewer, then the retrain, then the gate.
