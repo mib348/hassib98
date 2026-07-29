@@ -1340,3 +1340,39 @@ than assumed.
 (cost a run: "No Kaggle credentials"). A Windows CRLF image list that silently failed eight
 inferences while printing "done" for each. And reading "present in the raw union" as "recoverable
 downstream" — it is not, and it would send someone hunting a filter bug that does not exist.
+
+## 2026-07-29 (final) — CORRECTION to the floor result recorded earlier in this file
+
+An earlier entry in this file reports the proposal floor moving L2 from **0.4000 to 0.9000**. That
+number was measured wrongly, twice, and both errors flattered it. The corrected claim is
+**about +4 scored images, ±1** — read this entry, not the earlier one.
+
+**What was wrong.** V56's union is almost entirely `yoloe26x_text_prompt_tiled` (garbe: 93 of 95).
+The simulation ADDED a fresh floor-0.01 text lane on top of it instead of REPLACING it, and
+`enforce_exact_human_estimate_counts` trims over-counts down to the human number — so duplicating a
+lane helps reach that number directly. The overlap was also 0.2 against V56's actual 0.25.
+
+**Redone with replace semantics at overlap 0.25:**
+
+    V56's own union, replayed   4/10   0.4000
+    floor 0.05                  5/10   0.5000
+    floor 0.03                  7/10   0.7000
+    floor 0.02                  8/10   0.8000
+    floor 0.01                  9/10   0.9000
+
+The monotonic 5,7,8,9 is what makes the effect credible. But the 0.05 row should reproduce 0.4000
+and reads 0.5000 — one image of residual optimism, because these rows were generated at 0.01 and
+FILTERED upward, and NMS at 0.01 competes a larger pool so different boxes survive. Measuring each
+floor properly costs one full CPU pass per point.
+
+**What survives all of it, measured directly on the image rather than through union arithmetic:**
+on mega-eg `wooden chopstick tip` is ABSENT at floor 0.05 and PRESENT at 0.01 (0.0224, 0.0104), one
+tip survives every filter, and the validator's rule for that class is presence. And statista fails
+at EVERY floor on `kraft paper bowl 11 vs 22`, which the ruler analysis showed is genuine recall
+(the ruler moves only 201.3 -> 211.1 px under a 4x larger cup population, and the rejected bowls are
+real cup-sized impostors). So no floor reaches the >0.95 bar.
+
+**Also true and easy to miss:** the detector validator is a RECALL gate. A count assertion passes
+whenever the union holds at least the human count, because the trim removes the excess. Lowering a
+floor therefore improves it almost by construction, and a floor low enough to pass it by flooding
+(0.001 tips statista) would hand the reviewer a sheet of 0.1%-confidence boxes. Not done.
