@@ -176,6 +176,7 @@ class BundleConfig:
         colab_checkpoint_source: str | None = None,
         image_shard: str | None = None,
         colab_drive_cache: str | None = None,
+        text_prompts: list[str] | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.batch_root = Path(batch_root).resolve()
@@ -195,6 +196,20 @@ class BundleConfig:
         self.colab = bool(colab)
         self.colab_checkpoint_source = colab_checkpoint_source or None
         self.colab_drive_cache = colab_drive_cache or None
+        self.text_prompts = list(text_prompts or [])
+        # Validate at BUILD time. A wrong-length prompt bank found on the GPU
+        # costs a runtime; found here it costs nothing. The runtime checks it
+        # again, because a hand-run of the runtime must be safe too.
+        if self.text_prompts and len(self.text_prompts) != len(FIXED_CLASS_NAMES):
+            raise ValueError(
+                f"--text-prompt must be repeated exactly {len(FIXED_CLASS_NAMES)} "
+                f"times in fixed class order; got {len(self.text_prompts)}."
+            )
+        if self.text_prompts and len(set(self.text_prompts)) != len(self.text_prompts):
+            raise ValueError(
+                "--text-prompt values must be distinct; a repeat would collapse "
+                "two classes onto one embedding."
+            )
         self.image_shard = image_shard or None
         # Validate the shard shape here so a typo fails at build time rather
         # than after a GPU runtime has already been allocated.  The runtime
@@ -1917,6 +1932,13 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         run_mode_arguments += ["--visual-prompt-model", str(config.visual_prompt_model)]
     if config.raw_proposal_dump:
         run_mode_arguments += ["--raw-proposal-dump", str(config.raw_proposal_dump)]
+    if config.text_prompts:
+        # Prompts live ABOVE the replay seam, so a variant cannot be scored
+        # locally - it needs its own proposal pass.  Emitting the words from a
+        # build flag keeps that pass reproducible from one command and puts the
+        # exact wording in the manifest beside its result.
+        for prompt in config.text_prompts:
+            run_mode_arguments += ["--text-prompt", str(prompt)]
     if config.image_shard:
         # Sharding is what makes a free/preemptible runtime survivable: a
         # reclaimed session costs one shard (~13 min) instead of the whole
@@ -2160,6 +2182,18 @@ def parse_args() -> argparse.Namespace:
         help="Build a short one-audited-box SAM 3.1 diagnostic notebook without YOLOE proposal generation.",
     )
     parser.add_argument(
+        "--text-prompt",
+        action="append",
+        default=[],
+        help=(
+            "One text-lane prompt, repeated exactly seven times in FIXED class "
+            "order. Only the words handed to the text encoder change; class "
+            "identity and order are untouched. Prompts live above the replay "
+            "seam, so a variant needs its own proposal pass - this makes that "
+            "pass reproducible from one command."
+        ),
+    )
+    parser.add_argument(
         "--image-shard",
         default=None,
         help=(
@@ -2239,6 +2273,7 @@ def main() -> None:
             colab_checkpoint_source=args.colab_checkpoint_source,
             colab_drive_cache=args.colab_drive_cache,
             image_shard=args.image_shard,
+            text_prompts=args.text_prompt,
         )
     )
     print(json.dumps(manifest, indent=2))

@@ -7848,7 +7848,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     text_predictions: dict[str, list[dict[str, Any]]] = {}
     if weak_target_paths:
-        text_model = load_text_prompt_model(args.yoloe_model, YOLOE)
+        text_model = load_text_prompt_model(
+            args.yoloe_model, YOLOE, text_prompts=args.text_prompt or None
+        )
         text_predictions = text_prompt_targets(
             model=text_model,
             target_images=weak_target_paths,
@@ -9532,6 +9534,21 @@ def parse_args() -> argparse.Namespace:
         default=Path("/kaggle/working/assisted_review_quarantine"),
     )
     parser.add_argument("--yoloe-model", type=Path, default=Path("/kaggle/working/yoloe-26x-seg.pt"))
+    parser.add_argument(
+        "--text-prompt",
+        action="append",
+        default=[],
+        help=(
+            "One text-lane prompt, repeated exactly seven times in FIXED class "
+            "order. Changes only the words handed to the text encoder; class "
+            "identity is unaffected, because ids stay positional and "
+            "FIXED_CLASS_NAMES still keys the manifests and per-class "
+            "thresholds. Omit to use the shipped names. This exists because the "
+            "measured blocker is cup colour confusion in these embeddings, and "
+            "prompts live ABOVE the replay seam, so a variant cannot be scored "
+            "locally - it needs its own proposal pass."
+        ),
+    )
     parser.add_argument(
         "--raw-proposal-dump",
         type=Path,
