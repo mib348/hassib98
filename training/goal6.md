@@ -1304,3 +1304,34 @@ Not done, deliberately: nothing here changes the gate. Excluding unreadable
 images from the denominator would make the gate easier to pass, which is the
 user's call and not mine — and it would not rescue this run anyway (15/19 =
 0.7895).
+
+### Deconvolution also fails — zeisehof is settled
+
+Unsharp masking is the wrong tool for motion blur, so the dismissal above was
+premature. Richardson-Lucy deconvolution (scipy; skimage is absent) was swept
+over 3 bowls x 18 angles x 4 PSF lengths = 216 combinations. Result: one token,
+`'BNRAKS'` @ 0.510. Not a dish name.
+
+Three independent methods now agree, including the algorithm actually matched to
+the defect:
+
+| method | result |
+|---|---|
+| native + per-bowl crops | nothing |
+| 4x + unsharp + autocontrast | `'2'`, `'中'`, `'11'` |
+| Richardson-Lucy, 216 PSFs | `'BNRAKS'` @0.51 |
+
+zeisehof-2026-05-27 is unrecoverable. Not "hard" — unrecoverable.
+
+### The real V56 boxes were never local
+
+`sam3_refined_polygons/*.txt` only ever existed at `/kaggle/working/...`, so the
+earlier per-bowl sweep silently used `vp_predictions`, which holds 11 kraft for
+statista against a final count of 19. Those three off-by-one rows were wrong and
+are superseded.
+
+Kaggle's exhausted quota bills *compute*, not transfers, so the run output was
+downloadable at no cost: `mib348/v56-colour-margin-and-tip-tiles` ->
+`yoloe26x_sam31_semantic_assisted_review_quarantine.zip`, 164,496,383 bytes,
+HTTP 200. Extracted polygons reproduce all 20 report kraft counts exactly, so
+the box set is now verified rather than assumed.
