@@ -1141,3 +1141,42 @@ means it cannot be self-approved by the agent that produced the proposals. So L5
 L6 release model that depends on it, cannot be completed by tooling alone no matter how much GPU is
 available. The sequence is: a proposal pass good enough that the validator allows handoff, then the
 reviewer, then the retrain, then the gate.
+
+### Corrected: the floor is worth about +4 images, not +5 (2026-07-29)
+
+The first measurement of this was wrong twice, in the same direction — flattering. Both errors are
+recorded because the shape of the mistake matters more than the number.
+
+**Error 1: the text lane was duplicated, not replaced.** V56's union is almost entirely
+`yoloe26x_text_prompt_tiled` (garbe: 93 of 95 instances). The first simulation ADDED a fresh
+floor-0.01 text lane on top of it. Since `enforce_exact_human_estimate_counts` trims over-counts
+down to the human number, duplicate proposals help reach that number directly — so counts improved
+partly by double-counting a lane.
+
+**Error 2: the wrong overlap.** V56 ran `overlap=0.25`; the simulation used 0.2, so the tiling did
+not match the baseline being compared against.
+
+Redone with REPLACE semantics (strip the text lane, substitute the new one, keep every non-text
+instance) at overlap 0.25:
+
+| floor | passed | accuracy |
+|---|---|---|
+| V56's own union, replayed | 4/10 | 0.4000 |
+| 0.05 | 5/10 | 0.5000 |
+| 0.03 | 7/10 | 0.7000 |
+| 0.02 | 8/10 | 0.8000 |
+| 0.01 | 9/10 | 0.9000 |
+
+**A residual artifact worth knowing.** The 0.05 row should reproduce V56's 0.4000 and instead reads
+0.5000 — one image of optimism. The cause is that these rows were produced by generating at 0.01 and
+FILTERING upward, which is not the same as generating at each floor: NMS at 0.01 competes a much
+larger candidate pool, so different boxes survive. Running each floor properly would cost one full
+CPU pass per point.
+
+**So the defensible claim** is that the proposal floor is worth roughly **+4 scored images**, with
+about ±1 of uncertainty from that artifact — not the "+5, 0.4000 -> 0.9000" first reported. The
+monotonic dose-response across four floors (5, 7, 8, 9) is the part that makes it credible as an
+effect rather than noise.
+
+And the ceiling still binds: statista fails at every floor on `kraft paper bowl 11 vs 22`, which the
+ruler analysis showed is genuine recall, so no floor reaches the >0.95 bar.
