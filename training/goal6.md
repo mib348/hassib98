@@ -1019,3 +1019,35 @@ one was a disguised full pass (the `--image-shard` defect), and the second was s
 modulo mapping shows is fischerappelt + searenergy — both ALREADY-PASSING images, so it carried no
 L2 information. Choose the shard by which failing image it contains: mega-eg 4/7, mb-energy and
 startup-labs 3/7, techhub 6/7, zeisehof 7/7, garbe 2/7, statista 4/7.
+
+### The chopstick lever WORKS — measured end to end, no GPU (2026-07-29)
+
+The premise was verified through the shipped export; this is the same experiment run through the
+**factory's own tiled text lane**, on CPU, with the fine-tuned checkpoint:
+
+| proposal floor | mega-eg total proposals | chopstick tips |
+|---|---|---|
+| 0.05 (runtime default) | 45 | **0** |
+| 0.01 | 112 | **2** (best 0.0224) |
+
+An important negative on the way: a single whole-image `predict` at imgsz 1280 finds **zero** tips at
+either floor, because a 1620x2880 photo is downscaled and the tips vanish. They exist only under
+tiling. So the recall failure is magnification AND floor together — not the floor alone.
+
+Following the recovered tips through the filters, one survives every stage (the reflection filter
+takes the other), and the exact-count trim keeps it. Replayed against the correction manifest:
+
+| dump | mega-eg | replay accuracy |
+|---|---|---|
+| V56 baseline | fail | 0.4000 (4/10) |
+| + the 2 tips only | **PASS** | **0.5000 (5/10)** |
+| + ALL 112 low-confidence proposals (realistic) | **PASS** | **0.5000 (5/10)** |
+
+The realistic case matters: lowering a floor adds noise to *every* class, so the honest test floods
+the union with all 112 proposals rather than cherry-picking the two that help. mega-eg still passes
+and no other image regresses.
+
+**So `--proposal-confidence 0.01` is worth its GPU slot**, and the mechanism is now proven rather
+than predicted: the tips exist, they survive arbitration, and the verdict flips. What a real pass
+adds beyond this simulation is the visual and SAM 3.1 lanes also seeing a lower floor, which this
+cannot model.
