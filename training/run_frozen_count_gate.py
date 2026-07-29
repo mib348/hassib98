@@ -68,6 +68,8 @@ def run_one_case(
     manifest: Path,
     image_path: Path,
     provider: str,
+    confidence: float | None = None,
+    class_thresholds: str | None = None,
 ) -> dict[str, int]:
     """Run the shipped inference path on one image and return per-class counts.
 
@@ -78,16 +80,26 @@ def run_one_case(
 
     with tempfile.TemporaryDirectory() as temporary:
         result_path = Path(temporary) / "counts.json"
+        command = [
+            sys.executable,
+            str(SAHI_SCRIPT),
+            "--model", str(model),
+            "--manifest", str(manifest),
+            "--image", str(image_path),
+            "--output", str(result_path),
+            "--provider", provider,
+        ]
+        # The operating point is part of what ships, so the gate has to be able
+        # to score it.  Measured on the bootstrap checkpoint: at the inference
+        # default of 0.25 this path returned ZERO kraft paper bowls on an image
+        # holding nine of them, and zero for two whole classes across all eight
+        # cases -- so a run left unconfigured scores the floor, not the model.
+        if confidence is not None:
+            command += ["--confidence", str(confidence)]
+        if class_thresholds is not None:
+            command += ["--class-thresholds", str(class_thresholds)]
         completed = subprocess.run(
-            [
-                sys.executable,
-                str(SAHI_SCRIPT),
-                "--model", str(model),
-                "--manifest", str(manifest),
-                "--image", str(image_path),
-                "--output", str(result_path),
-                "--provider", provider,
-            ],
+            command,
             capture_output=True,
             text=True,
         )
@@ -141,6 +153,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--provider", default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument("--output", type=Path, default=None, help="Where to write the report")
+    parser.add_argument(
+        "--confidence",
+        type=float,
+        default=None,
+        help=(
+            "Detection confidence floor handed to sahi_inference.py. Omit to use "
+            "that script's own default. The floor is part of the shipped "
+            "configuration, and the report records whichever value was scored."
+        ),
+    )
+    parser.add_argument(
+        "--class-thresholds",
+        default=None,
+        help="Per-class acceptance thresholds passed straight through to sahi_inference.py.",
+    )
     args = parser.parse_args(argv)
 
     cases = json.loads(args.cases.read_text(encoding="utf-8"))["cases"]
@@ -153,7 +180,14 @@ def main(argv: list[str] | None = None) -> int:
         image_name = str(case["image_name"])
         image_path = args.images_dir / image_name
         try:
-            actual = run_one_case(args.model, args.manifest, image_path, args.provider)
+            actual = run_one_case(
+                args.model,
+                args.manifest,
+                image_path,
+                args.provider,
+                confidence=args.confidence,
+                class_thresholds=args.class_thresholds,
+            )
             assertions = score_case(case["expected_counts"], actual)
             error: str | None = None
         except Exception as failure:  # a case that cannot run is a case that fails
@@ -188,6 +222,10 @@ def main(argv: list[str] | None = None) -> int:
     report = {
         "schema_version": 1,
         "minimum_assertion_pass_rate": MINIMUM_ASSERTION_PASS_RATE,
+        # A pass rate means nothing without the operating point that produced
+        # it, so the floor is recorded next to the score.
+        "confidence_threshold": args.confidence,
+        "class_thresholds": args.class_thresholds,
         "assertion_pass_rate": round(rate, 6),
         "total_assertions": total_assertions,
         "passed_assertions": passed_assertions,
