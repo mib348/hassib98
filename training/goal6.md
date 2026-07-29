@@ -1051,3 +1051,33 @@ and no other image regresses.
 than predicted: the tips exist, they survive arbitration, and the verdict flips. What a real pass
 adds beyond this simulation is the visual and SAM 3.1 lanes also seeing a lower floor, which this
 cannot model.
+
+### The floor is the lever: L2 replay 0.4000 -> 0.9000 (2026-07-29)
+
+Applying floor 0.01 to the factory's tiled text lane and replaying the whole set:
+
+    baseline    accuracy=0.4000  scored=10  passed=4
+    floor 0.01  accuracy=0.9000  scored=10  passed=9
+
+Every image that failed on chopstick presence or an off-by-one cup count clears. Added proposals per
+image at 0.01: garbe +241, mb-energy +626, mega-eg +112, startup-labs +118, statista +359,
+techhub +91.
+
+The single survivor is statista, on one class: `kraft paper bowl: final=11 human=22`. Its kraft
+union grows 11 -> 19 at floor 0.01 and 11 -> 58 at 0.003, and the final reaches **21 against 22** —
+off by exactly one. Tracing it, the kraft ruler removes 7 of the newly surfaced bowls (19 -> 12) and
+cross-class one more.
+
+**Two limits on this number, stated because they change how much it is worth.**
+
+1. Only the FAILING images were augmented. A real pass at a lower floor changes every image,
+   including the four currently passing, and a lower floor adds noise everywhere. So 0.9000 is
+   optimistic until the same floor is applied to all fourteen. That run is what should be believed.
+2. Tuning statista's floor separately until kraft reaches 22 would be fitting to the answers — the
+   same corruption as the oracle gate thresholds that were deliberately not shipped. The floor has
+   to be ONE defensible global value, not a per-image knob. So the last box is not chased that way.
+
+**What it revises.** The recall failure was never purely "the model cannot see these objects". It is
+magnification AND operating point: chopstick tips are invisible in a whole-image predict at 1280 and
+visible under tiling, and kraft bowls sit below 0.05 in numbers. The earlier estimate that this
+lever was worth "5/12 -> 6/12" was a significant under-call.
