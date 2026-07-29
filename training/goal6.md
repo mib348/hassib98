@@ -1246,3 +1246,61 @@ or near 1.0000 and still report `human_handoff_allowed: False`, because 0.75 < 0
 no proposal-floor change touches. The next real work is the kraft OCR path — starting with zeisehof,
 where OCR reads zero stickers on an image holding nine bowls, which looks like a failure of the OCR
 stage rather than a counting disagreement.
+
+## The kraft OCR gate is blocked by a motion-blurred photograph
+
+Prompted by the question "why rapidocr — can't YOLOE/SAM read text?", which
+turned out to be the right thing to pull on.
+
+**YOLOE and SAM cannot read text.** YOLOE matches *prompt words* against image
+regions through CLIP-style embeddings — text flows in as a query, nothing flows
+out; it has no character decoder. SAM 3.1 emits masks only. Neither can
+transcribe a sticker. Separately, the OCR's value as a *gate* is that it is an
+independent modality: if YOLOE supplied both `kraft_proposal_count` and
+`sticker_count`, the detector would be confirming itself and the gate could
+never fail.
+
+**Correction to an earlier claim in this session.** I described the gate as
+matching a "fixed dish vocabulary". Wrong — `kraft_bowl_dish_name` dropped the
+`KRAFT_BOWL_BASE_NAMES` allow-list precisely because the menu changes; it now
+reads whatever is printed and rejects only stable shelf furniture. I was
+quoting the docstring on `extract_kraft_bowl_sticker_evidence`, which still
+claimed the opposite. That docstring is now fixed.
+
+### Measured: zeisehof reads 0 of 9 because the photo is blurred
+
+| evidence | result |
+|---|---|
+| per-bowl crops (12, pad 0.18) | 0 dish names, **0 crop failures** |
+| raw full-image OCR, no filters | 4 lines, all shelf furniture |
+| same at 2x | identical 4 lines |
+| 4x + unsharp + autocontrast, per crop | `'2'`, `'中'`, `'11'` — noise only |
+
+Visual inspection settles it: the frame is motion-blurred. Nine stickers are
+physically present and facing the camera; the only text OCR recovers is the
+`BITTE SCANNE DEINEN QR-CODE` signage, whose glyphs are ~20x sticker size. The
+detector is right (9 bowls) and OCR is right to fail. Preprocessing does not
+recover it — the glyph information is destroyed, not faint.
+
+### The gate needs 20/20, not 95%
+
+    kraft_ocr_consistency > 0.95      19/20 = 0.9500 -> NOT > 0.95 -> FAILS
+
+With 20 comparable images the bar demands *perfect* agreement. So fixing the
+four off-by-one images (sankt-georg 6v7, mega-eg 3v4, mutabor 16v17, statista
+18v19) reaches 19/20 and **still fails** on zeisehof alone.
+
+Conclusion: **this 20-image package cannot clear the kraft OCR gate**, and no
+GPU pass, prompt variant or confidence floor changes that. The requirement's own
+premise in goal-objective2.md — "kraft bowl labels should be exact because they
+are not hard to read via ocr" — has a measured counterexample.
+
+Caveat on the off-by-ones: that per-bowl sweep used `vp_predictions`, whose
+proposal counts (2 for mutabor, 11 for statista) are far below the final kraft
+counts (17, 19), so it is the visual lane only. Those three rows are indicative,
+not conclusive. zeisehof's result does not depend on them.
+
+Not done, deliberately: nothing here changes the gate. Excluding unreadable
+images from the denominator would make the gate easier to pass, which is the
+user's call and not mine — and it would not rescue this run anyway (15/19 =
+0.7895).

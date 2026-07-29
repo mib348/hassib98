@@ -2262,14 +2262,18 @@ def extract_kraft_bowl_sticker_evidence(
     unavailable_reason: str | None = None,
     bowl_instances: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Read exact white-sticker black-font dish names on kraft bowl proposals.
+    """Read white-sticker black-font dish names on kraft bowl proposals.
 
     Real kraft labels are white paper with black printed dish names.  The
-    advisory OCR count is the number of bowls whose sticker text resolves to
-    the fixed dish vocabulary (exact labels, not free-form OCR).  When every
-    kraft proposal has a readable sticker, ``sticker_count`` equals the kraft
-    proposal count.  Unreadable stickers are reported as a shortfall — they are
-    never filled with blank slots.
+    advisory OCR count is the number of bowls whose sticker text reads back as
+    a plausible printed dish label.  This is NOT a menu lookup: there is no
+    allow-list of dish names, because the kitchen menu changes constantly (see
+    ``kraft_bowl_dish_name`` for why the old ``KRAFT_BOWL_BASE_NAMES`` list was
+    removed).  Whatever is printed on the sticker counts, so long as it is not
+    known shelf furniture — QR-panel copy, sale banners, location codes.  When
+    every kraft proposal has a readable sticker, ``sticker_count`` equals the
+    kraft proposal count.  Unreadable stickers are reported as a shortfall —
+    they are never filled with blank slots.
 
     Steps per kraft proposal:
     1. OCR white-sticker-enhanced multi-width crops (primary).
@@ -2570,9 +2574,13 @@ def extract_kraft_bowl_sticker_evidence(
             }
         )
 
-    # sticker_count is the number of exact vocabulary dish labels read.
+    # sticker_count is the number of bowls whose sticker text was legible
+    # enough to read back as a printed dish label (no menu allow-list).
     # Reviewers require this to match kraft proposal count when stickers are
-    # visible (white background, black font).
+    # visible (white background, black font) — which assumes the photo itself
+    # is sharp enough to resolve sticker-sized glyphs.  Measured counterexample:
+    # zeisehof-22765-2026-05-27 is motion-blurred, so all nine stickers read as
+    # nothing while the much larger QR-panel signage still reads cleanly.
     sticker_count = len(recognized)
     dish_texts = [str(row["dish_name"]) for row in recognized]
     return {
