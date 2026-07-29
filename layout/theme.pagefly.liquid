@@ -837,7 +837,12 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
 
 {% include 'pagefly-app-header' %}</head>
 
-  <body class="gradient{% if settings.animations_hover_elements != 'none' %} animate--hover-{{ settings.animations_hover_elements }}{% endif %}"><div class="pagefly-container">
-              {{ content_for_layout }}
-            </div></body>
+  <body class="gradient{% if settings.animations_hover_elements != 'none' %} animate--hover-{{ settings.animations_hover_elements }}{% endif %}">
+    <div class="pagefly-container">
+      {{ content_for_layout }}
+    </div>
+    {% if request.path == '/pages/datum' or request.path == '/pages/bestellen' %}
+      {% render 'pagefly-order-ui-persistence' %}
+    {% endif %}
+  </body>
 </html>
