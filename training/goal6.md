@@ -987,3 +987,35 @@ weak to relabel (relabel-all scored 921 against a 392 baseline).
 
 So of the ten failing rows, **none is a filter bug**: seven are colour confusion, three are a class
 never proposed, one is genuine kraft recall. The downstream half remains exhausted.
+
+### The chopstick lever, premise verified without a GPU (2026-07-29)
+
+`mega-eg` is the single most winnable failure: its ONLY validator mismatch is
+`wooden chopstick tip: final=0 human=28 (class must be detected, found none)`, and the rule is
+presence, not count. Running the exported model over that image at floor 0.01 shows the tips are
+there:
+
+    chopstick-tip detections on mega-eg: 2, at confidence 0.0224 and 0.0104
+
+    floor 0.01 -> 2 detected     floor 0.03 -> 0
+    floor 0.02 -> 1 detected     floor 0.05 -> 0   <- the runtime's current floor
+
+Both sit below the proposal floor of 0.05, so the class is not missing from the model, it is
+excluded by the operating point. `--proposal-confidence 0.01` should therefore clear mega-eg's only
+mismatch and move the validator from 5/12 to 6/12. The bundle is built and waiting
+(`--confidence 0.01 --image-shard 4/7`, the shard that contains mega-eg).
+
+**One inconsistency, recorded rather than smoothed over.** On techhub the best chopstick confidence
+through this same export is 0.0648, which is ABOVE the 0.05 floor — yet the factory's pre-filter
+union contains no chopstick tips for techhub at all. So the shipped export and the factory's text
+lane do not agree on that image, and the floor alone may not explain techhub and startup-labs. This
+evidence is from the SHIPPED ONNX path; the factory runs the same prompts through a different
+harness (tiling, three lanes, the fine-tuned .pt). The mega-eg prediction is therefore a prediction,
+to be confirmed by the pass, not a result.
+
+**Availability.** Colab's free GPU allowance is now spent — "You cannot currently connect to a GPU
+due to usage limits" — and Kaggle refreshes 2026-08-01. Two Colab runs were consumed getting here:
+one was a disguised full pass (the `--image-shard` defect), and the second was shard 1/7, which the
+modulo mapping shows is fischerappelt + searenergy — both ALREADY-PASSING images, so it carried no
+L2 information. Choose the shard by which failing image it contains: mega-eg 4/7, mb-energy and
+startup-labs 3/7, techhub 6/7, zeisehof 7/7, garbe 2/7, statista 4/7.
