@@ -177,6 +177,7 @@ class BundleConfig:
         image_shard: str | None = None,
         colab_drive_cache: str | None = None,
         text_prompts: list[str] | None = None,
+        proposal_confidence: float | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.batch_root = Path(batch_root).resolve()
@@ -196,6 +197,12 @@ class BundleConfig:
         self.colab = bool(colab)
         self.colab_checkpoint_source = colab_checkpoint_source or None
         self.colab_drive_cache = colab_drive_cache or None
+        self.proposal_confidence = proposal_confidence
+        if self.proposal_confidence is not None and not 0.0 < self.proposal_confidence <= 1.0:
+            raise ValueError(
+                "--proposal-confidence must be within (0, 1]; got "
+                f"{self.proposal_confidence}."
+            )
         self.text_prompts = list(text_prompts or [])
         # Validate at BUILD time. A wrong-length prompt bank found on the GPU
         # costs a runtime; found here it costs nothing. The runtime checks it
@@ -1932,6 +1939,13 @@ def build_bundle(config: BundleConfig) -> dict[str, Any]:
         run_mode_arguments += ["--visual-prompt-model", str(config.visual_prompt_model)]
     if config.raw_proposal_dump:
         run_mode_arguments += ["--raw-proposal-dump", str(config.raw_proposal_dump)]
+    if config.proposal_confidence is not None:
+        # The floor decides what is PROPOSED, so it sits above the replay seam
+        # and cannot be tuned locally.  Measured on the shipped export, wooden
+        # chopstick tips occupy a 0.01-0.07 confidence band while the runtime
+        # default floor is 0.05, which cuts most of them off - and the
+        # validator only needs that class DETECTED, not counted.
+        run_mode_arguments += ["--confidence", str(config.proposal_confidence)]
     if config.text_prompts:
         # Prompts live ABOVE the replay seam, so a variant cannot be scored
         # locally - it needs its own proposal pass.  Emitting the words from a
@@ -2182,6 +2196,17 @@ def parse_args() -> argparse.Namespace:
         help="Build a short one-audited-box SAM 3.1 diagnostic notebook without YOLOE proposal generation.",
     )
     parser.add_argument(
+        "--proposal-confidence",
+        type=float,
+        default=None,
+        help=(
+            "Confidence floor for the proposal lanes (runtime default 0.05). "
+            "Lives ABOVE the replay seam, so it needs its own pass. Measured: "
+            "chopstick tips sit at 0.01-0.07, so 0.05 cuts most of them, and "
+            "the detector validator only requires that class to be DETECTED."
+        ),
+    )
+    parser.add_argument(
         "--text-prompt",
         action="append",
         default=[],
@@ -2274,6 +2299,7 @@ def main() -> None:
             colab_drive_cache=args.colab_drive_cache,
             image_shard=args.image_shard,
             text_prompts=args.text_prompt,
+            proposal_confidence=args.proposal_confidence,
         )
     )
     print(json.dumps(manifest, indent=2))
