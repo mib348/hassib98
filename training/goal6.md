@@ -1541,3 +1541,25 @@ What is left is a genuine SPEC decision that belongs to the reviewer, not to me:
 exact equality could become a within-one tolerance, which would pass at 19/19.
 That is a substantive loosening fitted to the observed error, so it is written
 down here and deliberately not implemented.
+
+### Floor 0.01 on both lanes is a 3h+ run, not a 40-minute one
+
+Colab Pro was purchased and the full-floor pass started 2026-07-29. Setup was
+clean first time — GPU probe passed, CUDA preflight returncode=0, bundle SHA
+verified, SAM 3.1 verified at 3,502,755,717 bytes, and the text-prompt glob
+resolved to `v53-bootstrap-train/yoloe26x_bootstrap/artifacts/best.pt`, proving
+the text lane uses the L1 fine-tune rather than silently falling back to stock
+weights (the glob is fail-loud, so a miss would have raised).
+
+Operational lesson for planning: the proposal pass at `--confidence 0.01
+--text-confidence 0.01` was still running at **3h15m**, against an estimate of
+1.5-2.5h derived from V56 instance counts. The estimate underweighted that the
+floor applies to BOTH lanes at once, so the union is far larger than the
+400-600 instances/image guessed, and SAM 3.1 refines every survivor. Budget
+4-6h for this operating point, not the ~40min a 0.05 run takes.
+
+Also worth knowing: the Colab runtime survives the browser being closed
+entirely, and `kernelConnected` returns true again on reopening. The run is NOT
+tied to the tab. But the runtime's progress goes to subprocess stderr, which
+never reaches notebook output, so a long pass gives no positive progress signal
+at all — only "still running, no error".
