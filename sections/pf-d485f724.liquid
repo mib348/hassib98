@@ -268,31 +268,31 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
                     <div class="col-12 col-md-10 col-lg-11 col-xl-10">
                       <div class="datum-bootstrap-card card shadow">
                         <div class="card-body text-center">
-                          <h3 data-pf-type="Heading2" class="sc-cyRdfs qmQNK pf-11_ pf-heading-1-h3 card-title">wann?</h3>
+                          <h3 data-pf-type="Heading2" class="sc-cyRdfs qmQNK pf-11_ pf-heading-1-h3 card-title">{{ section.settings.pf_38c7220a_value }}</h3>
 
-                          <p class="sc-kUdmUV iejJTZ pf-15_ pf-text-1 card-text mb-3" data-pf-type="Paragraph3" id="note">Auffüllung täglich um 12 Uhr, Abholung bis 24 Uhr</p>
+                          <p class="sc-kUdmUV iejJTZ pf-15_ pf-text-1 card-text mb-3" data-pf-type="Paragraph3" id="note">{{ section.settings.pf_e790b7df_value }}</p>
 
                           <div class="alert alert-light border py-2 mb-4 row-status-delivery-today" role="status">
-                            <p class="sc-kUdmUV iejJTZ pf-19_ pf-text-1 status-delivery-today" data-pf-type="Paragraph3" id="pf-8d6a25ad--copy-of-note">Status Lieferung Heute:&nbsp;<span style="color: rgb(208, 2, 27);">noch nicht erfolgt</span></p>
+                            <p class="sc-kUdmUV iejJTZ pf-19_ pf-text-1 status-delivery-today" data-pf-type="Paragraph3" id="pf-8d6a25ad--copy-of-note">{{ section.settings.pf_dcef07a6_value }}</p>
                           </div>
 
                           <div class="datum-action-stack d-flex flex-column align-items-stretch">
                             <a href="/pages/order-menue" target="_self" data-pf-type="Button2" class="sc-emIqIH hFkfQE pf-25_ pf-button-3 preorderbtn btn btn-outline-light btn-lg">
-                              <span class="datum-button-label">vorbestellen</span>
+                              <span class="datum-button-label">{{ section.settings.pf_13822cec_value }}</span>
                             </a>
 
                             <a href="/pages/order-menue" target="_self" data-pf-type="Button2" class="sc-emIqIH hFkfQE pf-23_ pf-button-3 todayorderbtn btn btn-outline-light btn-lg">
-                              <span class="datum-button-label">sofortkauf-heute</span>
+                              <span class="datum-button-label">{{ section.settings.pf_6f54ef8f_value }}</span>
                               <span data-pf-type="Button2" id="badge-counter" class="sc-emIqIH hFkfQE pf-21_ pf-button-3 badge rounded-pill datum-count-badge">0</span>
                             </a>
 
                             <a href="/pages/order-menue" target="_self" data-pf-type="Button2" class="sc-emIqIH hFkfQE pf-33_ pf-button-3 yesterdayorderbtn btn btn-outline-light btn-lg">
-                              <span class="datum-button-label">sofortkauf-gestern</span>
+                              <span class="datum-button-label">{{ section.settings.pf_a918def6_value }}</span>
                               <span data-pf-type="Button2" id="badge-counter-yesterday" class="sc-emIqIH hFkfQE pf-31_ pf-button-3 badge rounded-pill datum-count-badge">0</span>
                             </a>
 
                             <a href="/pages/order-menue" target="_self" data-pf-type="Button2" class="sc-emIqIH hFkfQE pf-27_ pf-button-3 snacks_and_drinks_btn btn btn-outline-light btn-lg">
-                              <span class="datum-button-label">Snacks &amp; Getränke</span>
+                              <span class="datum-button-label">{{ section.settings.pf_b6a1b655_value }}</span>
                             </a>
                           </div>
 
@@ -323,6 +323,84 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
     {
       "type": "paragraph",
       "content": "For full configuration, [visit PageFly Editor](https://dc9ef9.myshopify.com/admin/apps/pagefly/editor?id=d485f724-f71a-40d5-98e7-3bbca175c3e3&type=page)."
+    },
+    {
+      "type": "text",
+      "id": "pf_38c7220a_value",
+      "label": "Heading2 — Value",
+      "default": "wann?"
+    },
+    {
+      "type": "text",
+      "id": "pf_e790b7df_value",
+      "label": "Paragraph3 — Value",
+      "default": "Auffüllung täglich um 12 Uhr, Abholung bis 24 Uhr"
+    },
+    {
+      "type": "html",
+      "id": "pf_dcef07a6_value",
+      "label": "Paragraph3 — Value",
+      "default": "Status Lieferung Heute:&nbsp;<span style=\"color: rgb(208, 2, 27);\">noch nicht erfolgt</span>"
+    },
+    {
+      "type": "text",
+      "id": "pf_13822cec_value",
+      "label": "Button2 — Value",
+      "default": "vorbestellen"
+    },
+    {
+      "type": "text",
+      "id": "pf_13822cec_title",
+      "label": "Button2 — Title",
+      "default": "order-menue"
+    },
+    {
+      "type": "text",
+      "id": "pf_220a65f1_title",
+      "label": "Button2 — Title",
+      "default": "order-menue"
+    },
+    {
+      "type": "text",
+      "id": "pf_6f54ef8f_value",
+      "label": "Button2 — Value",
+      "default": "sofortkauf-heute"
+    },
+    {
+      "type": "text",
+      "id": "pf_6f54ef8f_title",
+      "label": "Button2 — Title",
+      "default": "order-menue"
+    },
+    {
+      "type": "text",
+      "id": "pf_48237c62_title",
+      "label": "Button2 — Title",
+      "default": "order-menue"
+    },
+    {
+      "type": "text",
+      "id": "pf_a918def6_value",
+      "label": "Button2 — Value",
+      "default": "sofortkauf-gestern"
+    },
+    {
+      "type": "text",
+      "id": "pf_a918def6_title",
+      "label": "Button2 — Title",
+      "default": "order-menue"
+    },
+    {
+      "type": "text",
+      "id": "pf_b6a1b655_value",
+      "label": "Button2 — Value",
+      "default": "Snacks &amp; Getränke"
+    },
+    {
+      "type": "text",
+      "id": "pf_b6a1b655_title",
+      "label": "Button2 — Title",
+      "default": "order-menue"
     }
   ],
   "blocks": [

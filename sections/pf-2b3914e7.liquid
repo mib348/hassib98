@@ -267,7 +267,7 @@ If you plan to remove PageFly, please see the guide in our help center first: ht
                     <div class="col-12 col-md-10 col-lg-9 col-xl-8">
                       <div class="bestellen-bootstrap-card card shadow">
                         <div class="card-body text-center">
-                          <h3 data-pf-type="Heading2" class="sc-cyRdfs qmQNK pf-10_ pf-heading-1-h3 card-title">wo willst du bestellen?</h3>
+                          <h3 data-pf-type="Heading2" class="sc-cyRdfs qmQNK pf-10_ pf-heading-1-h3 card-title">{{ section.settings.pf_677ad86d_value }}</h3>
 
                           <div data-pf-type="Custom.HTML" class="sc-gRtvfn YJaia pf-14_">
                             <div class="location_portion bestellen-control-row d-flex flex-column align-items-stretch">
@@ -352,6 +352,12 @@ populateStationDropdown();
     {
       "type": "paragraph",
       "content": "For full configuration, [visit PageFly Editor](https://dc9ef9.myshopify.com/admin/apps/pagefly/editor?id=2b3914e7-ba44-4d36-81e3-3d7b5a3e0e5a&type=page)."
+    },
+    {
+      "type": "text",
+      "id": "pf_677ad86d_value",
+      "label": "Heading2 — Value",
+      "default": "wo willst du bestellen?"
     }
   ],
   "blocks": [
