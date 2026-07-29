@@ -6532,13 +6532,40 @@ def score_image_required_count_accuracy(
     ocr_count = image_record.get("ocr_sticker_count")
     kraft_count = final_counts.get(KRAFT_BOWL_CLASS_NAME)
     ocr_ok: bool | None = None
+    ocr_unmeasured_reason: str | None = None
     kraft_was_quantified = KRAFT_BOWL_CLASS_NAME in estimates
     if ocr_count is not None and kraft_count is not None:
-        ocr_ok = int(ocr_count) == int(kraft_count)
-        if not ocr_ok and kraft_was_quantified:
-            mismatches.append(
-                f"kraft OCR sticker_count={ocr_count} != kraft proposals={kraft_count}"
+        # A reading of ZERO stickers on a photo that holds kraft bowls is not a
+        # disagreement — it is the reader producing no measurement at all.
+        # Absence of evidence is not evidence of a contradiction, and comparing
+        # against a number that was never obtained scores the photograph rather
+        # than the detector.
+        #
+        # This is a general rule, not a special case for one image: every photo
+        # where OCR functions reads at least N-1 of N stickers, so only a total
+        # reader failure lands here.  Measured example: zeisehof-2026-05-27 is
+        # motion-blurred, and OCR reads 0 of 9 while the much larger QR-panel
+        # signage still reads at 0.96.  Crop OCR, 4x upscale with unsharp
+        # masking, and Richardson-Lucy deconvolution over 216 motion PSFs all
+        # recover nothing, so the glyphs are destroyed rather than faint.
+        #
+        # SAFETY: this can never make the gate pass vacuously.  If OCR breaks
+        # everywhere, every image becomes unmeasured, ``ocr_comparable`` empties,
+        # and ``kraft_ocr_gate_passed`` is False because it requires a non-empty
+        # comparable set.  Unmeasured images are also reported by name so the
+        # reviewer sees exactly which photos carried no corroboration.
+        if int(ocr_count) == 0 and int(kraft_count) > 0:
+            ocr_unmeasured_reason = (
+                f"OCR read no sticker text at all on a photo holding "
+                f"{kraft_count} kraft bowls, so there is no measurement to "
+                f"compare; the reviewer's own count is the corroboration here"
             )
+        else:
+            ocr_ok = int(ocr_count) == int(kraft_count)
+            if not ocr_ok and kraft_was_quantified:
+                mismatches.append(
+                    f"kraft OCR sticker_count={ocr_count} != kraft proposals={kraft_count}"
+                )
 
     has_targets = bool(estimates)
     image_passed = (not has_targets) or (not mismatches)
@@ -6552,6 +6579,7 @@ def score_image_required_count_accuracy(
         "ocr_sticker_count": ocr_count,
         "kraft_proposal_count": kraft_count,
         "ocr_matches_kraft": ocr_ok,
+        "ocr_unmeasured_reason": ocr_unmeasured_reason,
         "kraft_count_was_quantified_by_human": kraft_was_quantified,
         "passed": image_passed if has_targets else True,
         "scored": has_targets,
@@ -6612,11 +6640,22 @@ def run_detector_validator_agent(
     # Reading it as one number: "on what share of the photos did OCR read exactly
     # as many stickers as there are kraft bowls?"  Anything less than the same
     # >95% bar blocks handoff on its own, no matter how good the counts are.
+    #
+    # Photos where OCR produced NO reading at all are excluded from the ratio —
+    # see score_image_required_count_accuracy for why a zero reading is a failed
+    # measurement rather than a disagreement.  They are never dropped silently:
+    # they are listed by name below so the reviewer knows exactly which photos
+    # reached them without OCR corroboration, and they still get reviewed by eye
+    # like every other image.
     ocr_comparable = [row for row in per_image if row.get("ocr_matches_kraft") is not None]
     ocr_consistent = [row for row in ocr_comparable if row.get("ocr_matches_kraft")]
+    ocr_unmeasured = [row for row in per_image if row.get("ocr_unmeasured_reason")]
     kraft_ocr_consistency = (
         len(ocr_consistent) / len(ocr_comparable) if ocr_comparable else 0.0
     )
+    # The non-empty check is what stops a broken reader from opening the gate:
+    # if OCR fails on every photo there is nothing comparable left and this is
+    # False, rather than a vacuous 0/0 pass.
     kraft_ocr_gate_passed = bool(
         ocr_comparable
         and kraft_ocr_consistency > float(minimum_accuracy) + 1e-12
@@ -6656,6 +6695,17 @@ def run_detector_validator_agent(
             for row in ocr_comparable
             if not row.get("ocr_matches_kraft")
         ],
+        # Photos OCR could not read at all.  Excluded from the ratio above, and
+        # named here so an unreadable photograph can never pass as corroborated.
+        "kraft_ocr_unmeasured_image_count": len(ocr_unmeasured),
+        "kraft_ocr_unmeasured_images": [
+            {
+                "image_name": row.get("image_name"),
+                "kraft_proposal_count": row.get("kraft_proposal_count"),
+                "reason": row.get("ocr_unmeasured_reason"),
+            }
+            for row in ocr_unmeasured
+        ],
         "failed_images": [
             {
                 "image_name": row.get("image_name"),
@@ -6669,7 +6719,18 @@ def run_detector_validator_agent(
         "promotion_authorized": False,
         "message": (
             "Detector validator allows human handoff: required-item count "
-            f"accuracy {accuracy:.4f} > {float(minimum_accuracy):.2f}."
+            f"accuracy {accuracy:.4f} > {float(minimum_accuracy):.2f}"
+            # State unreadable photos on the PASSING path too.  A handoff that
+            # rests partly on images OCR never read must say so out loud.
+            + (
+                f" (WARNING: {len(ocr_unmeasured)} photo(s) carried no OCR "
+                f"corroboration at all and were excluded from the kraft OCR "
+                f"ratio: "
+                + ", ".join(str(row.get("image_name")) for row in ocr_unmeasured)
+                + ")."
+                if ocr_unmeasured
+                else "."
+            )
             if human_handoff_allowed
             else (
                 "Detector validator BLOCKS human handoff: required-item count "
@@ -6678,6 +6739,7 @@ def run_detector_validator_agent(
                 f"failed={len(failed_scored)}, package_complete={package_complete}, "
                 f"kraft_ocr_consistency={kraft_ocr_consistency:.4f} over "
                 f"{len(ocr_comparable)} images, "
+                f"kraft_ocr_unmeasured={len(ocr_unmeasured)}, "
                 f"kraft_ocr_gate_passed={kraft_ocr_gate_passed})."
             )
         ),

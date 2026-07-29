@@ -3684,6 +3684,140 @@ class AssistedLabelReviewTest(unittest.TestCase):
         self.assertEqual(allowed["status"], "pass")
         module.assert_detector_validator_allows_human_handoff(allowed)
 
+    def _twenty_image_records(self, module, kraft=2):
+        """20 records, 12 carrying human estimates, all exact-matching."""
+
+        records, corrections = [], {}
+        for index in range(20):
+            name = f"fridge-{index:02d}.jpg"
+            if index < 12:
+                corrections[name] = {
+                    "decision": "reject",
+                    "requested_counts": {"kraft paper bowl": kraft},
+                }
+                records.append(
+                    {
+                        "image_name": name,
+                        "final_class_counts": {
+                            **{cls: 0 for cls in module.FIXED_CLASS_NAMES},
+                            "kraft paper bowl": kraft,
+                        },
+                        "ocr_sticker_count": kraft,
+                    }
+                )
+            else:
+                records.append(
+                    {
+                        "image_name": name,
+                        "final_class_counts": {
+                            cls: 0 for cls in module.FIXED_CLASS_NAMES
+                        },
+                    }
+                )
+        return records, corrections
+
+    def test_a_photo_ocr_cannot_read_at_all_is_unmeasured_not_a_disagreement(
+        self,
+    ) -> None:
+        """Reading ZERO stickers is a failed measurement, not a contradiction.
+
+        Measured case: zeisehof-2026-05-27 is motion-blurred, so OCR reads 0 of
+        9 stickers while the much larger QR-panel signage still reads at 0.96.
+        Crop OCR, 4x upscale with unsharp masking, and Richardson-Lucy over 216
+        motion PSFs all recover nothing. Counting that as a DISAGREEMENT scores
+        the photograph rather than the detector — and on that image the human
+        had already written "kraft paper bowl 9", agreeing with the detector.
+
+        The rule is general, not a special case: wherever OCR functions it reads
+        at least N-1 of N, so only total reader failure reaches this branch.
+        """
+
+        module = self.module
+        records, corrections = self._twenty_image_records(module)
+        # One photo the reader could not read at all.
+        records[0]["ocr_sticker_count"] = 0
+
+        report = module.run_detector_validator_agent(records, corrections)
+
+        # Excluded from the ratio rather than counted as a mismatch.
+        self.assertEqual(report["kraft_ocr_comparable_image_count"], 11)
+        self.assertEqual(report["kraft_ocr_unmeasured_image_count"], 1)
+        self.assertEqual(report["kraft_ocr_consistency"], 1.0)
+        self.assertTrue(report["kraft_ocr_gate_passed"])
+        self.assertEqual(report["kraft_ocr_inconsistent_images"], [])
+
+        # Never silently dropped: named, with the kraft count it went unread on.
+        unmeasured = report["kraft_ocr_unmeasured_images"]
+        self.assertEqual(len(unmeasured), 1)
+        self.assertEqual(unmeasured[0]["image_name"], "fridge-00.jpg")
+        self.assertEqual(unmeasured[0]["kraft_proposal_count"], 2)
+        self.assertIn("no sticker text", unmeasured[0]["reason"])
+        # ...and surfaced on the PASSING message, not just in a JSON field.
+        self.assertIn("WARNING", report["message"])
+        self.assertIn("fridge-00.jpg", report["message"])
+
+    def test_a_broken_reader_cannot_open_the_gate_vacuously(self) -> None:
+        """The exclusion must never become a way to pass by reading nothing.
+
+        This is the attack the rule invites: if "unreadable" is excluded, then
+        an OCR stage that fails everywhere would leave an empty comparable set,
+        and 0/0 must NOT be treated as agreement. The gate requires a non-empty
+        comparable set precisely so total failure blocks instead of passing.
+        """
+
+        module = self.module
+        records, corrections = self._twenty_image_records(module)
+        for record in records:
+            if "ocr_sticker_count" in record:
+                record["ocr_sticker_count"] = 0
+
+        report = module.run_detector_validator_agent(records, corrections)
+
+        self.assertEqual(report["kraft_ocr_comparable_image_count"], 0)
+        self.assertEqual(report["kraft_ocr_unmeasured_image_count"], 12)
+        self.assertFalse(report["kraft_ocr_gate_passed"])
+        self.assertFalse(report["human_handoff_allowed"])
+        with self.assertRaises(RuntimeError):
+            module.assert_detector_validator_allows_human_handoff(report)
+
+    def test_a_genuine_ocr_disagreement_still_blocks(self) -> None:
+        """Only a ZERO reading is excused; a real mismatch still fails.
+
+        Guards the boundary the rule turns on. An off-by-one — the shape of the
+        four real disagreements (sankt-georg 6v7, mega-eg 3v4, mutabor 16v17,
+        statista 18v19) — must keep counting against the gate.
+        """
+
+        module = self.module
+        records, corrections = self._twenty_image_records(module)
+        records[0]["ocr_sticker_count"] = 1  # 1 read against 2 bowls
+
+        report = module.run_detector_validator_agent(records, corrections)
+
+        self.assertEqual(report["kraft_ocr_comparable_image_count"], 12)
+        self.assertEqual(report["kraft_ocr_unmeasured_image_count"], 0)
+        self.assertFalse(report["kraft_ocr_gate_passed"])
+        self.assertEqual(
+            [row["image_name"] for row in report["kraft_ocr_inconsistent_images"]],
+            ["fridge-00.jpg"],
+        )
+
+    def test_zero_stickers_on_zero_bowls_is_agreement_not_an_excuse(self) -> None:
+        """0 == 0 is a real measurement and must stay comparable.
+
+        The exclusion is scoped to photos that HOLD kraft bowls. A photo with no
+        bowls and no stickers is genuine agreement, and quietly dropping it would
+        shrink the evidence base for no reason.
+        """
+
+        module = self.module
+        records, corrections = self._twenty_image_records(module, kraft=0)
+        report = module.run_detector_validator_agent(records, corrections)
+
+        self.assertEqual(report["kraft_ocr_unmeasured_image_count"], 0)
+        self.assertEqual(report["kraft_ocr_comparable_image_count"], 12)
+        self.assertTrue(report["kraft_ocr_gate_passed"])
+
     def test_chopstick_and_packet_counts_are_tolerant_but_must_be_detected(
         self,
     ) -> None:
@@ -4349,14 +4483,23 @@ class AssistedLabelReviewTest(unittest.TestCase):
         self.assertIn("del text_model", source)
         self.assertIn("gc.collect()", source)
         self.assertIn("torch.cuda.empty_cache()", source)
-        self.assertIn("text_model = load_text_prompt_model(args.yoloe_model, YOLOE)", source)
-        self.assertIn("model.get_text_pe(FIXED_CLASS_NAMES)", source)
-        self.assertIn("model.set_classes(FIXED_CLASS_NAMES, embeddings)", source)
+        self.assertIn("text_model = load_text_prompt_model(", source)
+        self.assertIn("args.yoloe_model, YOLOE, text_prompts=args.text_prompt or None", source)
+        # The prompt WORDS are parameterised so the cup-colour experiment can
+        # move them, but the default is still the fixed class bank and the
+        # readback below still fails closed on any reordering.
+        self.assertIn("prompts = list(text_prompts or FIXED_CLASS_NAMES)", source)
+        self.assertIn("model.get_text_pe(prompts)", source)
+        self.assertIn("model.set_classes(prompts, embeddings)", source)
+        self.assertIn("if ordered_names != prompts:", source)
         self.assertIn(
             '"text_prompt_model_reloaded_after_visual_prompts": bool(weak_target_paths)',
             source,
         )
-        self.assertLess(source.index("del visual_model"), source.index("load_text_prompt_model(args.yoloe_model, YOLOE)"))
+        self.assertLess(
+            source.index("del visual_model"),
+            source.index("args.yoloe_model, YOLOE, text_prompts=args.text_prompt or None"),
+        )
         self.assertLess(source.index("del text_model"), source.index("build_sam3_predictor("))
 
     def test_sam3_refinement_failure_returns_original_quarantined_proposals(self) -> None:
@@ -4596,3 +4739,49 @@ class AssistedLabelReviewTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ImageShardAppliesToTheExpensiveLoopTest(unittest.TestCase):
+    """--image-shard must narrow the loop that actually costs the time.
+
+    The flag originally narrowed only `target_paths`, which feeds the
+    visual-prompt lane. SAM 3.1 semantic discovery, rescue, correction-guided
+    recovery and L3 refinement all run in the per-image loop over
+    manifest["image_names"], which was NOT narrowed - so `--image-shard 1/14`
+    still processed all twenty images. Measured on a Colab T4: 60+ minutes for
+    a "one image" shard, while also producing an incomplete result because the
+    other thirteen targets were written without their visual-prompt lane.
+    """
+
+    def setUp(self) -> None:
+        self.source = (
+            ROOT
+            / "training"
+            / "autoresearch"
+            / "kaggle_label_factory"
+            / "assisted_label_review.py"
+        ).read_text(encoding="utf-8")
+
+    def test_expensive_per_image_loop_skips_images_outside_the_shard(self) -> None:
+        self.assertIn("sharded_target_names", self.source)
+        loop = self.source.index('for image_name in manifest["image_names"]:')
+        body = self.source[loop : loop + 1800]
+        self.assertIn("sharded_target_names is not None", body)
+        self.assertIn("image_name not in sharded_target_names", body)
+        self.assertIn("continue", body)
+
+    def test_references_are_never_skipped_by_a_shard(self) -> None:
+        loop = self.source.index('for image_name in manifest["image_names"]:')
+        body = self.source[loop : loop + 1800]
+        # A shard that dropped reference images would not be comparable with
+        # any other shard, because every lane calibrates against them.
+        self.assertIn("image_name not in reference_image_names", body)
+
+    def test_a_full_pass_is_completely_unaffected(self) -> None:
+        # sharded_target_names is None unless --image-shard was passed, so the
+        # guard cannot change a full pass.
+        self.assertIn("sharded_target_names: set[str] | None = None", self.source)
+
+    def test_help_no_longer_promises_a_saving_it_cannot_deliver(self) -> None:
+        self.assertNotIn("roughly 13 minutes instead of 90", self.source)
+        self.assertIn("do NOT divide", self.source)
