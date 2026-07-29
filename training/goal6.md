@@ -1364,3 +1364,32 @@ which was refused earlier in this goal. So it is refused here too.
 The honest position stands without it: zeisehof cannot be read, three recovery
 methods failed, and what to do about it is a call for the reviewer to make, not
 a threshold for me to tune.
+
+### The off-by-one misses are physical, not filter bugs
+
+Re-run against the verified refined polygons, classifying every kraft crop as
+"read a dish" / "read text that a filter rejected" / "no text at all":
+
+| image | reads dish | text rejected | silent | reproduces pipeline |
+|---|---|---|---|---|
+| sankt-georg | 6 | 0 | **1** | yes (6=6) |
+| mega-eg | 3 | 0 | **1** | yes (3=3) |
+| statista | 18 | 1 (`'1'`) | 0 | yes (18=18) |
+| mutabor | 7 | 6 | 4 | **no** (7 vs 16) |
+
+Three of four reproduce the shipped `ocr_sticker_count` exactly, and in each the
+missed bowl carries no readable dish word: two are silent, and statista's is a
+lone digit `'1'`, correctly rejected because `KRAFT_STICKER_MIN_DISH_LETTERS`
+is 4. Loosening that would let a smudge become a sticker, which is the failure
+the rule exists to prevent.
+
+mutabor does NOT reproduce (7 vs 16) because this sweep ran only the crop path,
+not the full-image dish-line fallback that `extract_kraft_bowl_sticker_evidence`
+applies afterwards. Its rows are inconclusive and no claim rests on them.
+
+So: no filter change recovers these. Combined with zeisehof, **the 20/20 the
+kraft OCR gate demands is unreachable on this image set by any code change.**
+The premise in goal-objective2.md — "kraft bowl labels should be exact because
+they are not hard to read via ocr" — holds for 15 of 20 photos and is false for
+the rest, for physical reasons: stickers face away, sit behind other bowls, or
+sit in a frame too blurred to resolve.
