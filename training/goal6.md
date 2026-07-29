@@ -1463,3 +1463,30 @@ place through monaco rather than re-uploading 700 KB:
 Cell 2 is now 3270 chars, byte-identical to `v58_floor_full`, and saved. The
 bundle SHA check is computed over the input archive, not the cell, so editing
 the cell does not disturb it. The notebook is armed for the next GPU window.
+
+### The next GPU window is de-risked — whole input chain verified on CPU
+
+goal6 records ~8 of 30 GPU hours lost to avoidable mistakes, so every link was
+checked while compute is unavailable and checking is free:
+
+| link | state |
+|---|---|
+| input bundle on Kaggle | present, 55,593,651 B |
+| bundle SHA vs the notebook's cell-2 check | **matches** `2bc38d3b44...` across every local version |
+| bootstrap `best.pt` | reachable, **171,641,721 B**, Range supported so the resumable download works |
+| Drive notebook flags | corrected to both lanes 0.01, shard removed, saved |
+
+Two traps avoided in the checking itself:
+
+1. `HEAD` on the checkpoint URL returns **404** while a ranged `GET` returns
+   **206** with the full length. Kaggle's CDN does not serve HEAD on these signed
+   URLs. This is the same false-404 that once cost a session a ~40 min retrain —
+   never conclude "gone" from HEAD alone.
+2. CORRECTION to the entry above: the local `yoloe-26x-seg.pt` (171,640,453 B)
+   is NOT a bad copy of `best.pt` (171,641,721 B). They are different models by
+   design — the stock checkpoint is the `--visual-prompt-model` fetched by cell
+   6, while `best.pt` is the L1 fine-tune supplying the text lane. L1 is intact;
+   the earlier "not verified local" note compared two unrelated files.
+
+So the run needs nothing but a GPU. Cell 2's SHA gate, the checkpoint fetch and
+the flags are all confirmed good before any compute is spent.
