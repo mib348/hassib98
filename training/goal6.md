@@ -862,3 +862,42 @@ bowls are 0/2 at ANY floor.
 only lever that produces a better model is L5's retrain on traced polygons — which is gated behind
 the detector validator's >95%, which is an L2 problem. That ordering is unchanged; what is new is
 that no amount of threshold or prompt work shortcuts it.
+
+### Scoring a prompt variant where the blocker actually lives (2026-07-29)
+
+The CPU screen scores the SHIPPED ONNX path. That is a proxy, and the ceiling above shows the proxy
+is bounded at 0.4524 by the checkpoint regardless of wording, so a variant can look flat there while
+still moving the LABEL FACTORY — which is where the measured cup-colour confusion lives, and which
+has two more proposal lanes and SAM 3.1 beside the text lane.
+
+Prompts sit above the replay seam, so the factory path cannot be replayed locally: each variant
+needs its own proposal pass. `--text-prompt` now exists on both the runtime and the builder, so that
+pass is one command and the wording lands in `run_mode_arguments` beside its result.
+
+    MSYS_NO_PATHCONV=1 .venv/Scripts/python.exe \
+      training/autoresearch/kaggle_label_factory/prepare_kaggle_assisted_label_bundle.py \
+      --output-dir <scratch>/v58_lid --dataset-output-dir <scratch>/v57_dataset \
+      --kernel-id mib348/v58-lid --kernel-title "V58 lid prompts" \
+      --correction-manifest training/autoresearch/results/yoloe26x_sam31_assisted_review_kaggle_v48_20260726/review_corrections_current/review_correction_manifest.json \
+      --text-prompt-primary --kernel-source mib348/v53-bootstrap-train \
+      --text-prompt-checkpoint-glob "/kaggle/input/**/artifacts/best.pt" \
+      --visual-prompt-model /kaggle/working/yoloe-26x-seg.pt \
+      --raw-proposal-dump /kaggle/working/assisted_review_quarantine/raw_proposal_dump \
+      --colab --colab-checkpoint-source "mib348/v53-bootstrap-train:yoloe26x_bootstrap/artifacts/best.pt" \
+      --text-prompt "kraft paper bowl" \
+      --text-prompt "sauce cup with a black lid" \
+      --text-prompt "sauce cup with a red lid" \
+      --text-prompt "sauce cup with a white lid" \
+      --text-prompt "sauce cup with an orange lid" \
+      --text-prompt "wooden chopstick tip" \
+      --text-prompt "black and white soya sauce packet" \
+      --clean
+
+Order is the contract, not just membership — ids are positional all the way to the frozen gate, so
+the seven values must be given in FIXED class order. Length and distinctness are rejected at build
+time and again in the runtime.
+
+**Cost note that decides how to run it.** Shards do NOT divide wall-clock evenly: every shard
+re-pays calibration on all six audited references, so 7 x `--image-shard k/7` costs far more than one
+full pass. For a COMPLETE dump, run a full pass. Use shards only when the goal is a partial result
+that must survive a reclaimed session.
