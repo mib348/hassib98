@@ -1208,3 +1208,41 @@ how one GPU slot was spent on zero information.
 `required_item_count_accuracy` and `human_handoff_allowed`, and
 `generation_diagnostics.json` first if the run exits non-zero, because a subprocess traceback does
 not always reach the notebook output.
+
+### Count accuracy 1.0000 — and handoff is STILL blocked, by a third gate (2026-07-29)
+
+Lowering BOTH lanes to 0.01, not just the text lane, clears the last failing image. The visual lane
+is the piece the earlier text-only simulation was missing:
+
+    statista, kraft paper bowl (human 22)
+      visual lane @ 0.05 -> 11 kraft      visual lane @ 0.01 -> 33 kraft
+
+With text@0.01 + visual@0.01 the statista union holds 40 kraft bowls and the replay reads:
+
+    accuracy=1.0000  scored=10  passed=10
+
+So "statista is blocked on genuine recall" was WRONG, and so was "no floor reaches the bar". Both
+were concluded from text-lane-only evidence. The visual lane is prompted from the audited kraft
+exemplars, which is exactly why it finds bowls the text lane cannot.
+
+**But `human_handoff_allowed` needs three things, not one:**
+
+    human_handoff_allowed = meets_bar AND package_complete AND kraft_ocr_gate_passed
+
+Only the first is the count bar. The third is independent and is currently the real blocker:
+
+    kraft_ocr_consistency = 0.75   (15 of 20 images)   bar: > 0.95
+
+OCR must read exactly as many white stickers as there are kraft bowls. Five images disagree — four
+by exactly one (sankt-georg 6v7, mega-eg 3v4, mutabor 16v17, statista 18v19) and one badly:
+**zeisehof reads ocr=0 against kraft=9**.
+
+**And the floor work makes this gate slightly worse, not better.** The OCR row compares against the
+FINAL kraft count, so trimming statista to the human 22 against ocr=18 widens the gap rather than
+closing it. Count recall and OCR consistency pull in opposite directions here.
+
+**Consequence for spending money on GPU.** A paid pass would very likely produce count accuracy at
+or near 1.0000 and still report `human_handoff_allowed: False`, because 0.75 < 0.95 on a gate that
+no proposal-floor change touches. The next real work is the kraft OCR path — starting with zeisehof,
+where OCR reads zero stickers on an image holding nine bowls, which looks like a failure of the OCR
+stage rather than a counting disagreement.
