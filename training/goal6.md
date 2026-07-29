@@ -941,3 +941,49 @@ It lives ABOVE the replay seam, so it cannot be scored locally and needs its own
 whose sole blocker is chopsticks; techhub and startup-labs still carry cup mismatches, and statista is
 short by 6 on soya and 4 on teriyaki. So this lever plausibly moves 5/12 to 6/12, not to 12/12.
 Reaching the bar still needs the counts to be right, which is model quality.
+
+### The replay path, verified on REAL data — and a correction (2026-07-29)
+
+`replay_proposal_filters.py` had only ever been smoke-tested against a synthetic dump. A
+schema-exact dump was rebuilt from **V56's own `vp_predictions`** (the pre-filter union) plus the
+image sizes, and the replay reproduces the validator's verdicts on real proposals:
+
+    accuracy=0.4000  scored=10  passed=4  handoff=False
+
+(V56's own report is 0.4167 over 12; the replay scores 10 because `vp_predictions` covers the 14
+targets only. The failing images and classes match.)
+
+**Where each failure comes from.** Classified against the raw union:
+
+| verdict | rows |
+|---|---|
+| objects present in the union, count changes downstream | 7 of 10 |
+| `wooden chopstick tip` never proposed at all | 3 of 10 |
+| kraft bowls proposal-limited (statista 11 vs 22) | 1 |
+
+Tracing the failing class stage by stage, all four traced cases pass untouched through the
+reflection, adjacent-cabinet, kraft-ruler and packet filters, and change only at
+`drop_cross_class_duplicate_proposals`:
+
+    mb-energy white wayo  44 -> 5 (human 6)      garbe white wayo   13 -> 5 (human 7)
+    statista teriyaki     30 -> 8 (human 10)     techhub chili       5 -> 1 (human 2)
+
+**The correction.** "Present in the union" is NOT the same as "recoverable downstream", and reading
+it that way would have sent the next session hunting a filter bug that does not exist. Counting cup
+OBJECTS after the whole chain against the human cup total:
+
+| image | cup objects | human total | tell |
+|---|---|---|---|
+| mb-energy | 86 | 23 | black soya 62 vs human 7 |
+| garbe | 23 | 10 | black soya 12 vs human 1 |
+| techhub | 7 | 6 | white wayo 4 vs 2 |
+| statista | 29 | 38 | genuinely short by 9 |
+
+Three of the four have MORE cup objects than the human counted; the specific class is short because
+the colour split is wrong. That is class confusion at the proposal source, exactly as recorded
+earlier — arriving here from a different direction and on different data. The arbitration stage is
+where it becomes visible, not where it is caused, and the colour reference was already measured too
+weak to relabel (relabel-all scored 921 against a 392 baseline).
+
+So of the ten failing rows, **none is a filter bug**: seven are colour confusion, three are a class
+never proposed, one is genuine kraft recall. The downstream half remains exhausted.
