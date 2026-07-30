@@ -1584,3 +1584,46 @@ Planning rule that follows: expected wall time = total proposal instances x ~4s.
 That is why floor 0.01 on both lanes runs for hours — the floor multiplies the
 instance count, and every extra instance costs four seconds of T4 time. Earlier
 estimates in this file assumed 0.3-1 s per instance and were wrong by 5-10x.
+
+## V58 RESULT: the floor fixes counts and breaks OCR, measured
+
+The floor-0.01 pass completed on Colab Pro after ~6h40m wall time. Scored with
+the SAME V48 correction manifest V56 was scored against, so the comparison is
+like-for-like:
+
+| gate | V56 (0.05) | V58 (0.01) |
+|---|---|---|
+| required_item_count_accuracy | 0.4167 (5/12) | **0.9167 (11/12)** |
+| count failures | 7 images | **1** (statista only) |
+| kraft_ocr_consistency | 0.7895 (15/19) | **0.6316 (12/19)** |
+| kraft_ocr_gate_passed | False | False |
+| human_handoff_allowed | False | False |
+
+**The count lever works.** 5/12 -> 11/12 is the single largest gain recorded in
+this goal, and it needed a real generation at the floor: the earlier replay
+(generate at 0.01, filter upward) could not have predicted it, because the NMS
+pool differs.
+
+**The OCR gate regressed for the predicted reason.** A lower floor emits more
+kraft proposals than OCR can read, so three previously-exact images broke:
+
+    mb-energy   10 vs 12      (was 10 vs 10)
+    searenergy   2 vs 4       (was  2 vs  2)
+    techhub      1 vs 2       (was  1 vs  1)
+
+Also measured: OCR sticker counts are NOT invariant across runs, because the
+reader crops per PROPOSED bowl. statista read 18 stickers at 0.05 and 21 at
+0.01 — more proposals surfaced more genuinely readable labels.
+
+### The two gates want opposite floors, and no single floor satisfies both
+
+With 19 comparable images the OCR bar needs 19/19. Checking the within-one
+tolerance against both runs:
+
+- at 0.05 all four disagreements are off-by-one -> 19/19 -> **passes**
+- at 0.01 two are off-by-TWO (mb-energy, searenergy) -> 17/19 = 0.895 -> fails
+
+So V56's floor plus a within-one tolerance clears OCR but fails counts at
+0.4167; V58's floor nearly clears counts at 0.9167 but fails OCR under any
+tolerance. This is a genuine operating-point conflict, not a bug, and it is the
+central fact for whatever comes next.
