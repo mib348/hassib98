@@ -2038,3 +2038,49 @@ detector invents a bowl from a shelf label, and OCR misses one sticker.
    equal resolution. The chosen photo is 1080x1920 against a package of
    1620x2880 and 4032x3024 images — smaller stickers in pixels, though OCR still
    reads them at 0.99 confidence.
+
+## CORRECTED SCAN: 4 images have phantom bowls, 2 have OCR misses
+
+First, a bug of mine that invalidated several earlier numbers. Local analyses
+scaled the pipeline's normalised polygons by `Image.open().size`, but **8 of the
+20 photos carry `EXIF_orientation=6`** and the pipeline works through
+`load_oriented_rgb`. On those eight my crops landed in the wrong place. Proof of
+the fix — oriented scaling reproduces the pipeline's own reported counts where
+raw scaling did not:
+
+    barmbek        raw 3  -> oriented 8   (pipeline report: 8)
+    mb-energy      raw 7  -> oriented 10  (pipeline report: 10)
+    fischerappelt  raw 2  -> oriented 6   (pipeline report: 5)
+
+**Rule: every local analysis must use `load_oriented_rgb`.** Affected images:
+barmbek, byteclub, fischerappelt, garbe, mb-energy, mutabor, no-limits, stroeer.
+
+With that fixed, the scan reproduces the V58 validator exactly, and counting the
+gap images by eye separates the two failure modes:
+
+| image | detector | OCR | TRUE (by eye) | verdict |
+|---|---|---|---|---|
+| techhub | 2 | 1 | **1** | PHANTOM |
+| searenergy | 4 | 2 | **2** | PHANTOM |
+| mb-energy | 12 | 10 | **10** | PHANTOM |
+| mega-eg | 4 | 3 | **3** (CHICKEN, LACHS, TEMPURA GARNELE) | PHANTOM |
+| sankt-georg | 7 | 6 | **7** | OCR miss |
+| statista | 22 | 21 | **22** (reviewer) | OCR miss |
+| mutabor | 17 | 16 | ambiguous — angled shot, bowls cut off at frame edge, glass reflections | UNRESOLVED |
+| other 12 | — | — | gap 0 | clean |
+
+So **four** images carry phantom bowls, not three. In every one of those four the
+OCR count equals the truth. Two images are the opposite: the detector is right
+and OCR misses a sticker.
+
+### The sticker filter is rejected, on corrected numbers
+
+"A kraft box with no readable sticker is not a bowl" would fix the four phantom
+images, but statista (no EXIF rotation, so its geometry was always correct)
+gives 22 -> 21: it deletes a bowl the reviewer counted. sankt-georg would lose
+one the same way. Trading four false bowls for two deleted real ones is not a
+fix, so it is not shipped.
+
+Every mechanical route to removing the phantoms is now measured and rejected:
+confidence thresholds, per-class floors, lane agreement, geometric containment,
+and sticker presence. They need the retrain.
