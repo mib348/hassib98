@@ -1864,3 +1864,51 @@ Net: on the five images checked, OCR is right three times and the detector
 three times wrong. The reviewer's "no compromise on ocr" is well founded — OCR
 is currently the better kraft counter, and the count gate cannot see the error
 because those three images carry no human kraft number.
+
+## V59: zeisehof swapped for a sharp, better-stocked photo
+
+The reviewer cannot retake the photo but can swap it. All 70 zeisehof photos in
+the 25 GB corpus were scored on sharpness and readable stickers.
+
+**Chosen: `zeisehof-22765-2026-02-05-j2xprTUWVx.jpg`**
+
+| | old (05-27) | new (02-05) | runner-up (02-04) |
+|---|---|---|---|
+| kraft bowls | 9 | **12** | 14 |
+| readable stickers | **0** | **12 of 12** | ~12 of 14 |
+| whole-image sharpness | 15 | 344 | 704 |
+| occlusion | — | **none** | 2 behind the JETZT BESTELLEN banner |
+
+02-04 is sharper but two of its bowls sit behind the banner, so OCR would read
+~12 of 14 and that photo would fail the gate for the same reason the current one
+does. 02-05 has every bowl fully visible, so OCR can match the count exactly —
+which is the entire point of the swap. Both are MORE stocked than the photo they
+replace, so the package gets harder, not easier: the test the near-empty
+2026-05-26 candidate failed.
+
+Note on the ranking metric: counting OCR lines containing "BOWL" UNDER-counts,
+because `NAGOYA` and `MINI FRUHLINGSROLLEN` are perfectly readable dish names
+without the word. 02-05 scored 10 but actually reads all 12.
+
+**Done and verified locally:**
+- image swapped in `training/sam_annotation_batch/images/`; the blurred original
+  is kept in `replaced_images/` as evidence rather than deleted
+- `review_manifest.json` rewritten (5 fields), `detection_count` cleared to None
+  because the old number described the old photo
+- bundle rebuilt: sha256 `106e7215...`, 20 images, notebook's embedded SHA
+  matches, cell-7 text-primary fix present
+
+**Trap hit and fixed, exactly as the handoff warned:** the first rebuild under
+Git Bash produced
+`'--visual-prompt-model', 'C:/Program Files/Git/kaggle/working/yoloe-26x-seg.pt'`
+— MSYS rewrote `/kaggle/...`. Rebuilt with `MSYS_NO_PATHCONV=1` plus
+Windows-style output dirs. Also caught that omitting `--visual-prompt-model`
+entirely is not safe: a fine-tuned checkpoint has no SAVPE head, so the image
+lane must be pointed at stock weights.
+
+**Not done:** uploading the new bundle to the Kaggle input dataset and running
+the pass. `kagglehub` is not installed locally (and nothing may be installed on
+the host), so the upload has to go through a live Colab runtime — and that
+runtime has now been recycled. Next session: fresh runtime, push the bundle,
+run V59 to produce 20 fresh contact sheets INCLUDING the new zeisehof, and only
+then hand those to the reviewer.
