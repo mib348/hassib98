@@ -1996,3 +1996,45 @@ Self-inflicted bug worth remembering: the injected copy landed at column 0
 inside a 4-space block, dedenting `subprocess.run(` and breaking the cell.
 ALWAYS read back a patched region rather than trusting the replace — the
 indentation is invisible in a diff of the replacement string alone.
+
+## V59 shard result: the swap makes zeisehof MEASURABLE, but not passing
+
+The single-image shard ran ~20 min and produced zeisehof's polygons, contact
+sheet and raw dump before failing on aggregation:
+
+    KeyError: 'fischerappelt-22769-2026-05-27-jjMXfVQNMT.jpg'
+
+A later stage builds manifests across all fourteen targets and looks up an image
+the shard never processed. The GPU work was already done and saved, and those
+aggregate manifests are exactly what gets rebuilt locally when merging, so
+nothing was lost. Artifacts preserved to
+`mib348/sushi-yoloe26x-v59-zeisehof-shard` and mirrored locally.
+
+| | old zeisehof (05-27) | new zeisehof (02-05) |
+|---|---|---|
+| true bowls, counted by eye | 9 | **12** |
+| detector @0.01 | 9 | **13** (+1 phantom: the SOJA-SAUCE shelf label) |
+| OCR sticker_count | **0** — unreadable | **11** |
+| gate | unmeasured | 11 != 13, still fails |
+
+OCR now reads LACHS, CHICKEN, TUNA, CRISPY, LACHS, MARVEL, GUACA, APFEL,
+CHICKEN, NAGOYA, VEGE — eleven real stickers where the old photo yielded none.
+It misses `MINI FRUHLINGSROLLEN`, the one long German label.
+
+So the swap achieved its purpose (the photo is no longer unreadable) without
+fixing the gate, because BOTH failure modes are present on it at once: the
+detector invents a bowl from a shelf label, and OCR misses one sticker.
+
+### Two measurement errors of mine, both caught by checking
+
+1. `extract_kraft_bowl_sticker_evidence` first returned 0 for this photo. That
+   was MY malformed input — the instance dicts lacked `class_id`, so nothing was
+   recognised as a kraft bowl and no crop was taken. With `class_id` present it
+   returns 11. The pipeline was never at fault.
+2. The candidate ranking used variance-of-Laplacian across MIXED RESOLUTIONS,
+   which is invalid: the "sharpest" candidates (704, 344) are simply the
+   downscaled ones (1126x2000, 1080x1920), while full-resolution 1620x2880
+   candidates score 29-82 for the same scene. Sharpness is only comparable at
+   equal resolution. The chosen photo is 1080x1920 against a package of
+   1620x2880 and 4032x3024 images — smaller stickers in pixels, though OCR still
+   reads them at 0.99 confidence.
