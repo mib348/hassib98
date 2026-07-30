@@ -1627,3 +1627,26 @@ So V56's floor plus a within-one tolerance clears OCR but fails counts at
 0.4167; V58's floor nearly clears counts at 0.9167 but fails OCR under any
 tolerance. This is a genuine operating-point conflict, not a bug, and it is the
 central fact for whatever comes next.
+
+### V58 artifacts preserved, and the packaging bug fixed at the source
+
+The 161 MB quarantine was pushed off the ephemeral Colab runtime with
+`kagglehub.dataset_upload` (the token is already staged there, 61.7 MB/s), then
+pulled back down through the same API path used for the bootstrap checkpoint:
+
+    kaggle.com/datasets/mib348/sushi-yoloe26x-v58-floor001-quarantine
+    -> training/autoresearch/results/yoloe26x_sam31_assisted_review_colab_v58_floor001_20260730/
+
+Verified locally: valid zip, `testzip()` reports no corrupt member, **20 refined
+polygons and 20 contact sheets**. Note the plain `curl` needed `-C -` to resume;
+a 161 MB pull does not finish inside a two-minute foreground timeout.
+
+Fixed in `prepare_kaggle_assisted_label_bundle.py` so no future run repeats the
+6h40m near-miss: the notebook's packaging assertions now read
+
+    text_prompt_primary = bool(inference_parameters.get("text_prompt_primary"))
+    if (not text_prompt_primary) and (...):
+
+The guard is NOT deleted — it still bites for every visual-only run, which is
+the case it was written to protect. A test asserts both halves: a text-primary
+notebook packages, and the purity strings remain present and conditioned.

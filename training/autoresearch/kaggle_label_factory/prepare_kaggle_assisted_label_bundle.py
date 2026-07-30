@@ -1363,7 +1363,15 @@ inference_parameters = run_manifest.get("inference_parameters", {})
 if inference_parameters.get("text_fallback_enabled") is not False:
     raise RuntimeError("The packaged review workflow must keep text fallback disabled.")
 text_fallback_summary = run_manifest.get("text_prompt_fallback_summary", {})
-if (
+# The text lane is a SANCTIONED proposer when --text-prompt-primary was asked
+# for, so its records are expected output rather than contamination.  The
+# runtime already grew this allowance (see assisted_label_review.py, "it is only
+# the list of sanctioned modes that grew"); these two checks had not, so a
+# text-primary run generated proposals for hours and then refused to package
+# them.  The purity requirement is unchanged for every visual-only run, which is
+# the case the checks were written to protect.
+text_prompt_primary = bool(inference_parameters.get("text_prompt_primary"))
+if (not text_prompt_primary) and (
     text_fallback_summary.get("triggered_image_count") != 0
     or text_fallback_summary.get("text_proposal_count_before_union") != 0
     or text_fallback_summary.get("text_only_union_proposal_count") != 0
@@ -1371,7 +1379,7 @@ if (
     or text_fallback_summary.get("target_images") != []
 ):
     raise RuntimeError("The packaged visual-prompt review contains text-fallback proposals.")
-if any(
+if (not text_prompt_primary) and any(
     row.get("text_prompt_fallback_ran") is not False
     or int(row.get("text_prompt_instance_count", 0)) != 0
     or int(row.get("text_only_proposal_count", 0)) != 0
