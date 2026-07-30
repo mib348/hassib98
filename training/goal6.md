@@ -1701,3 +1701,72 @@ Two decisions follow, and both belong to the reviewer, not to me:
 
 Answering "no" to both, on this V58 run, yields count accuracy 1.0000,
 package_complete True, and **handoff allowed**. Neither is implemented.
+
+---
+
+## LAYER CHECKLIST (status as of 2026-07-30, after V58)
+
+Per-step state for every layer, so the position is legible without reading the
+history above. `[x]` done and verified against artifacts, `[ ]` not done, with
+the exact blocker named.
+
+### L0 — human truth
+- [x] 6 photos, 242 rectangles, 6 capture sites
+- [x] `reviewed_fridge_counts.json` frozen, 8 gate cases, never edited
+
+### L1 — bootstrap fine-tune
+- [x] `build_bootstrap_dataset.py` -> 230 valid polygons (12 aggregate
+      `Chopstick` boxes quarantined, 0 degenerate)
+- [x] `train_gold_standard_seg.py --bootstrap` on Kaggle T4
+- [x] non-promotable `best.pt`, 171,641,721 bytes, still downloadable from
+      `v53-bootstrap-train/yoloe26x_bootstrap/artifacts/best.pt`
+- [x] verified the text lane actually LOADS it (V54 loaded and never consulted
+      one; the glob is fail-loud now and resolved in V58)
+
+### L2 — three proposers over the 20 images
+- [x] text-prompt lane, fine-tuned, `--text-prompt-primary`
+- [x] visual-prompt (SAVPE) lane from the 6 references
+- [x] SAM 3.1 semantic lane
+- [x] prompt-vs-identity separation (`FIXED_CLASS_NAMES` stays positional)
+- [x] prompt-variant screen — clean negative, baseline kept
+- [x] proposal-confidence lever swept and RUN at 0.01 both lanes (V58)
+
+### L3 — SAM 3.1 refinement
+- [x] 20 refined polygon files, reproducing every reported kraft count exactly
+- [x] archived off the ephemeral runtime and mirrored locally
+
+### L4 — arbitration + validator
+- [x] cross-class duplicate drop, colour arbitration (94.3% above 0.30 margin)
+- [x] door-pane reflection filter (22 TP / 0 FP)
+- [x] sauce-cup stack ruler
+- [x] `detector_validator_agent` runs and correctly REFUSES
+- [x] count accuracy 0.9167 (11/12) — **fails the >0.95 bar by one image**
+- [ ] that one image (statista) has NO counting error; it fails only on
+      `kraft OCR sticker_count=21 != kraft proposals=22`
+      **BLOCKED ON DECISION 1: should an advisory OCR disagreement fail an
+      image's COUNT score?  Answering no gives 12/12 = 1.0000.**
+
+### L5 — ONE reviewer pass, then the real training
+- [ ] `generate_local_review_page.py --require-detector-validator`
+      **BLOCKED: the validator must allow handoff first.**
+- [ ] **BLOCKED ON DECISION 2: should the advisory kraft OCR gate block handoff
+      at all?**  It is declared `advisory_only=True, used_as_ground_truth=False`,
+      the reviewer flagged it wrong on 11 of 20 images, and NO framing of it
+      reaches 0.95 (0.6316 all / 0.8750 reviewer-clean / 0.8950 within-one).
+- [ ] reviewer passes 20/20 contact sheets — **HUMAN ONLY, cannot be
+      self-approved.** Sheets are ready at
+      `results/yoloe26x_sam31_assisted_review_colab_v58_floor001_20260730/`
+- [ ] `ingest_review_decisions.py`
+- [ ] retrain on 20 traced polygons
+
+### L6 — bake and ship
+- [x] `get_text_pe` -> `set_classes` -> ONNX export at imgsz 1280
+- [x] `sahi_inference.py` path proven end to end
+- [x] frozen 8-case count gate runs and refuses correctly
+- [x] whole chain exercised on the BOOTSTRAP checkpoint
+- [ ] ship the L5-trained model — **BLOCKED: L5 has produced no model yet.**
+- [ ] controlled `/ai` re-enable
+
+**Summary: L0-L3 complete. L4 complete and correctly refusing. L5 and L6 are
+gated behind two reviewer decisions and one human review pass — not behind
+compute, and not behind model quality.**
