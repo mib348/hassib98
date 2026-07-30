@@ -1963,3 +1963,36 @@ independent confirmation the swap is what is staged.
 
 Re-verified on the fresh runtime before running: token 39 B, bundle
 53,086,385 B with matching hash, GPU Tesla T4.
+
+### The swap needs the correction manifest swapped too
+
+The first sharded attempt failed instantly with
+
+    ValueError: Correction manifest images differ from the frozen assisted batch.
+
+which is the guard working: the manifest still named
+`zeisehof-2026-05-27` while the bundle held `zeisehof-2026-02-05`. Proceeding
+would have applied the reviewer's findings about the BLURRED photo to a
+different image entirely. It cost no GPU — the check runs before any inference.
+
+Fix: a rebuilt manifest keeping all nineteen real reviewer entries untouched and
+marking the new photo honestly as unreviewed —
+
+    notes: "NOT YET REVIEWED. Image swapped 2026-07-30: replaces the
+            motion-blurred 2026-05-27 photo, on which OCR read 0 of 9 stickers.
+            Counts and OCR findings for that photo do not apply here."
+    requested_counts: {}      correction_status: awaiting_review
+
+The 6-pass / 14-reject contract still holds; a target must be `reject`, which is
+also simply true for an unreviewed image. New manifest sha
+`4f5bec7a...`, verified by the notebook's own
+`--expected-correction-manifest-sha256`.
+
+Delivery note: the manifest is embedded in notebook cell 4 as a ~661 KB blob,
+too large to patch through the browser. It was instead uploaded as a file and
+copied over what cell 4 writes, immediately before the runtime subprocess.
+
+Self-inflicted bug worth remembering: the injected copy landed at column 0
+inside a 4-space block, dedenting `subprocess.run(` and breaking the cell.
+ALWAYS read back a patched region rather than trusting the replace — the
+indentation is invisible in a diff of the replacement string alone.
