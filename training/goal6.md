@@ -1912,3 +1912,29 @@ the host), so the upload has to go through a live Colab runtime — and that
 runtime has now been recycled. Next session: fresh runtime, push the bundle,
 run V59 to produce 20 fresh contact sheets INCLUDING the new zeisehof, and only
 then hand those to the reviewer.
+
+### V59 launched with the swapped photo (2026-07-30)
+
+Fresh Colab Pro runtime. The Kaggle input dataset still serves the OLD bundle,
+so the new one was delivered by hand and proven at every step rather than
+assumed:
+
+    uploaded /content/assisted_label_inputs.bundle
+      size: 53086385 of 53086385   sha256: 106e7215...   MATCH: True
+
+    /kaggle/input/.../assisted_label_inputs.bundle
+      before: 2bc38d3b... (55593651, blurred zeisehof)
+      after:  106e7215... MATCHES NEW: True
+      zeisehof inside: images/zeisehof-22765-2026-02-05-j2xprTUWVx.jpg
+
+Then cell 2 — the notebook's own SHA gate, updated to expect `106e7215` — PASSED
+on its own. That is independent confirmation of the swap, not self-report.
+
+Two process notes worth keeping:
+- The first upload check read **32,505,856 of 53,086,385 bytes** with a
+  non-matching hash: the upload was still in flight. Always hash-verify a
+  browser upload before using it; size alone would have looked plausible.
+- The "delete the staged credential only AFTER the upload lands" lesson was
+  re-learned the hard way — deleting it in the same command that started the
+  wait removed it before Colab finished reading, and cell 0 failed on
+  "No Kaggle credentials" exactly as it did the first time this was hit.
