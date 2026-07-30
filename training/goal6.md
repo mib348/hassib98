@@ -1770,3 +1770,45 @@ the exact blocker named.
 **Summary: L0-L3 complete. L4 complete and correctly refusing. L5 and L6 are
 gated behind two reviewer decisions and one human review pass — not behind
 compute, and not behind model quality.**
+
+## CORRECTION: "no compromise on ocr" was the right call — OCR is catching real over-detection
+
+Reviewer decision: keep the gate, fix the OCR. Verifying by eye what the V58
+disagreements actually are inverted my earlier reading of them.
+
+**Counted directly from the photographs:**
+
+| image | detector @0.01 | OCR | TRUTH (counted by eye) | who is right |
+|---|---|---|---|---|
+| techhub | 2 | 1 | **1** (one GARDEN BOWL, rest empty) | **OCR** |
+| searenergy | 4 | 2 | **2** (VEGE + CHICKEN, rest empty) | **OCR** |
+| statista | 22 | 21 | 22 (reviewer's own number) | detector |
+| zeisehof | 9 | 0 | 9 (reviewer's own number) | detector |
+
+**Root cause of the over-count:** at floor 0.01 the detector puts kraft boxes on
+the BOTTOM sauce-cup shelf. techhub's phantom sits at y 0.778-0.818 and
+searenergy's two at y 0.748-0.860, while every real bowl is mid-cabinet. It is
+the documented class-confusion failure reaching the kraft class. The dense
+fridges are clean — statista's 22, mb-energy's 12 and zeisehof's 9 have ZERO
+bottom-shelf boxes, so statista's 22 = 22 is a genuine match, not compensating
+errors.
+
+**This corrects my V58 report.** I presented count accuracy 0.4167 -> 0.9167 as
+a clean win. It is not clean: techhub and searenergy PASSED the count check
+while carrying wrong kraft counts, because the reviewer never quantified kraft
+on those images so the error is unscored. **The count gate is blind to kraft
+over-detection; OCR was the only gate that caught it.** 0.9167 overstates the
+improvement.
+
+**Two distinct failure modes, both real:**
+- sparse fridges -> detector invents bowls on the bottom tray, OCR correct
+- dense fridges -> detector correct, OCR under-reads (turned-away stickers, blur)
+
+**Rejected after testing:** a geometric rule flagging kraft boxes that swallow
+>=60% of a cup/packet box. It misfires on techhub's REAL bowl and on one of
+statista's real bowls, so it does not separate the classes. Recorded so nobody
+re-derives it.
+
+Neither floor is safe as a global setting: 0.05 under-counts dense fridges
+(statista kraft 19 vs 22), 0.01 over-counts sparse ones. The next lever is
+per-class confidence, which needs a GPU pass to evaluate.
