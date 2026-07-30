@@ -1938,3 +1938,28 @@ Two process notes worth keeping:
   re-learned the hard way — deleting it in the same command that started the
   wait removed it before Colab finished reading, and cell 0 failed on
   "No Kaggle credentials" exactly as it did the first time this was hit.
+
+### V59 restarted as a SINGLE-IMAGE shard (reviewer's optimisation)
+
+The first V59 attempt died when Colab reset the runtime minutes in — every
+staged file was wiped (`/kaggle/working`, `/content/*`), though the T4 stayed.
+Setup time lost, no compute.
+
+The reviewer then pointed out the obvious saving: **only one image changed, so
+only one image needs re-proposing.** The other 19 already have valid V58
+results in the downloaded archive.
+
+    target index 13 -> --image-shard 14/14 -> zeisehof-22765-2026-02-05 alone
+
+That turns a ~7h pass into ~30-60min and reuses 19 images that would otherwise
+have been recomputed identically. Roughly six GPU-hours saved.
+
+Preamble change for this run: the shipped preamble pulls the bundle from the
+Kaggle dataset, which still serves the OLD blurred-zeisehof version. It was
+patched to adopt the hash-verified upload in `/content` instead. The SHA gate is
+untouched and still does the proving — cell 2 printed
+`Verified frozen assisted_label_inputs.bundle` against `106e7215`, which is
+independent confirmation the swap is what is staged.
+
+Re-verified on the fresh runtime before running: token 39 B, bundle
+53,086,385 B with matching hash, GPU Tesla T4.
