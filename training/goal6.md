@@ -1650,3 +1650,54 @@ Fixed in `prepare_kaggle_assisted_label_bundle.py` so no future run repeats the
 The guard is NOT deleted — it still bites for every visual-only run, which is
 the case it was written to protect. A test asserts both halves: a text-primary
 notebook packages, and the purity strings remain present and conditioned.
+
+## The blocker, finally isolated: an advisory signal is acting as ground truth
+
+Three measurements, taken together, settle what has been blocking L5:
+
+**1. The reviewer already judged the OCR wrong — on more than half the set.**
+`review_correction_manifest.json` carries a structured `ocr.issue` flag, set
+true on **11 of 20** images, with notes in the reviewer's own words:
+
+    statista  "kraft paper bowl 22" + "ocr is wrong"
+    stroeer   "ocr is missing 1"   (ocr.missing_count = 1)
+    harburg   "kraft box ocr is wrong"
+
+**2. No framing of the gate reaches the bar.**
+
+| framing | result |
+|---|---|
+| all comparable images (V58) | 12/19 = 0.6316 |
+| exclude the 11 the reviewer flagged | 7/8 = 0.8750 |
+| within-one tolerance at floor 0.01 | 17/19 = 0.8950 |
+| within-one tolerance at floor 0.05 | 19/19 = 1.0000 but counts are 0.4167 |
+
+**3. The single count failure has no counting error.** statista at V58:
+
+    kraft paper bowl 22 = 22    black soya 12 = 12    teriyaki 10 = 10
+    wayo 8 = 8                  chili mayo 8 = 8
+    only mismatch: "kraft OCR sticker_count=21 != kraft proposals=22"
+
+Every class matches the reviewer exactly. The image fails because OCR could not
+read one sticker — on the image where the reviewer wrote "ocr is wrong". Drop
+that one OCR-derived penalty and count accuracy is **12/12 = 1.0000**.
+
+### What this means
+
+`extract_kraft_bowl_sticker_evidence` declares its own output
+`"advisory_only": True, "used_as_ground_truth": False`. Two places contradict
+that declaration: the per-image count score fails an image on OCR disagreement
+wherever the reviewer quantified kraft, and `kraft_ocr_gate_passed` blocks
+handoff outright. So an explicitly advisory reader is functioning as ground
+truth, and the detector is being marked wrong for being right.
+
+The premise this came from — "kraft bowl labels should be exact because they are
+not hard to read via ocr" — was written before anyone had reviewed the photos.
+Having reviewed them, the reviewer recorded the opposite eleven times.
+
+Two decisions follow, and both belong to the reviewer, not to me:
+1. Should an advisory OCR disagreement fail an image's COUNT score?
+2. Should the advisory OCR gate block handoff at all?
+
+Answering "no" to both, on this V58 run, yields count accuracy 1.0000,
+package_complete True, and **handoff allowed**. Neither is implemented.
