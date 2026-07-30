@@ -1812,3 +1812,35 @@ re-derives it.
 Neither floor is safe as a global setting: 0.05 under-counts dense fridges
 (statista kraft 19 vs 22), 0.01 over-counts sparse ones. The next lever is
 per-class confidence, which needs a GPU pass to evaluate.
+
+### Why no threshold can fix the kraft over-detection — and a trap to avoid
+
+Pulled the actual confidences out of `vp_predictions` for the two images where
+OCR was verified right:
+
+    techhub     conf 0.5069  y1=0.751   <- bottom shelf, PHANTOM
+                conf 0.4402  y1=0.750   <- PHANTOM
+                conf 0.3402  y1=0.753   <- PHANTOM
+                conf 0.3162  y1=0.440   <- the REAL bowl, ranked 4th
+
+    searenergy  conf 0.3223  y1=0.761   <- PHANTOM, top-ranked
+                conf 0.2191  y1=0.405   <- real bowl, 2nd
+                conf 0.1022  y1=0.556   <- real bowl, 6th
+
+**The phantoms outrank the real bowls.** So no confidence rule — global,
+per-class, or per-image relative — separates them, and the per-class-threshold
+idea is dead on arrival. Lane agreement does not separate them either: the
+top searenergy phantom is dual-supported (text + visual), like the real bowls.
+
+That makes this a MODEL-quality failure, not a filter or threshold failure: the
+bootstrap checkpoint, trained on 6 photos, confidently reads a sauce/packet tray
+as a kraft bowl when the cabinet is nearly empty. The fix for that is exactly
+what L5's retrain on 20 traced polygons is for.
+
+**TRAP — do not supply kraft counts for these images to "fix" the numbers.**
+`enforce_exact_human_estimate_counts` keeps "the highest-priority /
+highest-confidence proposals up to the estimate and drops the extras". On
+techhub a human count of 1 would keep the 0.5069 bottom-shelf PHANTOM and
+DISCARD the real bowl at 0.3162 — a correct count wrapped around wrong
+geometry, which would then be trained on. That is the "never use the reviewer's
+counts to create, size or split geometry" non-negotiable failing in spirit.
