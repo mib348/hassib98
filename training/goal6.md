@@ -1844,3 +1844,23 @@ techhub a human count of 1 would keep the 0.5069 bottom-shelf PHANTOM and
 DISCARD the real bowl at 0.3162 — a correct count wrapped around wrong
 geometry, which would then be trained on. That is the "never use the reviewer's
 counts to create, size or split geometry" non-negotiable failing in spirit.
+
+### Verified by eye: OCR beats the detector on kraft, 3 for 3
+
+| image | detector @0.01 | OCR | TRUE (counted from the photo) | right |
+|---|---|---|---|---|
+| techhub | 2 | 1 | 1 | **OCR** |
+| searenergy | 4 | 2 | 2 | **OCR** |
+| mb-energy | 12 | 10 | **10** (CHICKEN,CHICKEN,LACHS / CHIBA,LACHS,CHICKEN / FITNESS,CHICKEN,LACHS,GARDEN) | **OCR** |
+| statista | 22 | 21 | 22 (reviewer) | detector, OCR short 1 |
+| zeisehof | 9 | 0 | 9 (reviewer) | detector, OCR blind (blur) |
+
+Corrects an earlier claim in this file that the over-count was a sparse-fridge
+effect. mb-energy is FULL (10 bowls) and still over-counted by 2, with no
+bottom-shelf boxes. So kraft over-detection at floor 0.01 is general, not a
+near-empty-cabinet artefact.
+
+Net: on the five images checked, OCR is right three times and the detector
+three times wrong. The reviewer's "no compromise on ocr" is well founded — OCR
+is currently the better kraft counter, and the count gate cannot see the error
+because those three images carry no human kraft number.
