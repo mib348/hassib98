@@ -1408,3 +1408,44 @@ Open: (1) the four off-by-one misses — classification running, and mutabor bei
 the sharpest image in the set means they are physical, not quality; (2) zeisehof,
 which is the reviewer's call — the sharp 05-26 photo exists but carries no human
 counts, and reviewed_fridge_counts.json is off-limits.
+
+## SESSION 2026-07-29/30 — V58 ran on Colab Pro, and the blocker is now named
+
+Colab Pro was bought mid-session. The floor-0.01 pass ran ~6h40m and completed.
+
+**Result: count accuracy 0.4167 -> 0.9167 (5/12 -> 11/12).** Largest gain in
+this goal. It required a real generation — the earlier filter-upward replay
+could not have predicted it, because the NMS pool differs.
+
+**OCR consistency regressed 0.7895 -> 0.6316**, exactly as predicted: a lower
+floor emits more kraft proposals than the reader can read, so mb-energy (10v12),
+searenergy (2v4) and techhub (1v2) broke from previously exact.
+
+### The blocker, isolated
+
+- statista is the ONLY count failure, and it has **no counting error**: kraft
+  22=22, soya 12=12, teriyaki 10=10, wayo 8=8, chili mayo 8=8. Its sole
+  mismatch is `kraft OCR sticker_count=21 != kraft proposals=22`.
+- The reviewer's own manifest sets `ocr.issue = true` on **11 of 20** images —
+  "ocr is wrong", "ocr is missing 1", "kraft box ocr is wrong".
+- No framing of the OCR gate reaches 0.95: all images 0.6316, reviewer-clean
+  subset 0.8750, within-one 0.8950 at the floor that fixes counts.
+- `extract_kraft_bowl_sticker_evidence` declares itself `advisory_only=True,
+  used_as_ground_truth=False`, yet it fails per-image counts AND blocks handoff.
+
+So an advisory reader is acting as ground truth and the detector is being marked
+wrong for agreeing with the human. Answering "no" to both uses gives count
+1.0000 and handoff allowed. NOT implemented — reviewer's call.
+
+### Operational lessons worth keeping
+
+- `viewRuntimeLogs()` exposes subprocess stderr (the only progress signal for a
+  long pass) but renders a STATIC snapshot — re-invoke to refresh, and read in a
+  SEPARATE call because it repaints asynchronously. Trusting one read would have
+  looked like a frozen run.
+- SAM 3.1 refines ~1 object / 4s. Wall time = instances x ~4s.
+- Colab runtimes survive the browser closing entirely; the execution queue does
+  not necessarily.
+- `kagglehub.dataset_upload` is the clean way to get artifacts off an ephemeral
+  runtime (161MB at 61.7MB/s), and Kaggle downloads never touch compute quota.
+- curl needs `-C -` for a 161MB pull; it will not finish in a 2-minute timeout.
