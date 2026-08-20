@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\MqttHelper;
+use App\Models\Fulfillment;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -12,9 +13,17 @@ use Throwable;
 /**
  * Fetch the current location order snapshot directly from Shopify GraphQL.
  *
- * Shopify remains the source of truth. This service does not read or update the
- * local orders table, so reconnect recovery cannot be affected by a delayed
- * import command. Every MQTT request performs a new paginated Shopify query.
+ * Shopify remains the source of truth for the order CONTENTS. This service does
+ * not read or update the local orders table, so reconnect recovery cannot be
+ * affected by a delayed import command. Every MQTT request performs a new
+ * paginated Shopify query.
+ *
+ * Exception — pickup/fulfillment: the Pi records a pickup over MQTT into the
+ * local `fulfillments` table, but the storefront flow never creates a NATIVE
+ * Shopify fulfillment and the `custom.status` metafield is unreliable, so Shopify
+ * still reports the order UNFULFILLED. We therefore treat a local `fulfillments`
+ * row as the authoritative "this order was picked up" signal (see
+ * markLocallyFulfilled), overlaid onto the Shopify-derived snapshot.
  */
 class MqttOrderSyncService
 {
@@ -76,6 +85,10 @@ class MqttOrderSyncService
             }
         }
 
+        // Shopify keeps picked orders as UNFULFILLED (no native fulfillment is
+        // ever created), so overlay our own local pickup record before publishing.
+        $orders = $this->markLocallyFulfilled($orders);
+
         $payload = [
             'event' => 'orders.sync.response',
             'success' => true,
@@ -99,6 +112,93 @@ class MqttOrderSyncService
         ]);
 
         return $payload;
+    }
+
+    /**
+     * Overlay the server's own pickup record onto the Shopify-derived snapshot.
+     *
+     * When the Pi picks an order it publishes to `orders/fulfilled`, which upserts
+     * a row into the local `fulfillments` table (keyed by the Shopify numeric
+     * order id). That local write is our reliable source of truth. Shopify, by
+     * contrast, still shows the order UNFULFILLED (no native fulfillment is ever
+     * created) and the `custom.status` metafield is frequently empty, which
+     * previously made the sync report picked orders as `active` / `UNFULFILLED`.
+     *
+     * For every snapshot order that has a matching local fulfillment row we mark
+     * it fulfilled across ALL three status fields (`fulfillment_status`, `state`,
+     * `custom_status`) so the device sees a consistent result whichever field it
+     * reads. Terminal financial states (cancelled/refunded) keep precedence, so a
+     * refunded-but-picked order is not relabelled fulfilled. One batched query
+     * covers the whole snapshot.
+     *
+     * @param  array<int, array<string, mixed>>  $orders
+     * @return array<int, array<string, mixed>>
+     */
+    private function markLocallyFulfilled(array $orders): array
+    {
+        if ($orders === []) {
+            return $orders;
+        }
+
+        // Collect the Shopify numeric order ids present in this snapshot.
+        $orderIds = array_values(array_filter(array_map(
+            static fn (array $order) => $order['order_id'] ?? null,
+            $orders
+        )));
+
+        if ($orderIds === []) {
+            return $orders;
+        }
+
+        // One query for the whole snapshot. Keys are the ids as strings so the
+        // lookup is not tripped up by int/string differences between the Shopify
+        // id and the DB column.
+        $fulfilledIds = Fulfillment::query()
+            ->whereIn('order_id', $orderIds)
+            ->pluck('order_id')
+            ->mapWithKeys(static fn ($id): array => [(string) $id => true])
+            ->all();
+
+        if ($fulfilledIds === []) {
+            return $orders;
+        }
+
+        // A refunded/cancelled order stays in that terminal state even if it was
+        // also picked, matching the precedence already used by orderState().
+        $terminalStates = ['cancelled', 'refunded', 'partially_refunded'];
+
+        foreach ($orders as &$order) {
+            $orderId = (string) ($order['order_id'] ?? '');
+
+            if ($orderId === '' || ! isset($fulfilledIds[$orderId])) {
+                continue;
+            }
+
+            if (in_array($order['state'] ?? '', $terminalStates, true)) {
+                continue;
+            }
+
+            $order['fulfillment_status'] = 'FULFILLED';
+            $order['state'] = 'fulfilled';
+
+            // Keep custom_status consistent too, so a device that keys off the
+            // metafield-backed field also sees the pickup.
+            $customStatus = is_array($order['custom_status'] ?? null) ? $order['custom_status'] : [];
+            $alreadyMarked = in_array(
+                'fulfilled',
+                array_map(static fn ($value): string => strtolower(trim((string) $value)), $customStatus),
+                true
+            );
+
+            if (! $alreadyMarked) {
+                $customStatus[] = 'fulfilled';
+            }
+
+            $order['custom_status'] = $customStatus;
+        }
+        unset($order);
+
+        return $orders;
     }
 
     private function resolveShop(): object

@@ -7,12 +7,12 @@ use App\Models\Orders;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ImportShopifyOrders extends Command
 {
     protected $signature = 'shopify:import-orders';
+
     protected $description = 'Import orders from Shopify';
 
     /**
@@ -22,8 +22,9 @@ class ImportShopifyOrders extends Command
     {
         try {
             $shop = Auth::user(); // Ensure you have a way to authenticate and set the current shop.
-            if (!isset($shop) || !$shop)
+            if (! isset($shop) || ! $shop) {
                 $shop = User::find(env('db_shop_id', 1));
+            }
             $api = $shop->api(); // Get the API instance for the shop.
 
             $createdAtMin = now()->subDays(15)->toIso8601String();
@@ -39,7 +40,7 @@ class ImportShopifyOrders extends Command
                 {
                     orders(
                         first: 250,
-                        query: "created_at:>=' . $createdAtMin . ' AND created_at:<=' . $createdAtMax . '"' . ($cursor ? ', after: "' . $cursor . '"' : '') . '
+                        query: "created_at:>='.$createdAtMin.' AND created_at:<='.$createdAtMax.'"'.($cursor ? ', after: "'.$cursor.'"' : '').'
                     ) {
                         pageInfo {
                             hasNextPage
@@ -57,6 +58,7 @@ class ImportShopifyOrders extends Command
                                 email
                                 displayFinancialStatus
                                 displayFulfillmentStatus
+                                statusMetafield: metafield(namespace: "custom", key: "status") { value }
                                 paymentGatewayNames
                                 note
                                 statusPageUrl
@@ -93,14 +95,14 @@ class ImportShopifyOrders extends Command
                             'total_price' => $node['totalPriceSet']['shopMoney']['amount'],
                             'email' => $node['email'],
                             'financial_status' => $node['displayFinancialStatus'],
-                            'fulfillment_status' => $node['displayFulfillmentStatus'],
+                            'fulfillment_status' => $this->resolveFulfillmentStatus($node),
                             'cancel_reason' => $node['cancelReason'],
                             'payment_gateway_names' => [],
                             'note' => $node['note'],
                             'order_status_url' => $node['statusPageUrl'],
                             'created_at' => $node['createdAt'],
                             'updated_at' => $node['updatedAt'],
-                            'cancelled_at' => !empty($node['cancelledAt']) ? date("Y-m-d H:i:s", strtotime($node['cancelledAt'])) : $node['cancelledAt'],
+                            'cancelled_at' => ! empty($node['cancelledAt']) ? date('Y-m-d H:i:s', strtotime($node['cancelledAt'])) : $node['cancelledAt'],
                         ];
 
                         try {
@@ -126,7 +128,7 @@ class ImportShopifyOrders extends Command
                             foreach ($lineItem['customAttributes'] as $attr) {
                                 $properties[] = [
                                     'name' => $attr['key'],
-                                    'value' => $attr['value']
+                                    'value' => $attr['value'],
                                 ];
                             }
 
@@ -150,8 +152,8 @@ class ImportShopifyOrders extends Command
                     }
 
                     $allOrders = array_merge($allOrders, $orders);
-                    Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
-                    $this->info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders)) . PHP_EOL;
+                    Log::info('Fetched '.count($orders).' orders. Total so far: '.count($allOrders));
+                    $this->info('Fetched '.count($orders).' orders. Total so far: '.count($allOrders)).PHP_EOL;
                 }
 
                 $hasNextPage = $response['body']['data']['orders']['pageInfo']['hasNextPage'] ?? false;
@@ -163,8 +165,8 @@ class ImportShopifyOrders extends Command
             $allOrders = (array) $allOrders;
             $this->importOrders($api, $allOrders);
         } catch (\Throwable $th) {
-            Log::error("Error running job for importing orders: " . json_encode($th));
-            $this->error("Error running job for importing orders: " . json_encode($th));
+            Log::error('Error running job for importing orders: '.json_encode($th));
+            $this->error('Error running job for importing orders: '.json_encode($th));
             abort(403, $th);
         }
     }
@@ -183,7 +185,7 @@ class ImportShopifyOrders extends Command
             $rawDate = $this->lineItemPropertyValue($firstLineItem, 'date');
             if (! empty($rawDate)) {
                 $timestamp = strtotime($rawDate);
-                $date = $timestamp === false ? null : date("Y-m-d", $timestamp);
+                $date = $timestamp === false ? null : date('Y-m-d', $timestamp);
             }
 
             $day = $this->lineItemPropertyValue($firstLineItem, 'day');
@@ -212,10 +214,40 @@ class ImportShopifyOrders extends Command
             ]);
 
             Log::info("Order: {$order['order_number']} has been imported successfully");
-            $this->info("Order: {$order['order_number']} has been imported successfully") . PHP_EOL;
+            $this->info("Order: {$order['order_number']} has been imported successfully").PHP_EOL;
 
             $this->importOrdersMetafields($api, $order);
         }
+    }
+
+    /**
+     * Derive the local fulfillment status from the order's custom.status metafield.
+     *
+     * A pickup marks an order fulfilled by writing the custom.status metafield
+     * (e.g. ["fulfilled","packed","handed_over"]) rather than creating a native
+     * Shopify fulfillment, so Shopify's displayFulfillmentStatus stays UNFULFILLED.
+     * Honouring the metafield here keeps the local orders table in step with the
+     * pickup and, because the metafield persists on the Shopify order, the value
+     * survives every re-import instead of being stomped back to UNFULFILLED.
+     */
+    private function resolveFulfillmentStatus($node): string
+    {
+        // $node may be a plain array OR the Shopify SDK's ResponseAccess object
+        // (ArrayAccess), so use data_get to traverse it safely in either case.
+        $metafieldValue = data_get($node, 'statusMetafield.value');
+
+        if (! empty($metafieldValue)) {
+            $decoded = json_decode($metafieldValue, true);
+            $statuses = is_array($decoded) ? $decoded : [$metafieldValue];
+
+            foreach ($statuses as $status) {
+                if (strtolower(trim((string) $status)) === 'fulfilled') {
+                    return 'FULFILLED';
+                }
+            }
+        }
+
+        return (string) data_get($node, 'displayFulfillmentStatus', '');
     }
 
     private function lineItemPropertyValue(array $lineItem, string $propertyName, $default = null)
@@ -247,14 +279,13 @@ class ImportShopifyOrders extends Command
                 'time_of_pick_up',
                 'door_open_time',
                 'image_before',
-                'image_after'
+                'image_after',
             ];
 
-
-            $gid = 'gid://shopify/Order/' . $order['id'];
+            $gid = 'gid://shopify/Order/'.$order['id'];
             $query = '
                 query {
-                    order(id: "' . $gid . '") {
+                    order(id: "'.$gid.'") {
                         metafields(first: 250, namespace: "custom") {
                             edges {
                                 node {
@@ -294,9 +325,9 @@ class ImportShopifyOrders extends Command
             }
 
             // Process metafields from GraphQL response
-            if (!empty($metafields)) {
+            if (! empty($metafields)) {
                 foreach ($metafields as $field) {
-                    if (!$field) {
+                    if (! $field) {
                         continue;
                     }
                     if (in_array($field['key'], $requiredMetafields)) {
@@ -349,11 +380,11 @@ class ImportShopifyOrders extends Command
                 }
             }
 
-            Log::info("Obsolete records have been cleaned up successfully.");
-            $this->info("Obsolete records have been cleaned up successfully.");
+            Log::info('Obsolete records have been cleaned up successfully.');
+            $this->info('Obsolete records have been cleaned up successfully.');
         } catch (\Exception $e) {
-            Log::error("An error occurred: " . $e->getMessage());
-            $this->error("An error occurred: " . $e->getMessage());
+            Log::error('An error occurred: '.$e->getMessage());
+            $this->error('An error occurred: '.$e->getMessage());
         }
 
         echo PHP_EOL;

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Helpers\MqttHelper;
 use App\Jobs\SyncPiOrdersJob;
 use App\Models\Fulfillment;
+use App\Models\Orders;
 use App\Models\PiStatus;
 use App\Models\User;
 use Illuminate\Console\Command;
@@ -100,7 +101,7 @@ class MqttSubscribe extends Command
             $mqtt->loop(true);
 
         } catch (\Throwable $e) {
-            $this->error('MQTT Subscriber fatal error: ' . $e->getMessage());
+            $this->error('MQTT Subscriber fatal error: '.$e->getMessage());
             Log::error('MQTT Subscriber: Fatal error, exiting for Supervisor restart', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -122,8 +123,8 @@ class MqttSubscribe extends Command
      * 3. Build Shopify metafield updates for the order
      * 4. Push each metafield to the Shopify REST API
      *
-     * @param string $topic   The MQTT topic the message arrived on
-     * @param string $message The raw JSON payload from the RPi device
+     * @param  string  $topic  The MQTT topic the message arrived on
+     * @param  string  $message  The raw JSON payload from the RPi device
      */
     private function processFulfillmentMessage(string $topic, string $message): void
     {
@@ -135,11 +136,12 @@ class MqttSubscribe extends Command
             // -----------------------------------------------------------------
             $data = json_decode($message, true);
 
-            if (!$data || !is_array($data)) {
+            if (! $data || ! is_array($data)) {
                 Log::warning('MQTT Subscriber: Invalid JSON received', [
                     'topic' => $topic,
                     'raw_message' => $message,
                 ]);
+
                 return;
             }
 
@@ -173,6 +175,7 @@ class MqttSubscribe extends Command
                     'errors' => $validator->errors()->toArray(),
                     'data' => $data,
                 ]);
+
                 return;
             }
 
@@ -193,11 +196,23 @@ class MqttSubscribe extends Command
             ]);
 
             // -----------------------------------------------------------------
+            // 2b. Reflect the pickup on the local `orders` row so that table
+            //     (and the orders/updated MQTT payload built from it) shows the
+            //     order as fulfilled instead of Shopify's stale UNFULFILLED
+            //     native status. Matched by the Shopify numeric order_id. This is
+            //     best-effort: if the order has not been imported into `orders`
+            //     yet, it updates zero rows and the pickup is still recorded.
+            // -----------------------------------------------------------------
+            Orders::where('order_id', $validatedData['order_id'])
+                ->update(['fulfillment_status' => 'FULFILLED']);
+
+            // -----------------------------------------------------------------
             // 3. Get shop instance for Shopify API calls
             // -----------------------------------------------------------------
             $shop = User::find(env('db_shop_id', 1));
-            if (!$shop) {
+            if (! $shop) {
                 Log::error('MQTT Subscriber: Shop not found, cannot sync metafields');
+
                 return;
             }
 
@@ -261,8 +276,8 @@ class MqttSubscribe extends Command
      * Only the latest row is stored per location_slug. This keeps the table small
      * and makes admin/status dashboards read a single current state per device.
      *
-     * @param string $topic   e.g. "dev/location/standort_1/pi/status"
-     * @param string $message Raw JSON payload sent by the RPi or Last Will
+     * @param  string  $topic  e.g. "dev/location/standort_1/pi/status"
+     * @param  string  $message  Raw JSON payload sent by the RPi or Last Will
      */
     private function processPiStatusMessage(string $topic, string $message): void
     {
@@ -273,6 +288,7 @@ class MqttSubscribe extends Command
                 Log::warning('MQTT Subscriber: Pi status topic did not match expected pattern', [
                     'topic' => $topic,
                 ]);
+
                 return;
             }
 
@@ -281,11 +297,12 @@ class MqttSubscribe extends Command
 
             $data = json_decode($message, true);
 
-            if (!$data || !is_array($data)) {
+            if (! $data || ! is_array($data)) {
                 Log::warning('MQTT Subscriber: Invalid Pi status JSON received', [
                     'topic' => $topic,
                     'raw_message' => $message,
                 ]);
+
                 return;
             }
 
@@ -331,6 +348,8 @@ class MqttSubscribe extends Command
                     }
                 }],
                 'cpu_temp' => 'nullable|numeric',
+                'download_mbps' => 'nullable|numeric|min:0',
+                'upload_mbps' => 'nullable|numeric|min:0',
                 'message' => 'nullable|string|max:1000',
             ]);
 
@@ -340,6 +359,7 @@ class MqttSubscribe extends Command
                     'errors' => $validator->errors()->toArray(),
                     'data' => $data,
                 ]);
+
                 return;
             }
 
@@ -348,7 +368,7 @@ class MqttSubscribe extends Command
             // Prefer the payload location_slug when provided, but fall back to
             // the MQTT topic so a Last Will can be short and still update the
             // correct location row.
-            $locationSlug = trim((string)($validatedData['location_slug'] ?? ''));
+            $locationSlug = trim((string) ($validatedData['location_slug'] ?? ''));
             if ($locationSlug === '') {
                 $locationSlug = $topicLocationSlug;
             }
@@ -356,7 +376,7 @@ class MqttSubscribe extends Command
             // The client_id should normally equal the location slug. If the Pi
             // omits it, store the location slug so the dashboard still has a
             // stable identity instead of a blank value.
-            $clientId = trim((string)($validatedData['client_id'] ?? ''));
+            $clientId = trim((string) ($validatedData['client_id'] ?? ''));
             if ($clientId === '') {
                 $clientId = $locationSlug;
             }
@@ -368,10 +388,10 @@ class MqttSubscribe extends Command
                 ['location_slug' => $locationSlug],
                 [
                     'client_id' => $clientId,
-                    'status' => strtolower((string)$validatedData['status']),
+                    'status' => strtolower((string) $validatedData['status']),
                     'heartbeat_at' => $heartbeatAt,
                     'last_seen_at' => $lastSeenAt,
-                    'uptime_seconds' => isset($validatedData['uptime_seconds']) ? (int)$validatedData['uptime_seconds'] : null,
+                    'uptime_seconds' => isset($validatedData['uptime_seconds']) ? (int) $validatedData['uptime_seconds'] : null,
                     'app_version' => $validatedData['app_version'] ?? null,
                     'message' => $validatedData['message'] ?? null,
                     'payload' => $data,
@@ -531,8 +551,8 @@ class MqttSubscribe extends Command
      * extracted into a reusable method. Each metafield handles the JSON array
      * normalization (string vs array) that Shopify expects.
      *
-     * @param  array $data  Validated fulfillment data from the RPi
-     * @return array        Array of metafield definitions ready for Shopify API
+     * @param  array  $data  Validated fulfillment data from the RPi
+     * @return array Array of metafield definitions ready for Shopify API
      */
     private function buildMetafields(array $data): array
     {
@@ -657,8 +677,8 @@ class MqttSubscribe extends Command
      * This normalization is needed because RPi devices may send values as
      * arrays or JSON-encoded strings depending on their firmware version.
      *
-     * @param  mixed $value  The value to normalize
-     * @return array         Always returns an array
+     * @param  mixed  $value  The value to normalize
+     * @return array Always returns an array
      */
     private function ensureArray($value): array
     {

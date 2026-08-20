@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 class ImportDriversOrders extends Command
 {
     protected $signature = 'shopify:import-drivers-orders';
+
     protected $description = 'Import orders from Shopify';
 
     /**
@@ -19,12 +20,13 @@ class ImportDriversOrders extends Command
      */
     public function handle()
     {
-        $this->info("Importing orders for drivers app");
+        $this->info('Importing orders for drivers app');
 
         try {
             $shop = Auth::user(); // Ensure you have a way to authenticate and set the current shop.
-            if(!isset($shop) || !$shop)
+            if (! isset($shop) || ! $shop) {
                 $shop = User::find(env('db_shop_id', 1));
+            }
             $api = $shop->api(); // Get the API instance for the shop.
 
             $now = Carbon::now();
@@ -48,8 +50,8 @@ class ImportDriversOrders extends Command
                 {
                     orders(
                         first: 250,
-                        query: "created_at:>=' . $createdAtMin . ' AND created_at:<=' . $createdAtMax . '"
-                        ' . ($cursor ? ', after: "' . $cursor . '"' : '') . '
+                        query: "created_at:>='.$createdAtMin.' AND created_at:<='.$createdAtMax.'"
+                        '.($cursor ? ', after: "'.$cursor.'"' : '').'
                     ) {
                         pageInfo {
                             hasNextPage
@@ -71,6 +73,7 @@ class ImportDriversOrders extends Command
                                 email
                                 displayFinancialStatus
                                 displayFulfillmentStatus
+                                statusMetafield: metafield(namespace: "custom", key: "status") { value }
                                 paymentGatewayNames
                                 note
                                 customer {
@@ -160,14 +163,14 @@ class ImportDriversOrders extends Command
                             'total_price' => $node['totalPriceSet']['shopMoney']['amount'],
                             'email' => $node['email'],
                             'financial_status' => $node['displayFinancialStatus'],
-                            'fulfillment_status' => $node['displayFulfillmentStatus'],
+                            'fulfillment_status' => $this->resolveFulfillmentStatus($node),
                             'cancel_reason' => $node['cancelReason'],
                             'payment_gateway_names' => '',
                             'note' => $node['note'],
                             'order_status_url' => $node['statusPageUrl'],
                             'created_at' => $node['createdAt'],
                             'updated_at' => $node['updatedAt'],
-                            'cancelled_at' => !empty($node['cancelledAt']) ? date("Y-m-d H:i:s", strtotime($node['cancelledAt'])) : $node['cancelledAt'],
+                            'cancelled_at' => ! empty($node['cancelledAt']) ? date('Y-m-d H:i:s', strtotime($node['cancelledAt'])) : $node['cancelledAt'],
                             'customer' => $node['customer'],
                             'shipping_address' => $node['shippingAddress'],
                         ];
@@ -177,7 +180,7 @@ class ImportDriversOrders extends Command
                             // Convert the paymentGatewayNames to a simple string or array we can work with
                             if (is_array($node['paymentGatewayNames'])) {
                                 $order['payment_gateway_names'] = $node['paymentGatewayNames'];
-                            } else if (is_object($node['paymentGatewayNames'])) {
+                            } elseif (is_object($node['paymentGatewayNames'])) {
                                 // For ResponseAccess objects, we'll try to access it as an array
                                 $pgNames = [];
                                 foreach ($node['paymentGatewayNames'] as $key => $value) {
@@ -212,48 +215,48 @@ class ImportDriversOrders extends Command
                         }
 
                         // Get customer data
-						$arrCustomerData = $node['customer'];
-						// Customer data is not an array to iterate through, but a single object
-						if ($arrCustomerData) {
-							// Convert customer ID from Shopify GraphQL format (removing the prefix)
-							$arrCustomerData['id'] = preg_replace('/^gid:\/\/shopify\/Customer\//', '', $arrCustomerData['id']);
+                        $arrCustomerData = $node['customer'];
+                        // Customer data is not an array to iterate through, but a single object
+                        if ($arrCustomerData) {
+                            // Convert customer ID from Shopify GraphQL format (removing the prefix)
+                            $arrCustomerData['id'] = preg_replace('/^gid:\/\/shopify\/Customer\//', '', $arrCustomerData['id']);
 
-							// Convert camelCase to snake_case for customer fields
-							$arrCustomerData['first_name'] = $arrCustomerData['firstName'];
-							$arrCustomerData['last_name'] = $arrCustomerData['lastName'];
-							unset($arrCustomerData['firstName']);
-							unset($arrCustomerData['lastName']);
+                            // Convert camelCase to snake_case for customer fields
+                            $arrCustomerData['first_name'] = $arrCustomerData['firstName'];
+                            $arrCustomerData['last_name'] = $arrCustomerData['lastName'];
+                            unset($arrCustomerData['firstName']);
+                            unset($arrCustomerData['lastName']);
 
-							// Handle default address
-							if (isset($arrCustomerData['defaultAddress'])) {
-								$arrDefaultAddress = $arrCustomerData['defaultAddress'];
+                            // Handle default address
+                            if (isset($arrCustomerData['defaultAddress'])) {
+                                $arrDefaultAddress = $arrCustomerData['defaultAddress'];
 
-								// If defaultAddress is a JSON string, decode it first
-								if (is_string($arrDefaultAddress)) {
-									$arrDefaultAddress = json_decode($arrDefaultAddress, true);
-								}
+                                // If defaultAddress is a JSON string, decode it first
+                                if (is_string($arrDefaultAddress)) {
+                                    $arrDefaultAddress = json_decode($arrDefaultAddress, true);
+                                }
 
-								// Convert camelCase to snake_case for address fields
-								$arrDefaultAddress['first_name'] = $arrDefaultAddress['firstName'] ?? '';
-								$arrDefaultAddress['last_name'] = $arrDefaultAddress['lastName'] ?? '';
-								$arrDefaultAddress['formatted_area'] = $arrDefaultAddress['formattedArea'] ?? '';
+                                // Convert camelCase to snake_case for address fields
+                                $arrDefaultAddress['first_name'] = $arrDefaultAddress['firstName'] ?? '';
+                                $arrDefaultAddress['last_name'] = $arrDefaultAddress['lastName'] ?? '';
+                                $arrDefaultAddress['formatted_area'] = $arrDefaultAddress['formattedArea'] ?? '';
 
-								// Remove camelCase fields
-								unset($arrDefaultAddress['firstName']);
-								unset($arrDefaultAddress['lastName']);
-								unset($arrDefaultAddress['formattedArea']);
+                                // Remove camelCase fields
+                                unset($arrDefaultAddress['firstName']);
+                                unset($arrDefaultAddress['lastName']);
+                                unset($arrDefaultAddress['formattedArea']);
 
-								// Set the customer_id field
-								$arrDefaultAddress['customer_id'] = $arrCustomerData['id'];
+                                // Set the customer_id field
+                                $arrDefaultAddress['customer_id'] = $arrCustomerData['id'];
 
-								// Update the default_address in customer data
-								$arrCustomerData['default_address'] = $arrDefaultAddress;
-								unset($arrCustomerData['defaultAddress']);
-							}
+                                // Update the default_address in customer data
+                                $arrCustomerData['default_address'] = $arrDefaultAddress;
+                                unset($arrCustomerData['defaultAddress']);
+                            }
 
-							// Set the formatted customer data in the order
-							$order['customer'] = $arrCustomerData;
-						}
+                            // Set the formatted customer data in the order
+                            $order['customer'] = $arrCustomerData;
+                        }
 
                         foreach ($node['lineItems']['edges'] as $lineItemEdge) {
                             $lineItem = $lineItemEdge['node'];
@@ -265,7 +268,7 @@ class ImportDriversOrders extends Command
                             foreach ($lineItem['customAttributes'] as $idx => $attr) {
                                 $properties[] = [
                                     'name' => $attr['key'],
-                                    'value' => $attr['value']
+                                    'value' => $attr['value'],
                                 ];
 
                                 // Check for location property
@@ -295,10 +298,10 @@ class ImportDriversOrders extends Command
 
                         // Only include orders that have a line item matching our criteria
                         // if ($matchesDelivery) {
-                            // $order['customer'] = $arrCustomerData;
-                            $order['line_items'] = $lineItems;
-                            $orders[] = $order;
-                            // Log::info("Found matching order: {$node['name']} with Delivery");
+                        // $order['customer'] = $arrCustomerData;
+                        $order['line_items'] = $lineItems;
+                        $orders[] = $order;
+                        // Log::info("Found matching order: {$node['name']} with Delivery");
                         // }
                     }
 
@@ -306,8 +309,8 @@ class ImportDriversOrders extends Command
                     $allOrders = array_merge($allOrders, $orders);
 
                     // Log the current number of orders fetched
-                    Log::info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders));
-                    $this->info('Fetched ' . count($orders) . ' orders. Total so far: ' . count($allOrders)) . PHP_EOL;
+                    Log::info('Fetched '.count($orders).' orders. Total so far: '.count($allOrders));
+                    $this->info('Fetched '.count($orders).' orders. Total so far: '.count($allOrders)).PHP_EOL;
                 }
 
                 // Check if there are more pages
@@ -321,20 +324,21 @@ class ImportDriversOrders extends Command
             } while ($hasNextPage && $cursor);
 
             if (count($allOrders) > 0) {
-                $this->info("Importing " . count($allOrders) . " orders");
+                $this->info('Importing '.count($allOrders).' orders');
                 $this->importOrders($api, $allOrders);
             } else {
-                $this->info("No orders found");
+                $this->info('No orders found');
             }
 
         } catch (\Throwable $th) {
-            Log::error("Error running job for importing drivers orders: " . json_encode($th));
-            $this->error("Error running job for importing drivers orders: " . json_encode($th));
+            Log::error('Error running job for importing drivers orders: '.json_encode($th));
+            $this->error('Error running job for importing drivers orders: '.json_encode($th));
             abort(403, $th);
         }
     }
 
-    public function importOrders($api, $orders){
+    public function importOrders($api, $orders)
+    {
         echo PHP_EOL;
         foreach ($orders as $order) {
             // Default values in case properties are missing
@@ -347,7 +351,7 @@ class ImportDriversOrders extends Command
             $rawDate = $this->lineItemPropertyValue($firstLineItem, 'date');
             if (! empty($rawDate)) {
                 $timestamp = strtotime($rawDate);
-                $date = $timestamp === false ? null : date("Y-m-d", $timestamp);
+                $date = $timestamp === false ? null : date('Y-m-d', $timestamp);
             }
 
             $day = $this->lineItemPropertyValue($firstLineItem, 'day');
@@ -368,7 +372,7 @@ class ImportDriversOrders extends Command
                 'cancel_reason' => $order['cancel_reason'],
                 'gateway' => is_array($order['payment_gateway_names'])
                     ? implode(',', $order['payment_gateway_names'])
-                    : (string)$order['payment_gateway_names'],
+                    : (string) $order['payment_gateway_names'],
                 'note' => $order['note'],
                 'order_status_url' => $order['order_status_url'],
                 'line_items' => json_encode($order['line_items']),
@@ -380,8 +384,38 @@ class ImportDriversOrders extends Command
             ]);
 
             Log::info("Order: {$order['order_number']} has been imported successfully");
-            $this->info("Order: {$order['order_number']} has been imported successfully") . PHP_EOL;
+            $this->info("Order: {$order['order_number']} has been imported successfully").PHP_EOL;
         }
+    }
+
+    /**
+     * Derive the local fulfillment status from the order's custom.status metafield.
+     *
+     * A pickup marks an order fulfilled by writing the custom.status metafield
+     * (e.g. ["fulfilled","packed","handed_over"]) rather than creating a native
+     * Shopify fulfillment, so Shopify's displayFulfillmentStatus stays UNFULFILLED.
+     * Honouring the metafield here keeps the local orders table in step with the
+     * pickup and, because the metafield persists on the Shopify order, the value
+     * survives every re-import instead of being stomped back to UNFULFILLED.
+     */
+    private function resolveFulfillmentStatus($node): string
+    {
+        // $node may be a plain array OR the Shopify SDK's ResponseAccess object
+        // (ArrayAccess), so use data_get to traverse it safely in either case.
+        $metafieldValue = data_get($node, 'statusMetafield.value');
+
+        if (! empty($metafieldValue)) {
+            $decoded = json_decode($metafieldValue, true);
+            $statuses = is_array($decoded) ? $decoded : [$metafieldValue];
+
+            foreach ($statuses as $status) {
+                if (strtolower(trim((string) $status)) === 'fulfilled') {
+                    return 'FULFILLED';
+                }
+            }
+        }
+
+        return (string) data_get($node, 'displayFulfillmentStatus', '');
     }
 
     private function lineItemPropertyValue(array $lineItem, string $propertyName, $default = null)

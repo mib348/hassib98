@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Fulfillment;
+use App\Models\Orders;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,23 +13,24 @@ use Illuminate\Support\Facades\Validator;
 class FulfillmentController extends Controller
 {
     protected $shop;
+
     public function __construct()
     {
         // Check if the user is authenticated via Sanctum
         $this->shop = Auth::guard('sanctum')->user();
 
         // If the user is not authenticated and no token is provided, return an error response
-        if (!$this->shop && !$this->isTokenProvided()) {
+        if (! $this->shop && ! $this->isTokenProvided()) {
             return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
         // Optionally fall back to a default shop user if no authenticated user
-        if (!$this->shop) {
+        if (! $this->shop) {
             $this->shop = User::find(env('db_shop_id', 1));
         }
 
         // Return error if still no shop found
-        if (!$this->shop) {
+        if (! $this->shop) {
             return response()->json(['error' => 'Shop not found.'], 404);
         }
     }
@@ -37,6 +39,7 @@ class FulfillmentController extends Controller
     {
         return request()->header('Authorization') !== null;
     }
+
     /**
      * Display a listing of the resource.
      */
@@ -56,7 +59,6 @@ class FulfillmentController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-
     public function store(Request $request)
     {
         try {
@@ -85,6 +87,7 @@ class FulfillmentController extends Controller
 
             if ($validator->fails()) {
                 $errors = $validator->errors();
+
                 return $errors->toJson();
             }
 
@@ -97,30 +100,35 @@ class FulfillmentController extends Controller
             // Create a new fulfillment record
             $order = Fulfillment::updateOrCreate(['order_id' => $validatedData['order_id'], 'order' => $validatedData['order']], $validatedData);
 
+            // Reflect the pickup on the local `orders` row so the orders table
+            // (and the orders/updated MQTT payload derived from it) shows the
+            // order fulfilled instead of Shopify's stale UNFULFILLED status.
+            Orders::where('order_id', $validatedData['order_id'])->update(['fulfillment_status' => 'FULFILLED']);
+
             $shop = Auth::user();
-            if (!$shop) {
+            if (! $shop) {
                 // Fallback to find by shop ID from env if not authenticated
                 $shop = User::find(env('db_shop_id', 1));
-                if (!$shop) {
+                if (! $shop) {
                     throw new \Exception('Shop not found.');
                 }
             }
 
-        //     $metafields = $shop->api()->rest('GET', "/admin/orders/6108106457436/metafields.json");
+            //     $metafields = $shop->api()->rest('GET', "/admin/orders/6108106457436/metafields.json");
 
-        // $metafields = (array) $metafields['body']['metafields'] ?? [];
+            // $metafields = (array) $metafields['body']['metafields'] ?? [];
 
-        // if(isset($metafields['container'])){
-        //     $metafields = $metafields['container'];
-        // }
+            // if(isset($metafields['container'])){
+            //     $metafields = $metafields['container'];
+            // }
 
-        // dd($metafields);
+            // dd($metafields);
 
-        // if(count($metafields)){
-        //     foreach ($metafields as $field) {
-        //         dd($field);
-        //     }
-        // }
+            // if(count($metafields)){
+            //     foreach ($metafields as $field) {
+            //         dd($field);
+            //     }
+            // }
 
             $orderId = $validatedData['order_id'];
 
@@ -132,7 +140,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'location',
                     'value' => $validatedData['location'],
-                    'type' => 'single_line_text_field'
+                    'type' => 'single_line_text_field',
                 ];
             }
 
@@ -142,7 +150,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'pick_up_date',
                     'value' => $pickUpDate,
-                    'type' => 'date'
+                    'type' => 'date',
                 ];
             }
 
@@ -153,7 +161,7 @@ class FulfillmentController extends Controller
                 if (is_string($statusValue) && (strpos($statusValue, '[') === 0)) {
                     // Decode the JSON string to an array
                     $statusValue = json_decode($statusValue, true);
-                } elseif (!is_array($statusValue)) {
+                } elseif (! is_array($statusValue)) {
                     // If not already an array and not a JSON array string, convert it to an array
                     $statusValue = [$statusValue];
                 }
@@ -162,7 +170,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'status',
                     'value' => json_encode($statusValue),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -173,7 +181,7 @@ class FulfillmentController extends Controller
                 if (is_string($itemsBoughtValue) && (strpos($itemsBoughtValue, '[') === 0)) {
                     // Decode the JSON string to an array
                     $itemsBoughtValue = json_decode($itemsBoughtValue, true);
-                } elseif (!is_array($itemsBoughtValue)) {
+                } elseif (! is_array($itemsBoughtValue)) {
                     // If not already an array and not a JSON array string, convert it to an array
                     $itemsBoughtValue = [$itemsBoughtValue];
                 }
@@ -182,7 +190,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'items_bought',
                     'value' => json_encode($itemsBoughtValue),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -193,7 +201,7 @@ class FulfillmentController extends Controller
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     // Decode the JSON string to an array
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     // If not already an array and not a JSON array string, convert it to an array
                     $value = [$value];
                 }
@@ -202,17 +210,16 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'right_items_removed',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
-
 
             if (isset($validatedData['wrong-items-removed'])) {
                 $value = $validatedData['wrong-items-removed'];
 
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     $value = [$value];
                 }
 
@@ -220,7 +227,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'wrong_items_removed',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -230,7 +237,7 @@ class FulfillmentController extends Controller
 
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     $value = [$value];
                 }
 
@@ -238,7 +245,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'image_before',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -248,7 +255,7 @@ class FulfillmentController extends Controller
 
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     $value = [$value];
                 }
 
@@ -256,17 +263,16 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'image_after',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
-
 
             if (isset($validatedData['time-of-pick-up'])) {
                 $times = $validatedData['time-of-pick-up'];
 
                 if (is_string($times) && (strpos($times, '[') === 0)) {
                     $times = json_decode($times, true);
-                } elseif (!is_array($times)) {
+                } elseif (! is_array($times)) {
                     $times = [$times];
                 }
 
@@ -278,7 +284,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'time_of_pick_up',
                     'value' => json_encode($formattedTimes),
-                    'type' => 'list.date_time'
+                    'type' => 'list.date_time',
                 ];
             }
 
@@ -299,7 +305,7 @@ class FulfillmentController extends Controller
                 // Check if the value is a JSON string and decode it
                 if (is_string($doorOpenTimes) && (strpos($doorOpenTimes, '[') === 0)) {
                     $doorOpenTimes = json_decode($doorOpenTimes, true);
-                } elseif (!is_array($doorOpenTimes)) {
+                } elseif (! is_array($doorOpenTimes)) {
                     // If it's not an array, make it an array
                     $doorOpenTimes = [$doorOpenTimes];
                 }
@@ -314,10 +320,9 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'door_open_time',
                     'value' => json_encode($doorOpenTimes),
-                    'type' => 'list.number_integer'  // Change to 'list.number_integer' if appropriate
+                    'type' => 'list.number_integer',  // Change to 'list.number_integer' if appropriate
                 ];
             }
-
 
             // Loop through each metafield and update it
             foreach ($metafields as $metafield) {
@@ -326,8 +331,8 @@ class FulfillmentController extends Controller
                         'namespace' => $metafield['namespace'],
                         'key' => $metafield['key'],
                         'value' => $metafield['value'],
-                        'type' => $metafield['type']
-                    ]
+                        'type' => $metafield['type'],
+                    ],
                 ];
 
                 // Send the request to update the metafield
@@ -336,6 +341,7 @@ class FulfillmentController extends Controller
                 // Handle errors
                 if ($response['errors']) {
                     Log::error('Fulfillment Store: Failed to update metafield.', ['metafield' => $metafield, 'response' => $response]);
+
                     return response()->json(['error' => 'Fulfillment Store: Failed to update metafield.', 'metafield' => $metafield, 'response' => $response], 500);
                 }
             }
@@ -344,6 +350,7 @@ class FulfillmentController extends Controller
 
         } catch (\Throwable $th) {
             Log::error('Fulfillment update: Internal Server Error.', ['details' => $th]);
+
             return response()->json(['error' => 'Fulfillment Store: Internal Server Error.', 'details' => $th], 500);
         }
     }
@@ -393,6 +400,7 @@ class FulfillmentController extends Controller
 
             if ($validator->fails()) {
                 $errors = $validator->errors();
+
                 return $errors->toJson();
             }
 
@@ -401,12 +409,15 @@ class FulfillmentController extends Controller
             // Update fulfillment details
             $order->update($validatedData);
 
+            // Keep the local `orders` row fulfilled to match the pickup edit.
+            Orders::where('order_id', $order->order_id)->update(['fulfillment_status' => 'FULFILLED']);
+
             // Fetch authenticated shop
             $shop = Auth::user();
-            if (!$shop) {
+            if (! $shop) {
                 // Fallback to find by shop ID from env if not authenticated
                 $shop = User::find(env('db_shop_id', 1));
-                if (!$shop) {
+                if (! $shop) {
                     throw new \Exception('Shop not found.');
                 }
             }
@@ -421,7 +432,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'location',
                     'value' => $validatedData['location'],
-                    'type' => 'single_line_text_field'
+                    'type' => 'single_line_text_field',
                 ];
             }
 
@@ -431,7 +442,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'pick_up_date',
                     'value' => $pickUpDate,
-                    'type' => 'date'
+                    'type' => 'date',
                 ];
             }
 
@@ -442,7 +453,7 @@ class FulfillmentController extends Controller
                 if (is_string($statusValue) && (strpos($statusValue, '[') === 0)) {
                     // Decode the JSON string to an array
                     $statusValue = json_decode($statusValue, true);
-                } elseif (!is_array($statusValue)) {
+                } elseif (! is_array($statusValue)) {
                     // If not already an array and not a JSON array string, convert it to an array
                     $statusValue = [$statusValue];
                 }
@@ -451,7 +462,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'status',
                     'value' => json_encode($statusValue),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -462,7 +473,7 @@ class FulfillmentController extends Controller
                 if (is_string($itemsBoughtValue) && (strpos($itemsBoughtValue, '[') === 0)) {
                     // Decode the JSON string to an array
                     $itemsBoughtValue = json_decode($itemsBoughtValue, true);
-                } elseif (!is_array($itemsBoughtValue)) {
+                } elseif (! is_array($itemsBoughtValue)) {
                     // If not already an array and not a JSON array string, convert it to an array
                     $itemsBoughtValue = [$itemsBoughtValue];
                 }
@@ -471,7 +482,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'items_bought',
                     'value' => json_encode($itemsBoughtValue),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -482,7 +493,7 @@ class FulfillmentController extends Controller
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     // Decode the JSON string to an array
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     // If not already an array and not a JSON array string, convert it to an array
                     $value = [$value];
                 }
@@ -491,17 +502,16 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'right_items_removed',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
-
 
             if (isset($validatedData['wrong-items-removed'])) {
                 $value = $validatedData['wrong-items-removed'];
 
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     $value = [$value];
                 }
 
@@ -509,7 +519,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'wrong_items_removed',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -519,7 +529,7 @@ class FulfillmentController extends Controller
 
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     $value = [$value];
                 }
 
@@ -527,7 +537,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'image_before',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -537,7 +547,7 @@ class FulfillmentController extends Controller
 
                 if (is_string($value) && (strpos($value, '[') === 0)) {
                     $value = json_decode($value, true);
-                } elseif (!is_array($value)) {
+                } elseif (! is_array($value)) {
                     $value = [$value];
                 }
 
@@ -545,7 +555,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'image_after',
                     'value' => json_encode($value),
-                    'type' => 'list.single_line_text_field'
+                    'type' => 'list.single_line_text_field',
                 ];
             }
 
@@ -554,7 +564,7 @@ class FulfillmentController extends Controller
 
                 if (is_string($times) && (strpos($times, '[') === 0)) {
                     $times = json_decode($times, true);
-                } elseif (!is_array($times)) {
+                } elseif (! is_array($times)) {
                     $times = [$times];
                 }
 
@@ -566,7 +576,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'time_of_pick_up',
                     'value' => json_encode($formattedTimes),
-                    'type' => 'list.date_time'
+                    'type' => 'list.date_time',
                 ];
             }
 
@@ -587,7 +597,7 @@ class FulfillmentController extends Controller
                 // Check if the value is a JSON string and decode it
                 if (is_string($doorOpenTimes) && (strpos($doorOpenTimes, '[') === 0)) {
                     $doorOpenTimes = json_decode($doorOpenTimes, true);
-                } elseif (!is_array($doorOpenTimes)) {
+                } elseif (! is_array($doorOpenTimes)) {
                     // If it's not an array, make it an array
                     $doorOpenTimes = [$doorOpenTimes];
                 }
@@ -602,7 +612,7 @@ class FulfillmentController extends Controller
                     'namespace' => 'custom',
                     'key' => 'door_open_time',
                     'value' => json_encode($doorOpenTimes),
-                    'type' => 'list.number_integer'  // Change to 'list.number_integer' if appropriate
+                    'type' => 'list.number_integer',  // Change to 'list.number_integer' if appropriate
                 ];
             }
 
@@ -613,8 +623,8 @@ class FulfillmentController extends Controller
                         'namespace' => $metafield['namespace'],
                         'key' => $metafield['key'],
                         'value' => $metafield['value'],
-                        'type' => $metafield['type']
-                    ]
+                        'type' => $metafield['type'],
+                    ],
                 ];
 
                 // Send the request to update the metafield
@@ -623,6 +633,7 @@ class FulfillmentController extends Controller
                 // Handle errors
                 if ($response['errors']) {
                     Log::error('Fulfillment update: Failed to update metafield.', ['metafield' => $metafield, 'response' => $response]);
+
                     return response()->json(['error' => 'Fulfillment update: Failed to update metafield.', 'metafield' => $metafield, 'response' => $response], 500);
                 }
             }
@@ -631,11 +642,10 @@ class FulfillmentController extends Controller
 
         } catch (\Throwable $th) {
             Log::error('Fulfillment update: Internal Server Error.', ['details' => $th]);
+
             return response()->json(['error' => 'Fulfillment update: Internal Server Error.', 'details' => $th], 500);
         }
     }
-
-    
 
     /**
      * Remove the specified resource from storage.
