@@ -70,6 +70,16 @@
     html.tech-admin-standalone .tech-admin-standalone-heading {
         display: block;
     }
+
+    /* Make the page's help tooltips easy to read: honour the line breaks in the
+       tooltip text, left-align it, and allow a slightly wider box so the bulleted
+       help renders as tidy lines instead of one tall run-on column. Scoped to this
+       page because these styles only load with the Tech Admin view. */
+    .tooltip-inner {
+        white-space: pre-line;
+        text-align: left;
+        max-width: 320px;
+    }
 </style>
 @endsection
 
@@ -97,7 +107,14 @@
 <div class="container-fluid p-2">
     <div class="admin-help-row">
         <span class="fw-semibold">Page help</span>
-        @include('partials.admin_help_tooltip', ['text' => 'Use this page to monitor the latest Raspberry Pi heartbeat, Ethernet or WiFi connection, CPU and vending-machine temperatures, internet speed, lock and door-sensor state, and recent online state for every active location.'])
+        @include('partials.admin_help_tooltip', ['text' => 'Monitors the latest Raspberry Pi status for each active location:
+• Heartbeat and recent online state
+• Ethernet / WiFi connection and internet speed
+• CPU and vending-machine temperatures
+• Lock and door-sensor state
+
+Heartbeat: sent every 10 seconds
+Internet strength: checked every 5 minutes'])
     </div>
     <div class="admin-help-row">
         <span class="fw-semibold">Pi status table</span>
