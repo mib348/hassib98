@@ -1,20 +1,21 @@
 <?php
 
+use App\Http\Controllers\AiModelTestController;
 use App\Http\Controllers\AmountProductsLocationWeekdayController;
 use App\Http\Controllers\ArtisanController;
 use App\Http\Controllers\DeliveryController;
-use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverAdditionalController;
+use App\Http\Controllers\DriverController;
 use App\Http\Controllers\HomeDeliveryController;
+use App\Http\Controllers\KitchenController;
 use App\Http\Controllers\LocationProductsTableController;
 use App\Http\Controllers\LocationRevenueController;
 use App\Http\Controllers\LocationsTextController;
 use App\Http\Controllers\OperationDaysController;
-use App\Http\Controllers\OrdersController;
-use App\Http\Controllers\ShopifyController;
-use App\Http\Controllers\KitchenController;
 use App\Http\Controllers\OrderDetailsForRpiController;
+use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\PersonalNotepadController;
+use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\StoresController;
 use App\Http\Controllers\TechAdminController;
 use App\Livewire\Stores\StoresList;
@@ -40,24 +41,23 @@ use Illuminate\Support\Facades\Route;
 // })->middleware(['verify.shopify'])->name('home');
 
 //Route::domain('{subdomain}.sushi.catering')->group(function () {
-    // Route::get('/kitchen_admin', [KitchenController::class, 'kitchen_admin'])->name('kitchen_admin');
-    Route::get('/kitchen/{uuid}', [KitchenController::class, 'display'])->name('kitchen.display');
-    Route::resource('kitchen', KitchenController::class);
+// Route::get('/kitchen_admin', [KitchenController::class, 'kitchen_admin'])->name('kitchen_admin');
+Route::get('/kitchen/{uuid}', [KitchenController::class, 'display'])->name('kitchen.display');
+Route::resource('kitchen', KitchenController::class);
 
-    // Route::get('/drivers_admin', [DriverController::class, 'drivers_admin'])->name('drivers_admin');
-    Route::get('/drivers/{uuid}', [DriverController::class, 'display'])->name('drivers.display');
-    Route::resource('drivers', DriverController::class);
-    Route::resource('drivers_additional', DriverAdditionalController::class);
+// Route::get('/drivers_admin', [DriverController::class, 'drivers_admin'])->name('drivers_admin');
+Route::get('/drivers/{uuid}', [DriverController::class, 'display'])->name('drivers.display');
+Route::resource('drivers', DriverController::class);
+Route::resource('drivers_additional', DriverAdditionalController::class);
 
-    // RPI Order Details — public UUID-based routes (same pattern as kitchen/drivers)
-    Route::get('/order_details_for_rpi/{uuid}', [OrderDetailsForRpiController::class, 'display'])->name('order_details_for_rpi.display');
-    Route::resource('order_details_for_rpi', OrderDetailsForRpiController::class);
+// RPI Order Details — public UUID-based routes (same pattern as kitchen/drivers)
+Route::get('/order_details_for_rpi/{uuid}', [OrderDetailsForRpiController::class, 'display'])->name('order_details_for_rpi.display');
+Route::resource('order_details_for_rpi', OrderDetailsForRpiController::class);
 
-    Route::post('/delivery/fulfilled/{order_id}', [DeliveryController::class, 'MarkAsDelivered'])->name('delivery.MarkAsDelivered');
-    Route::resource('delivery', DeliveryController::class);
+Route::post('/delivery/fulfilled/{order_id}', [DeliveryController::class, 'MarkAsDelivered'])->name('delivery.MarkAsDelivered');
+Route::resource('delivery', DeliveryController::class);
 
-    //});
-
+//});
 
 Route::get('/migrate/{type?}', [ArtisanController::class, 'migrate']);
 Route::get('/cache', [ArtisanController::class, 'cache']);
@@ -74,6 +74,17 @@ Route::any('/updateSelectedDate/{date}', [ShopifyController::class, 'updateSelec
 Route::any('/deliverySelectedDate/{date}', [ShopifyController::class, 'deliverySelectedDate'])->name('deliverySelectedDate');
 Route::get('/getImmediateInventoryByLocation/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocation'])->name('getImmediateInventoryByLocation');
 Route::get('/getImmediateInventoryByLocationForYesterday/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocationForYesterday'])->name('getImmediateInventoryByLocationForYesterday');
+
+// tech admin / pi heartbeat overview — intentionally PUBLIC (no verify.shopify).
+// The client opens this monitoring page by direct URL (outside the embedded
+// Shopify app), so it must NOT redirect to /authenticate. It also still works
+// inside the app: the page is plain web/cookie based and simply ignores the
+// Shopify bearer token the app attaches to AJAX. Per the client's decision no
+// auth is required here. The JSON polling + manual Pi-check endpoints sit next
+// to it so the standalone page can call them without a Shopify session.
+Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
+Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
+Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
 
 Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/', [ShopifyController::class, 'index'])->name('home');
@@ -131,22 +142,25 @@ Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/getStoresList', [StoresList::class, 'getStoresList'])->name('getStoresList');
     Route::resource('stores', StoresController::class);
 
-    // tech admin / pi heartbeat overview
-    Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
-    Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
-    Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
 });
 
-// Temporary dev-only debug bypass for the tech admin heartbeat page.
-// We keep this extremely narrow so only the page we are actively debugging,
-// plus its JSON polling/manual-check endpoints, can be opened without the
-// embedded Shopify session on the dev host. Remove this once the MQTT status
-// flow is fully verified on dev.sushi.catering.
+// Dev-only debug bypass for the AI model-test page (/ai). On local/testing or the
+// dev host it is reachable without the embedded Shopify session; everywhere else it
+// stays behind verify.shopify. (The tech-admin page above is now permanently public,
+// so it no longer relies on this gate.)
 $allowTechAdminDebugAccess = app()->environment(['local', 'testing'])
     || str_contains((string) config('app.url'), 'dev.sushi.catering');
 
-if ($allowTechAdminDebugAccess) {
-    Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
-    Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
-    Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
-}
+$aiModelTestMiddleware = $allowTechAdminDebugAccess ? [] : ['verify.shopify'];
+
+Route::middleware($aiModelTestMiddleware)->group(function () {
+    Route::get('/ai', [AiModelTestController::class, 'index'])->name('ai_model_test.index');
+    Route::post('/ai/analyze', [AiModelTestController::class, 'analyze'])->name('ai_model_test.analyze');
+    Route::get('/ai/review', [AiModelTestController::class, 'review'])->name('ai_model_test.review');
+    Route::get('/ai/review/corrections', [AiModelTestController::class, 'reviewCorrections'])->name('ai_model_test.review_corrections');
+    Route::get('/ai/review/dataset/{dataset}', [AiModelTestController::class, 'downloadDataset'])->name('ai_model_test.review_dataset');
+    Route::get('/ai/review/manifest', [AiModelTestController::class, 'reviewManifest'])->name('ai_model_test.review_manifest');
+    Route::get('/ai/review/image/{image}', [AiModelTestController::class, 'reviewImage'])->name('ai_model_test.review_image');
+    Route::post('/ai/review/save', [AiModelTestController::class, 'saveReview'])->name('ai_model_test.save_review');
+    Route::redirect('/ai/model-test', '/ai', 301);
+});
