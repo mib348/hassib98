@@ -10,15 +10,21 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 
 class TechAdminController extends Controller
 {
     /**
      * Pi heartbeats are expected every 10 seconds.
-     * We allow a wider window before marking the row stale so minor network
-     * jitter does not immediately make the admin table look offline.
+     * A device is offline only after more than two expected heartbeat periods.
+     * At exactly 20 seconds it is still online; at 21 seconds it is offline.
      */
-    private const STALE_AFTER_SECONDS = 30;
+    private const STALE_AFTER_SECONDS = 20;
+
+    private const DEVICE_COMMANDS = [
+        'test_internet_connection',
+        'restart_device',
+    ];
 
     /**
      * Render the embedded Shopify admin page shell.
@@ -49,10 +55,10 @@ class TechAdminController extends Controller
     }
 
     /**
-     * Publish one manual Pi check command for the requested location.
+     * Publish the original lightweight health-check request.
      *
-     * The Pi should answer by publishing a fresh heartbeat on its normal
-     * status topic. The page keeps polling that status topic through Laravel.
+     * This endpoint intentionally stays separate from test_internet_connection:
+     * a response check should not consume the data required by a speed test.
      */
     public function checkPi(Request $request): JsonResponse
     {
@@ -60,13 +66,7 @@ class TechAdminController extends Controller
             'location' => 'required|string|max:255',
         ]);
 
-        $locationName = trim($validated['location']);
-
-        $location = Locations::query()
-            ->where('name', $locationName)
-            ->where('is_active', 'Y')
-            ->firstOrFail();
-
+        $location = $this->activeLocation(trim($validated['location']));
         $locationSlug = MqttHelper::locationToTopicSlug((string) $location->name);
         $storeName = $this->resolveStoreNameByLocation((string) $location->name);
         $existingStatus = PiStatus::query()
@@ -78,24 +78,27 @@ class TechAdminController extends Controller
             : null;
 
         $published = MqttHelper::publishPiCheck((string) $location->name, [
-            'event' => 'pi.check',
-            'location' => (string) $location->name,
-            'location_slug' => $locationSlug,
             'requested_at' => Carbon::now('Europe/Berlin')->toIso8601String(),
         ]);
-
         $latestStatus = $existingStatus;
 
         if ($published) {
             $latestStatus = $this->waitForUpdatedPiStatus($locationSlug, $previousLastSeenAt) ?? $existingStatus;
         }
 
+        $piReplied = $published
+            && $latestStatus instanceof PiStatus
+            && $this->isFresherPiStatus($latestStatus, $previousLastSeenAt);
+
         return response()->json([
             'message' => $published ? 'PI check requested.' : 'PI check publish failed.',
             'data' => [
                 'location' => (string) $location->name,
                 'location_slug' => $locationSlug,
+                'topic' => MqttHelper::piCheckTopic((string) $location->name),
+                'event' => 'pi.check',
                 'published' => $published,
+                'pi_replied' => $piReplied,
                 'latest_row' => $this->buildStatusRow($location, $latestStatus, $storeName),
             ],
             'meta' => [
@@ -103,6 +106,104 @@ class TechAdminController extends Controller
                 'stale_after_seconds' => self::STALE_AFTER_SECONDS,
             ],
         ], $published ? 200 : 500);
+    }
+
+    /**
+     * Publish one of the two device commands approved by the Pi client.
+     *
+     * A successful MQTT publish only proves the broker accepted the command.
+     * The endpoint separately waits for a newer stored heartbeat so the UI can
+     * distinguish broker delivery from an observed response by the device.
+     */
+    public function command(Request $request): JsonResponse
+    {
+        return $this->sendDeviceCommand($request);
+    }
+
+    private function sendDeviceCommand(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'location' => 'required|string|max:255',
+            'command' => ['required', 'string', Rule::in(self::DEVICE_COMMANDS)],
+        ]);
+
+        $locationName = trim($validated['location']);
+        $command = $validated['command'];
+
+        $location = $this->activeLocation($locationName);
+
+        $locationSlug = MqttHelper::locationToTopicSlug((string) $location->name);
+        $storeName = $this->resolveStoreNameByLocation((string) $location->name);
+        $existingStatus = PiStatus::query()
+            ->where('location_slug', $locationSlug)
+            ->first();
+
+        $previousLastSeenAt = $existingStatus?->last_seen_at instanceof CarbonInterface
+            ? $existingStatus->last_seen_at->copy()
+            : null;
+
+        $published = MqttHelper::publishPiCommand(
+            (string) $location->name,
+            $command,
+            Carbon::now('Europe/Berlin')->toIso8601String()
+        );
+
+        $latestStatus = $existingStatus;
+
+        if ($published) {
+            $latestStatus = $this->waitForUpdatedPiStatus($locationSlug, $previousLastSeenAt) ?? $existingStatus;
+        }
+
+        // Did the Pi actually answer? "published" only proves the broker accepted
+        // our device command. A real reply means the subscriber wrote a heartbeat
+        // with a NEWER last_seen_at than the one we snapshotted before publishing.
+        // We reuse the same freshness check the wait loop uses so the frontend can
+        // tell "broker got it AND Pi is online" apart from "broker got it but the
+        // Pi stayed silent" (a ~12s timeout still returns HTTP 200 with a stale row).
+        $piReplied = $published
+            && $latestStatus instanceof PiStatus
+            && $this->isFresherPiStatus($latestStatus, $previousLastSeenAt);
+
+        return response()->json([
+            'message' => $this->deviceCommandMessage($command, $published),
+            'data' => [
+                'location' => (string) $location->name,
+                'location_slug' => $locationSlug,
+                'topic' => MqttHelper::piCommandTopic((string) $location->name),
+                'command' => $command,
+                'published' => $published,
+                'pi_replied' => $piReplied,
+                'latest_row' => $this->buildStatusRow($location, $latestStatus, $storeName),
+            ],
+            'meta' => [
+                'generated_at' => Carbon::now('Europe/Berlin')->toIso8601String(),
+                'stale_after_seconds' => self::STALE_AFTER_SECONDS,
+            ],
+        ], $published ? 200 : 500);
+    }
+
+    private function deviceCommandMessage(string $command, bool $published): string
+    {
+        $commandLabel = $command === 'restart_device'
+            ? 'Restart command'
+            : 'Internet test command';
+
+        return $published
+            ? $commandLabel.' sent.'
+            : $commandLabel.' publish failed.';
+    }
+
+    /**
+     * Resolve commands only against active configured locations.
+     * Keeping this lookup shared makes the legacy check and new commands apply
+     * exactly the same location validation and topic-slug rules.
+     */
+    private function activeLocation(string $locationName): Locations
+    {
+        return Locations::query()
+            ->where('name', $locationName)
+            ->where('is_active', 'Y')
+            ->firstOrFail();
     }
 
     /**
@@ -197,7 +298,9 @@ class TechAdminController extends Controller
             'ram_usage' => $payload['ram_usage'] ?? null,
             'disk_usage' => $payload['disk_usage'] ?? null,
             'temperature' => $payload['temperature'] ?? null,
-            'cpu_temp' => $payload['cpu_temp'] ?? ($payload['temperature'] ?? null),
+            'cpu_temp' => $payload['cpu_temp'] ?? null,
+            'download_mbps' => $payload['download_mbps'] ?? null,
+            'upload_mbps' => $payload['upload_mbps'] ?? null,
         ];
     }
 
@@ -266,7 +369,7 @@ class TechAdminController extends Controller
     }
 
     /**
-     * Treat outdated "online" rows as stale.
+     * Treat outdated "online" rows as offline.
      * Explicit offline rows remain offline because those are the last-will
      * states already published by the broker.
      */
@@ -279,7 +382,7 @@ class TechAdminController extends Controller
         $baseStatus = strtolower((string) $status->status);
 
         if ($baseStatus === 'online' && $this->isStale($status->last_seen_at)) {
-            return 'stale';
+            return 'offline';
         }
 
         return $baseStatus !== '' ? $baseStatus : 'unknown';
@@ -329,7 +432,7 @@ class TechAdminController extends Controller
 
     private function isStale($lastSeenAt): bool
     {
-        if (!$lastSeenAt instanceof CarbonInterface) {
+        if (! $lastSeenAt instanceof CarbonInterface) {
             return true;
         }
 
@@ -344,7 +447,7 @@ class TechAdminController extends Controller
 
     private function formatDateTime($value): ?string
     {
-        if (!$value instanceof CarbonInterface) {
+        if (! $value instanceof CarbonInterface) {
             return null;
         }
 

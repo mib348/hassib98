@@ -75,6 +75,14 @@ Route::any('/deliverySelectedDate/{date}', [ShopifyController::class, 'deliveryS
 Route::get('/getImmediateInventoryByLocation/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocation'])->name('getImmediateInventoryByLocation');
 Route::get('/getImmediateInventoryByLocationForYesterday/{location?}', [ShopifyController::class, 'getImmediateInventoryByLocationForYesterday'])->name('getImmediateInventoryByLocationForYesterday');
 
+// Tech Admin is intentionally available outside the embedded Shopify app so
+// operators can open the monitoring page directly. These routes therefore sit
+// outside verify.shopify while the controller still validates every request.
+Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
+Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
+Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
+Route::post('/tech/admin/command', [TechAdminController::class, 'command'])->name('tech_admin.command');
+
 Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/', [ShopifyController::class, 'index'])->name('home');
     Route::get('/metafields', [ShopifyController::class, 'getMetafields'])->name('metafields');
@@ -131,22 +139,4 @@ Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/getStoresList', [StoresList::class, 'getStoresList'])->name('getStoresList');
     Route::resource('stores', StoresController::class);
 
-    // tech admin / pi heartbeat overview
-    Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
-    Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
-    Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
 });
-
-// Temporary dev-only debug bypass for the tech admin heartbeat page.
-// We keep this extremely narrow so only the page we are actively debugging,
-// plus its JSON polling/manual-check endpoints, can be opened without the
-// embedded Shopify session on the dev host. Remove this once the MQTT status
-// flow is fully verified on dev.sushi.catering.
-$allowTechAdminDebugAccess = app()->environment(['local', 'testing'])
-    || str_contains((string) config('app.url'), 'dev.sushi.catering');
-
-if ($allowTechAdminDebugAccess) {
-    Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_admin.index');
-    Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
-    Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
-}

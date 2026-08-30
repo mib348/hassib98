@@ -2,8 +2,8 @@
 
 namespace App\Helpers;
 
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use PhpMqtt\Client\Facades\MQTT;
 
 /**
@@ -22,6 +22,8 @@ use PhpMqtt\Client\Facades\MQTT;
  *   {env}/location/{slug}/orders/fulfilled  <- RPi publishes pickup confirmations
  *   {env}/location/{slug}/orders/sync       <- RPi requests and server responds
  *   {env}/location/{slug}/pi/status         <- RPi publishes heartbeat/status
+ *   {env}/location/{slug}/pi/check          <- Server publishes legacy status checks
+ *   {env}/location/{slug}/pi/command        <- Server publishes device commands
  *
  * The {env} prefix (e.g. "dev" or "live") is read from MQTT_TOPIC_ENV
  * in .env so dev and live messages never mix on the same broker.
@@ -39,7 +41,7 @@ class MqttHelper
      *   MQTT_TOPIC_ENV=dev         -> topics start with "dev/"
      *   MQTT_TOPIC_ENV=live        -> topics start with "live/"
      *
-     * @return string  e.g. "dev" or "live"
+     * @return string e.g. "dev" or "live"
      */
     public static function topicEnv(): string
     {
@@ -52,8 +54,8 @@ class MqttHelper
      *
      * Rules: lowercase, spaces become underscores, only a-z 0-9 and underscores kept.
      *
-     * @param  string $locationName  e.g. "Standort 1"
-     * @return string                e.g. "standort_1"
+     * @param  string  $locationName  e.g. "Standort 1"
+     * @return string e.g. "standort_1"
      */
     public static function locationToTopicSlug(string $locationName): string
     {
@@ -87,9 +89,9 @@ class MqttHelper
      * The action is the last MQTT topic segment. Keeping this method central
      * prevents "new", "cancelled", and "updated" topics from drifting apart.
      *
-     * @param  string $locationName  Human-readable location, e.g. "Standort 1"
-     * @param  string $action        One of: new, cancelled, updated
-     * @return string                e.g. "live/location/standort_1/orders/cancelled"
+     * @param  string  $locationName  Human-readable location, e.g. "Standort 1"
+     * @param  string  $action  One of: new, cancelled, updated
+     * @return string e.g. "live/location/standort_1/orders/cancelled"
      */
     public static function orderEventTopic(string $locationName, string $action): string
     {
@@ -102,8 +104,8 @@ class MqttHelper
      * Build the topic where the server publishes NEW orders for a location.
      * RPi devices subscribe to this topic to receive orders in real time.
      *
-     * @param  string $locationName  e.g. "Standort 1"
-     * @return string                e.g. "dev/location/standort_1/orders/new"
+     * @param  string  $locationName  e.g. "Standort 1"
+     * @return string e.g. "dev/location/standort_1/orders/new"
      */
     public static function newOrderTopic(string $locationName): string
     {
@@ -113,8 +115,8 @@ class MqttHelper
     /**
      * Build the topic where the server publishes CANCELLED orders for a location.
      *
-     * @param  string $locationName  e.g. "Standort 1"
-     * @return string                e.g. "dev/location/standort_1/orders/cancelled"
+     * @param  string  $locationName  e.g. "Standort 1"
+     * @return string e.g. "dev/location/standort_1/orders/cancelled"
      */
     public static function cancelledOrderTopic(string $locationName): string
     {
@@ -124,8 +126,8 @@ class MqttHelper
     /**
      * Build the topic where the server publishes UPDATED orders for a location.
      *
-     * @param  string $locationName  e.g. "Standort 1"
-     * @return string                e.g. "dev/location/standort_1/orders/updated"
+     * @param  string  $locationName  e.g. "Standort 1"
+     * @return string e.g. "dev/location/standort_1/orders/updated"
      */
     public static function updatedOrderTopic(string $locationName): string
     {
@@ -136,7 +138,7 @@ class MqttHelper
      * Build the wildcard topic the server subscribes to for fulfillment confirmations.
      * The "+" is an MQTT single-level wildcard — matches any location slug.
      *
-     * @return string  e.g. "dev/location/+/orders/fulfilled"
+     * @return string e.g. "dev/location/+/orders/fulfilled"
      */
     public static function fulfillmentSubscriptionTopic(): string
     {
@@ -151,7 +153,7 @@ class MqttHelper
      * Both sides inspect the event field and ignore the opposite direction.
      *
      * @param  string  $locationName  Human name or existing slug
-     * @return string                 e.g. "live/location/test_location/orders/sync"
+     * @return string e.g. "live/location/test_location/orders/sync"
      */
     public static function orderSyncTopic(string $locationName): string
     {
@@ -161,7 +163,7 @@ class MqttHelper
     /**
      * Build the wildcard topic Laravel listens to for order sync requests.
      *
-     * @return string  e.g. "live/location/+/orders/sync"
+     * @return string e.g. "live/location/+/orders/sync"
      */
     public static function orderSyncSubscriptionTopic(): string
     {
@@ -175,8 +177,8 @@ class MqttHelper
      * client should also connect with MQTT ClientId equal to the same slug
      * (for example "standort_1") so broker logs and heartbeat messages agree.
      *
-     * @param  string $locationName  e.g. "Standort 1"
-     * @return string                e.g. "dev/location/standort_1/pi/status"
+     * @param  string  $locationName  e.g. "Standort 1"
+     * @return string e.g. "dev/location/standort_1/pi/status"
      */
     public static function piStatusTopic(string $locationName): string
     {
@@ -190,7 +192,7 @@ class MqttHelper
      * listening only to its configured environment prefix (dev or live) while
      * still accepting status from every location in that environment.
      *
-     * @return string  e.g. "dev/location/+/pi/status"
+     * @return string e.g. "dev/location/+/pi/status"
      */
     public static function piStatusSubscriptionTopic(): string
     {
@@ -198,10 +200,25 @@ class MqttHelper
     }
 
     /**
-     * Build the topic where Laravel can request an immediate Pi health reply.
+     * Build the topic where Laravel publishes commands to one Pi device.
      *
-     * The Pi should subscribe to this command topic and answer by publishing
-     * a fresh heartbeat on its normal pi/status topic.
+     * The device subscribes only to its own location topic. Commands are never
+     * retained, so a device cannot accidentally execute an old restart after
+     * reconnecting to MQTT.
+     *
+     * @param  string  $locationName  e.g. "Warehouse Location"
+     * @return string e.g. "live/location/warehouse_location/pi/command"
+     */
+    public static function piCommandTopic(string $locationName): string
+    {
+        return self::topicEnv().'/location/'.self::locationToTopicSlug($locationName).'/pi/command';
+    }
+
+    /**
+     * Build the legacy topic used by Check PI Response.
+     *
+     * This remains separate from /pi/command so checking whether a device can
+     * answer does not accidentally run the bandwidth-heavy internet speed test.
      */
     public static function piCheckTopic(string $locationName): string
     {
@@ -217,7 +234,7 @@ class MqttHelper
      *
      * @param  array  $orderData  Decoded Shopify order webhook payload
      * @param  array  $lineItems  The order's line_items array
-     * @param  string $action     One of: new, cancelled, updated
+     * @param  string  $action  One of: new, cancelled, updated
      * @return array<string,array<string,mixed>>
      */
     public static function buildOrderEventPayloads(array $orderData, array $lineItems, string $action): array
@@ -305,9 +322,9 @@ class MqttHelper
     /**
      * Publish every per-location payload for one Shopify order event.
      *
-     * @param  string $action     One of: new, cancelled, updated
+     * @param  string  $action  One of: new, cancelled, updated
      * @param  array  $orderData  Decoded Shopify order webhook payload
-     * @param  array|null $lineItems Optional line_items override for existing callers
+     * @param  array|null  $lineItems  Optional line_items override for existing callers
      * @return int Number of payloads successfully published
      */
     public static function publishOrderEventPayloads(string $action, array $orderData, ?array $lineItems = null): int
@@ -333,9 +350,9 @@ class MqttHelper
      * CRITICAL: This method NEVER throws. If MQTT is down, the order is already
      * safely stored in the database — the RPi can still fall back to REST polling.
      *
-     * @param  string $locationName  Human-readable location (e.g. "Standort 1")
-     * @param  array  $payload       Associative array to be JSON-encoded and sent
-     * @return bool                  true if published successfully, false on failure
+     * @param  string  $locationName  Human-readable location (e.g. "Standort 1")
+     * @param  array  $payload  Associative array to be JSON-encoded and sent
+     * @return bool true if published successfully, false on failure
      */
     public static function publishNewOrder(string $locationName, array $payload): bool
     {
@@ -348,10 +365,10 @@ class MqttHelper
      * CRITICAL: This method NEVER throws. Shopify webhook work must continue even
      * when MQTT is temporarily down; failures are logged for operational follow-up.
      *
-     * @param  string $locationName Human-readable location (e.g. "Standort 1")
-     * @param  string $action       One of: new, cancelled, updated
-     * @param  array  $payload      Associative array to be JSON-encoded and sent
-     * @return bool                 true if published successfully, false on failure
+     * @param  string  $locationName  Human-readable location (e.g. "Standort 1")
+     * @param  string  $action  One of: new, cancelled, updated
+     * @param  array  $payload  Associative array to be JSON-encoded and sent
+     * @return bool true if published successfully, false on failure
      */
     public static function publishOrderEvent(string $locationName, string $action, array $payload): bool
     {
@@ -421,30 +438,82 @@ class MqttHelper
     }
 
     /**
-     * Publish one manual Pi check command without throwing.
+     * Publish one approved device command without throwing on broker failures.
      *
-     * This follows the same QoS and error-handling contract as the order-event
-     * publishers so admin UI actions cannot crash on transient MQTT errors.
+     * Only the three fields defined by the Pi client are sent. QoS 1 asks the
+     * broker for at-least-once delivery, while retain=false prevents commands
+     * such as restart_device from being replayed to a device after reconnect.
      */
-    public static function publishPiCheck(string $locationName, array $payload): bool
+    public static function publishPiCommand(string $locationName, string $command, ?string $timestamp = null): bool
     {
+        self::guardPiCommand($command);
+
         try {
-            $topic = self::piCheckTopic($locationName);
-            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $topic = self::piCommandTopic($locationName);
+            $payload = [
+                'event' => 'command',
+                'command' => $command,
+                'timestamp' => $timestamp ?? Carbon::now('Europe/Berlin')->toIso8601String(),
+            ];
+            $json = json_encode(
+                $payload,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            );
 
             MQTT::connection('default')->publish($topic, $json, 1, false);
 
-            Log::info('MQTT: Published manual Pi check', [
+            Log::info('MQTT: Published Pi command', [
                 'topic' => $topic,
                 'location' => $locationName,
-                'event' => $payload['event'] ?? 'pi.check',
+                'command' => $command,
             ]);
 
             return true;
         } catch (\Throwable $e) {
-            Log::error('MQTT: Failed to publish manual Pi check', [
+            Log::error('MQTT: Failed to publish Pi command', [
                 'location' => $locationName,
-                'event' => $payload['event'] ?? 'pi.check',
+                'command' => $command,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Publish the original manual Pi check contract.
+     *
+     * QoS 1 gives at-least-once delivery. Retain must stay false because a
+     * reconnecting device must never receive an old health-check request.
+     */
+    public static function publishPiCheck(string $locationName, array $payload = []): bool
+    {
+        try {
+            $topic = self::piCheckTopic($locationName);
+            $legacyPayload = [
+                'event' => 'pi.check',
+                'location' => $locationName,
+                'location_slug' => self::locationToTopicSlug($locationName),
+                'requested_at' => $payload['requested_at']
+                    ?? $payload['timestamp']
+                    ?? Carbon::now('Europe/Berlin')->toIso8601String(),
+            ];
+            $json = json_encode(
+                $legacyPayload,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            );
+
+            MQTT::connection('default')->publish($topic, $json, 1, false);
+
+            Log::info('MQTT: Published legacy Pi check', [
+                'topic' => $topic,
+                'location' => $locationName,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('MQTT: Failed to publish legacy Pi check', [
+                'location' => $locationName,
                 'error' => $e->getMessage(),
             ]);
 
@@ -456,6 +525,18 @@ class MqttHelper
     {
         if (! in_array($action, ['new', 'cancelled', 'updated'], true)) {
             throw new \InvalidArgumentException("Unsupported MQTT order event action [{$action}].");
+        }
+    }
+
+    /**
+     * Keep the publisher closed to arbitrary command strings. Adding a future
+     * device command requires an explicit server change instead of allowing a
+     * browser request to publish unrestricted instructions to a Pi.
+     */
+    private static function guardPiCommand(string $command): void
+    {
+        if (! in_array($command, ['test_internet_connection', 'restart_device'], true)) {
+            throw new \InvalidArgumentException("Unsupported MQTT Pi command [{$command}].");
         }
     }
 
