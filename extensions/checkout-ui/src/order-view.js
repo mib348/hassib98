@@ -15,8 +15,9 @@
  * object (orderConfirmation vs order).
  *
  * The QR still encodes the numeric order number that the pickup station scans.
- * The backend supplies that number AND the real fulfillment metadata for both
- * targets; Shopify's confirmation identifier is never used as QR content.
+ * The backend normally supplies that number AND real fulfillment metadata.
+ * Order Status can retain its legacy QR path after HTTP 500 using Shopify's
+ * actual numeric order name; confirmation identifiers are never QR content.
  */
 
 // ---------------------------------------------------------------------------
@@ -190,7 +191,7 @@ function waitForIdentity(getIdentity, getIdentitySignal) {
 }
 
 // ---------------------------------------------------------------------------
-// Always use the existing backend contract: { order_number, arrLocation }.
+// Prefer the existing backend contract: { order_number, arrLocation }.
 // Shopify's page APIs cannot supply our location flags and delivery notes, so
 // skipping this request could show a scanner QR for a delivery-only order.
 // ---------------------------------------------------------------------------
@@ -347,7 +348,7 @@ function mount(node) {
 // ---------------------------------------------------------------------------
 // The shared orchestrator. Each target passes a `getIdentity()` that reads its
 // own source of truth from the global `shopify` object and returns
-// { gid }. Show loading, wait for a valid order GID, then fetch our backend's
+// { gid, name? }. Show loading, wait for a valid order GID, then fetch our backend's
 // order number and location metadata. Do not render a provisional QR while that
 // request is pending: its eventual result may require delivery/pickup text.
 // Both targets share the same bounded waits, recovery and error messages.
@@ -412,6 +413,25 @@ export async function runOrderExtension(getIdentity, getIdentitySignal) {
         return;
       } catch (error) {
         lastError = error;
+        if (error?.status === 500) {
+          // The old Order Status extension could display Shopify's order name
+          // without this lookup. Restore that available QR after the existing
+          // server's HTTP-500 failure, while successful delivery/pickup metadata
+          // still wins above. Thank You supplies no name and keeps its retries.
+          // Re-read the signal in case the name arrived during the request, but
+          // require the same order ID so a later navigation cannot mix orders.
+          const fallbackIdentity = safeIdentity(getIdentity);
+          const numberMatch = /^#([1-9]\d*)$/.exec(fallbackIdentity.name || '');
+          // Compare the whole match too: JavaScript's $ can match before a final
+          // newline. Accept only the complete #digits name, without truncation.
+          if (extractNumericId(fallbackIdentity.gid) === numericId &&
+            numberMatch?.[0] === fallbackIdentity.name) {
+            state.orderNumber = numberMatch[1];
+            recordTiming('shopify-number-fallback');
+            mount(buildSuccess(state));
+            return;
+          }
+        }
         if (shouldRetryFetch(error) && attempt < CONFIG.MAX_RETRIES) {
           mount(buildLoading(attempt));
           // Restore fast initial recovery without repeatedly hammering a slow
@@ -448,7 +468,7 @@ export async function runOrderExtension(getIdentity, getIdentitySignal) {
 function safeIdentity(getIdentity) {
   try {
     const result = getIdentity() || {};
-    return { gid: result.gid || null };
+    return { gid: result.gid || null, name: typeof result.name === 'string' ? result.name : null };
   } catch (error) {
     return { gid: null };
   }
