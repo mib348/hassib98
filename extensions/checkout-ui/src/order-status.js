@@ -6,10 +6,9 @@
  * document.body, global `shopify`). On the order-status page the order lives on
  * `shopify.order` (a signal) with shape:
  *   { id: 'gid://shopify/Order/123', name: '#1000', confirmationNumber, ... }
- * Prefer the backend's delivery/pickup metadata when that request succeeds.
- * Also pass Shopify's actual order name so a failed HTTP-500 lookup can use
- * the legacy Order Status QR path. This is separate from confirmationNumber,
- * which is not the numeric order number scanned at the pickup station.
+ * Even when `name` is available, the backend lookup is still required: it also
+ * tells us whether this is delivery, pickup without a scanner, or a QR order.
+ * Passing only the GID prevents an early QR from hiding those instructions.
  */
 import { runOrderExtension } from './index.js';
 
@@ -19,8 +18,7 @@ function orderStatusExtension() {
   void runOrderExtension(() => {
     const order = typeof shopify !== 'undefined' ? shopify.order?.value : null;
     return {
-      gid: order?.id || null,
-      name: order?.name || null
+      gid: order?.id || null
     };
   }, () => typeof shopify !== 'undefined' ? shopify.order : null);
 }

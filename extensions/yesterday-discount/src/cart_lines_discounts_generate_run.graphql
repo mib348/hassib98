@@ -23,6 +23,13 @@ query CartInput {
       yesterdayItemAttribute: attribute(key: "yesterday_item") {
         value
       }
+      # CRITICAL: Query immediate_inventory to exclude PREORDER lines from the discount.
+      # immediate_inventory="Y" => immediate/yesterday item (eligible)
+      # immediate_inventory="N" => preorder / future pickup (must NEVER get the yesterday 50%)
+      # A preorder can never be a day-old "yesterday" item, so preorder lines are filtered out.
+      immediateInventoryAttribute: attribute(key: "immediate_inventory") {
+        value
+      }
     }
     buyerIdentity {
       customer {
