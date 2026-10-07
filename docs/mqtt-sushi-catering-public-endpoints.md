@@ -28,6 +28,65 @@ Server-to-RPi order topics:
 {env}/location/{location_slug}/orders/updated
 ```
 
+Server-to-RPi device command topic:
+
+```text
+{env}/location/{location_slug}/pi/command
+```
+
+The Pi subscribes to its exact command topic. Laravel publishes the two
+currently supported commands with QoS 1 and `retain=false`, so a restart or
+internet test is never replayed after a reconnect:
+
+```json
+{
+  "event": "command",
+  "command": "test_internet_connection",
+  "timestamp": "2026-08-23T13:40:21+03:00"
+}
+```
+
+```json
+{
+  "event": "command",
+  "command": "restart_device",
+  "timestamp": "2026-08-23T13:42:05+03:00"
+}
+```
+
+The production prefix is `live`; development uses `dev`, according to
+`MQTT_TOPIC_ENV`. `test_internet_connection` is a manual speed test and its
+results should appear in the next `pi/status` heartbeat. A fresh heartbeat is
+the device response currently shown by Tech Admin.
+
+The separate **Check PI Response** button preserves the lightweight legacy
+health-check protocol. The Pi must also subscribe to its exact check topic:
+
+```text
+{env}/location/{location_slug}/pi/check
+```
+
+Laravel publishes this message with QoS 1 and `retain=false`:
+
+```json
+{
+  "event": "pi.check",
+  "location": "Test Location",
+  "location_slug": "test_location",
+  "requested_at": "2026-08-23T13:40:21+03:00"
+}
+```
+
+On receipt, the Pi should immediately publish its normal retained `pi.status`
+heartbeat. This check does not run an internet speed test; only the explicit
+`test_internet_connection` command should do that.
+
+Bidirectional reconnect order synchronization:
+
+```text
+{env}/location/{location_slug}/orders/sync
+```
+
 RPi-to-server topics:
 
 ```text
@@ -44,7 +103,7 @@ Pi status heartbeats:
 - ClientId: the same location slug, for example `standort_1`
 - Laravel subscribes to the current env with `{env}/location/+/pi/status`
 - Node-RED monitors both `dev/location/+/pi/status` and `live/location/+/pi/status`
-- Dashboard stale threshold: 30 seconds without a fresh online heartbeat
+- Dashboard offline threshold: more than 20 seconds without a fresh online heartbeat
 
 Heartbeat payload:
 
@@ -57,9 +116,32 @@ Heartbeat payload:
   "timestamp": "2026-06-03T10:00:00+02:00",
   "uptime_seconds": 3600,
   "app_version": "1.0.0",
+  "ip_address": "192.168.1.10",
+  "wifi_connected": false,
+  "eth_connected": true,
+  "wifi_strength": null,
+  "cpu_temp": 52.6,
+  "temperature": 4.8,
+  "download_mbps": 95.4,
+  "upload_mbps": 18.7,
+  "ram_usage": 24.2,
+  "disk_usage": 17.9,
+  "lock_status": "locked",
+  "door_sensor_status": "closed",
   "message": null
 }
 ```
+
+`cpu_temp` is the CPU temperature in degrees Celsius, while `temperature` is
+the temperature inside the vending machine. They are independent fields and
+must not be substituted for one another. `download_mbps` and `upload_mbps` are
+numeric internet-speed values in Mbps. `eth_connected` and `wifi_connected`
+must be JSON booleans. For an Ethernet connection, publish
+`eth_connected: true` and `wifi_connected: false`.
+
+Laravel and Node-RED use the time when they receive each heartbeat. A device
+remains online at exactly 20 seconds and is shown offline after more than 20
+seconds without another heartbeat.
 
 Last Will payload on the same topic:
 
@@ -73,6 +155,53 @@ Last Will payload on the same topic:
   "message": "MQTT client disconnected unexpectedly"
 }
 ```
+
+## Order Recovery After Reconnect
+
+The Pi subscribes to its exact `orders/sync` topic and publishes an
+`orders.sync.request` event to that same topic after every successful MQTT
+reconnect. Laravel subscribes with `{env}/location/+/orders/sync`, queries
+Shopify GraphQL directly, and publishes `orders.sync.response` back to the same
+location topic.
+
+Both directions use QoS 1 and `retain=false`. The topic location slug,
+`client_id`, and payload `location_slug` must match.
+
+Request:
+
+```json
+{
+  "event": "orders.sync.request",
+  "request_id": "2db9d18d-d6c8-4acd-82dd-7f35704d22d9",
+  "client_id": "test_location",
+  "location_slug": "test_location",
+  "requested_at": "2026-07-22T10:00:00+02:00",
+  "reason": "mqtt_reconnect"
+}
+```
+
+Response envelope:
+
+```json
+{
+  "event": "orders.sync.response",
+  "success": true,
+  "request_id": "2db9d18d-d6c8-4acd-82dd-7f35704d22d9",
+  "client_id": "test_location",
+  "location_slug": "test_location",
+  "generated_at": "2026-07-22T10:00:02+02:00",
+  "from_date": "2026-07-22",
+  "to_date": "2026-07-29",
+  "complete": true,
+  "order_count": 0,
+  "orders": []
+}
+```
+
+The device ignores its own request event and only applies a response matching
+its outstanding `request_id`. It replaces the local snapshot only when
+`success=true` and `complete=true`; otherwise it keeps its local data and retries.
+No database migration or phpMyAdmin query is required for this feature.
 
 ## Required `.env` Values
 
