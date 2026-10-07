@@ -1,11 +1,33 @@
-﻿import * as CheckoutComponents from "@shopify/ui-extensions/checkout";
-import * as CustomerAccountComponents from "@shopify/ui-extensions/customer-account";
+/**
+ * Shared rendering logic for the two checkout-ui targets, written for the
+ * 2026-07 "Polaris web components" runtime.
+ *
+ * WHY THIS FILE EXISTS
+ * --------------------
+ * On the 2025-07 runtime a single index.js exported TWO named handlers
+ * (thankYouExtension / orderStatusExtension) and Shopify picked one per target.
+ * On 2026-07 the bundler imports the *default* export of each target's module
+ * and the entrypoint receives NO arguments, so it cannot tell which target it
+ * is. Therefore each target now needs its own module with its own default
+ * export. To avoid duplicating the QR / delivery / pickup rendering, both entry
+ * modules (thank-you.js, order-status.js) call the ONE shared orchestrator here
+ * and only differ in HOW they read the order identity from the global `shopify`
+ * object (orderConfirmation vs order).
+ *
+ * The QR still encodes the numeric order number that the pickup station scans.
+ * The backend normally supplies that number AND real fulfillment metadata.
+ * Order Status can retain its legacy QR path after HTTP 500 using Shopify's
+ * actual numeric order name; confirmation identifiers are never QR content.
+ */
 
-// Constants for text content
+// ---------------------------------------------------------------------------
+// Static text and configuration (unchanged from the previous implementation).
+// ---------------------------------------------------------------------------
 const TEXTS = {
   LOADING: 'Details werden geladen. Bitte warten!...',
   LOADING_RETRY: (count, max) => `Details werden geladen... Versuch ${count}/${max}`,
   ERROR: 'Fehler beim Laden der Bestelldetails. Bitte versuchen Sie es später erneut oder prüfen Sie Ihre E-Mail.',
+  RETRY: 'Erneut versuchen',
   NO_ORDER_NUMBER: 'Bestellnummer nicht gefunden, QR-Code kann nicht angezeigt werden.',
   SUCCESS_FALLBACK: 'Ihre Bestellung wurde erfolgreich übermittelt. Weitere Details finden Sie in Ihrer Bestätigungs-E-Mail.',
   QR_INSTRUCTIONS: [
@@ -23,633 +45,434 @@ const TEXTS = {
   DELIVERY_LINK_DEFAULT: 'Weitere Details zur Lieferung'
 };
 
-// Configuration - these values match shopify.app.toml [extension_config] section
 const CONFIG = {
-  MAX_RETRIES: 10,
-  RETRY_DELAY: 500, 
+  // New orders can take longer to become readable. Keep the 31-attempt bound
+  // and two-second identity/later recovery gaps. The first metadata retry uses
+  // the original 500ms pause, so one temporary failure need not add two seconds.
+  MAX_RETRIES: 31,
+  RETRY_DELAY: 2000,
+  INITIAL_METADATA_RETRY_DELAY: 500,
+  // Backend base URL. DEV value; the live extension uses https://app.sushi.catering.
   API_BASE_URL: 'https://app.sushi.catering'
 };
 
-// Component resolver that works for both contexts
-function createComponentResolver(targetName) {
-  const isCheckout = targetName === "purchase.thank-you.block.render";
-  const components = isCheckout ? CheckoutComponents : CustomerAccountComponents;
-  
-  return {
-    BlockStack: components.BlockStack,
-    View: components.View,
-    Text: components.Text,
-    TextBlock: components.TextBlock,
-    Image: components.Image,
-    Heading: components.Heading,
-    Link: components.Link,
-    Spinner: components.Spinner,
-    QRCode: components.QRCode,
-    InlineStack: components.InlineStack,
-    InlineLayout: components.InlineLayout,
-    extension: isCheckout ? CheckoutComponents.extension : CustomerAccountComponents.extension
-  };
-}
+// ---------------------------------------------------------------------------
+// Tiny DOM builder for Shopify's `s-*` web components.
+// Mirrors the helper already proven in voucher-codes-page: `on*` keys become
+// addEventListener() calls, everything else becomes an attribute, and null /
+// undefined values are skipped so we never emit `attr="null"`.
+// ---------------------------------------------------------------------------
+function createEl(tag, attrs = {}, children = []) {
+  const el = document.createElement(tag);
 
-// Utility functions
-function log(targetName, level, message, ...args) {
-  if (level === 'error' || (level === 'warn' && Math.random() < 0.1)) {
-    console[level](`[${targetName}] ${message}`, ...args);
-  }
-}
-
-function isMobileDevice() {
-  if (typeof navigator === 'undefined') return false;
-  const userAgent = navigator.userAgent || '';
-  
-  // Check for mobile device indicators
-  const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-  
-  // Also check for touch capability as additional indicator (guard window access)
-  const isTouchDevice = (typeof window !== 'undefined' && 'ontouchstart' in window) || 
-                        (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
-  
-  // Check for small screen using matchMedia (more reliable than hardcoded breakpoints)
-  const isSmallScreen = typeof window !== 'undefined' && 
-    window.matchMedia && 
-    window.matchMedia('(max-width: 767px)').matches;
-  
-  // Mobile if: mobile user agent OR (touch device AND small screen)
-  return isMobileUA || (isTouchDevice && isSmallScreen);
-}
-
-function classifyViewport(viewport) {
-  // Use Shopify's built-in responsive classification - it knows best
-  return viewport?.isSmall ? 'small' : 'large';
-}
-
-// Optimized Application Logic
-function AppLogic(root, api, targetName) {
-  const components = createComponentResolver(targetName);
-  const { BlockStack, View, Text, TextBlock, Image, Heading, Link, Spinner, QRCode, InlineStack, InlineLayout } = components;
-  
-  log(targetName, 'info', 'Extension initialized');
-
-  const isMobile = isMobileDevice();
-
-  // State Management
-  let state = {
-    isLoading: true,
-    showError: false,
-    retryCount: 0,
-    orderNumber: null,
-    stationFlag: null,
-    arrLocation: null,
-    shopifyOrderId: null,
-    numericOrderId: null
-  };
-
-  // Optimized data waiting with reduced logging
-  async function waitForShopifyData() {
-    for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
-      state.retryCount = attempt;
-      
-      if (attempt > 1) renderApp(); // Show retry progress
-      
-      const hasData = checkShopifyDataAvailable();
-      if (hasData) return true;
-      
-      if (attempt < CONFIG.MAX_RETRIES) {
-        await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
-      }
-    }
-    
-    log(targetName, 'warn', 'Max retries reached, proceeding without Shopify data');
-    return false;
-  }
-  
-  function checkShopifyDataAvailable() {
-    if (targetName === "purchase.thank-you.block.render") {
-      const orderConfirmation = api.orderConfirmation?.current;
-      if (!orderConfirmation) return false;
-      
-      const orderId = orderConfirmation.order?.id;
-      if (orderId && isValidOrderId(orderId)) return true;
-      
-      return !!(orderConfirmation.name || orderConfirmation.order?.name || orderConfirmation.id);
-    } else {
-      return !!(api.order?.current?.name);
-    }
-  }
-  
-  function isValidOrderId(orderId) {
-    if (typeof orderId !== 'string') return false;
-    if (orderId.startsWith('gid://shopify/Order/') || orderId.startsWith('gid://shopify/OrderIdentity/')) {
-      const extractedId = orderId.split('/').pop();
-      return extractedId && extractedId !== '0' && !isNaN(parseInt(extractedId));
-    }
-    return orderId !== '0';
-  }
-
-  // Optimized viewport handling
-  let currentViewportSize = 'large';
-  let hasViewportAPI = false;
-  
-  if (api.viewport) {
-    hasViewportAPI = true;
-    if (api.viewport.current) {
-      currentViewportSize = classifyViewport(api.viewport.current);
-    }
-    
-    if (typeof api.viewport.subscribe === 'function') {
-      api.viewport.subscribe((newViewport) => {
-        const newSizeClass = classifyViewport(newViewport);
-        if (newSizeClass !== currentViewportSize) {
-          currentViewportSize = newSizeClass;
-          if (!state.isLoading || !state.showError) {
-            renderApp();
-          }
-        }
-      });
-    }
-  } else {
-    currentViewportSize = isMobile ? 'small' : 'large';
-  }
-
-  async function initializeAndFetch() {
-    try {
-      await waitForShopifyData();
-      state.retryCount = 0;
-
-      const extractedData = extractOrderData();
-      if (!extractedData.shopifyOrderId) {
-        throw new Error('Order ID could not be extracted');
-      }
-      
-      state.shopifyOrderId = extractedData.shopifyOrderId;
-      state.numericOrderId = extractedData.numericOrderId;
-      
-      if (state.numericOrderId && state.numericOrderId !== '0') {
-        await fetchOrderData();
-      } else {
-        if (state.retryCount < CONFIG.MAX_RETRIES) {
-          state.retryCount++;
-          setTimeout(() => initializeAndFetch(), CONFIG.RETRY_DELAY);
-          return;
-        }
-        throw new Error('Invalid order ID after max retries');
-      }
-    } catch (error) {
-      log(targetName, 'error', 'Error in initializeAndFetch:', error);
-      state.showError = true;
-      state.isLoading = false;
-      renderApp();
-    }
-  }
-  
-  // extractOrderData pulls together every identifier we can safely reach so that we have multiple shots at deriving the numeric order id.
-  // This is critical because Shopify can expose different fields depending on where the buyer is in the post-checkout flow.
-  function extractOrderData() {
-    const candidates = [];
-
-    if (targetName === 'customer-account.order-status.block.render') {
-      candidates.push(api.order?.current?.id);
-      candidates.push(api.order?.current?.name);
-    } else if (targetName === 'purchase.thank-you.block.render') {
-      const orderConfirmation = api.orderConfirmation?.current;
-      candidates.push(orderConfirmation?.order?.id);
-      candidates.push(orderConfirmation?.id);
-      candidates.push(orderConfirmation?.order?.name);
-      candidates.push(orderConfirmation?.name);
-    }
-
-    // Capture additional ids Shopify might provide on different runtimes (extension api payloads, experimental fields, etc.).
-    candidates.push(api.extension?.order?.id);
-    candidates.push(api.data?.order?.id);
-
-    collectGlobalOrderHints().forEach(hint => candidates.push(hint));
-
-    const filtered = candidates.filter(Boolean);
-    let shopifyOrderId = filtered[0] || null;
-    let numericOrderId = null;
-
-    for (const candidate of filtered) {
-      const extracted = extractNumericId(candidate);
-      if (extracted) {
-        numericOrderId = extracted;
-        shopifyOrderId = shopifyOrderId || candidate;
-        break;
-      }
-    }
-
-    return { shopifyOrderId, numericOrderId };
-  }
-
-  // collectGlobalOrderHints reads non-API globals such as window.Shopify or URL parameters.
-  // This gives us resilient fallbacks when the extension api is still propagating order data (common on busy stores).
-  function collectGlobalOrderHints() {
-    if (typeof window === 'undefined') return [];
-
-    const hints = [];
-    const shopifyGlobal = window.Shopify;
-
-    if (shopifyGlobal) {
-      hints.push(shopifyGlobal.checkout?.order_id);
-      hints.push(shopifyGlobal.checkout?.orderId);
-      hints.push(shopifyGlobal.order?.id);
-      hints.push(shopifyGlobal.order_id);
-    }
-
-    const search = window.location?.search;
-    if (search) {
-      try {
-        const params = new URLSearchParams(search);
-        ['order_id', 'orderId', 'id'].forEach(key => hints.push(params.get(key)));
-      } catch (error) {
-        log(targetName, 'warn', 'URLSearchParams parse failed', error);
-      }
-    }
-
-    const urlSamples = [window.location?.href, window.location?.pathname];
-    urlSamples.forEach(sample => {
-      if (!sample) return;
-      const match = sample.match(/(?:orders|checkouts)\/(\d+)/i);
-      if (match) hints.push(match[1]);
-    });
-
-    return hints.filter(Boolean);
-  }
-
-  // extractNumericId normalizes every candidate and returns the final numeric value we can send to our backend.
-  // The helper understands raw gid strings, base64 encoded gids, and plain numbers embedded in free-form strings.
-  function extractNumericId(orderId) {
-    if (orderId == null) return null;
-
-    if (typeof orderId === 'number') {
-      return orderId > 0 ? Math.trunc(orderId).toString() : null;
-    }
-
-    if (typeof orderId !== 'string') {
-      return null;
-    }
-
-    const trimmed = orderId.trim();
-    if (!trimmed) return null;
-
-    const normalized = normalizeOrderIdentifier(trimmed);
-    if (normalized) {
-      const idSegment = normalized.split('/').pop();
-      if (idSegment && /^[0-9]+$/.test(idSegment)) {
-        return idSegment;
-      }
-    }
-
-    const fallbackMatch = trimmed.match(/(\d{4,})/g);
-    if (fallbackMatch && fallbackMatch.length) {
-      return fallbackMatch[fallbackMatch.length - 1];
-    }
-
-    return null;
-  }
-
-  // normalizeOrderIdentifier makes sure we work with a uniform gid string, decoding base64 ids when Shopify gives us that format.
-  function normalizeOrderIdentifier(value) {
-    if (value.includes('gid://shopify/')) {
-      return value;
-    }
-
-    const decoded = decodePotentialBase64(value);
-    if (decoded && decoded.includes('gid://shopify/')) {
-      return decoded;
-    }
-
-    return null;
-  }
-
-  // decodePotentialBase64 safely attempts to decode values that look like base64-encoded gids without throwing when the input is not base64.
-  function decodePotentialBase64(value) {
-    const text = value.replace(/\s+/g, '');
-    if (!text || text.length < 8) return null;
-
-    const base64Pattern = /^[A-Za-z0-9+/=]+$/;
-    if (!base64Pattern.test(text)) return null;
-
-    try {
-      if (typeof atob === 'function') {
-        return atob(text);
-      }
-      if (typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function') {
-        return globalThis.atob(text);
-      }
-      if (typeof Buffer !== 'undefined') {
-        return Buffer.from(text, 'base64').toString('utf8');
-      }
-    } catch (error) {
-      return null;
-    }
-
-    return null;
-  }
-
-  // shouldRetryFetch recognises short-lived API issues (eventual consistency, rate limits, network jitters) so we can retry without showing an error.
-  function shouldRetryFetch(error) {
-    if (!error) return false;
-
-    if (error.name === 'AbortError') return true;
-
-    const status = typeof error.status === 'number' ? error.status : null;
-    if (status) {
-      return [404, 409, 423, 425, 429, 500, 502, 503, 504].includes(status);
-    }
-
-    const message = error.message || '';
-    return /network|fetch|timeout|load failed/i.test(message);
-  }
-  async function fetchOrderData() {
-    try {
-      // Try to get order number from Shopify first so we can render instantly when data is ready.
-      let orderNumberFromShopify = null;
-
-      if (targetName === 'purchase.thank-you.block.render') {
-        const orderConfirmation = api.orderConfirmation?.current;
-        const orderName = orderConfirmation?.name || orderConfirmation?.order?.name;
-        if (orderName) {
-          orderNumberFromShopify = orderName.replace('#', '');
-        }
-      } else {
-        const orderName = api.order?.current?.name;
-        if (orderName) {
-          orderNumberFromShopify = orderName.replace('#', '');
-        }
-      }
-
-      if (orderNumberFromShopify) {
-        // Use Shopify data with defaults so buyers see their QR code immediately when Shopify already provided the number.
-        state.orderNumber = orderNumberFromShopify;
-        state.stationFlag = state.stationFlag || 'N';
-        state.arrLocation = state.arrLocation || { name: 'Default' };
-      } else {
-        // Fallback to external API when Shopify has not yet returned the number or location metadata.
-        const response = await fetch(`${CONFIG.API_BASE_URL}/api/getordernumber/${state.numericOrderId}`, {
-          method: 'GET',
-          cache: 'no-store'
-        });
-
-        if (!response.ok) {
-          const errorMsg = response.status === 404
-            ? `Order ID '${state.numericOrderId}' not found`
-            : `API error (${response.status})`;
-          const fetchError = new Error(errorMsg);
-          fetchError.status = response.status;
-          throw fetchError;
-        }
-
-        const data = await response.json();
-        state.orderNumber = data.order_number?.toString();
-        state.stationFlag = data.arrLocation?.no_station;
-        state.arrLocation = data.arrLocation;
-      }
-
-      if (!state.orderNumber) {
-        throw new Error('Order number not found');
-      }
-
-      state.isLoading = false;
-      state.showError = false;
-      state.retryCount = 0;
-      renderApp();
-
-    } catch (error) {
-      log(targetName, 'error', 'Error fetching order data:', error);
-
-      if (shouldRetryFetch(error) && state.retryCount < CONFIG.MAX_RETRIES) {
-        state.retryCount++;
-        state.isLoading = true;
-        state.showError = false;
-        setTimeout(() => fetchOrderData(), CONFIG.RETRY_DELAY);
-        return;
-      }
-
-      state.isLoading = false;
-      state.showError = true;
-      renderApp();
-    }
-  }
-
-  // Optimized QR code rendering with unified logic
-  function createQRCodeSection(orderNumber, isMobile) {
-    if (!root?.createComponent) return null;
-    
-    const qrCode = root.createComponent(QRCode, {
-      content: orderNumber.toString(),
-      size: isMobile ? 'fill' : 'large',
-      accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
-    });
-    
-    const textBlocks = createTextBlocks();
-    const textContainer = root.createComponent(BlockStack, {
-      spacing: 'tight',
-      ...(isMobile && { padding: 'base' })
-    });
-    
-    textBlocks.forEach(block => textContainer.appendChild(block));
-    
-    if (isMobile) {
-      // Mobile: stacked layout
-      const qrContainer = root.createComponent(BlockStack, {
-        inlineAlignment: 'center',
-        maxInlineSize: '100%',
-        background: 'surface'
-      });
-      qrContainer.appendChild(qrCode);
-      
-      const mainStack = root.createComponent(BlockStack, { spacing: 'loose' });
-      mainStack.appendChild(qrContainer);
-      mainStack.appendChild(textContainer);
-      return mainStack;
-    } else {
-      // Desktop: side-by-side layout
-      const inlineLayout = root.createComponent(InlineLayout, {
-        spacing: 'loose',
-        columns: ['40%', '60%'],
-        blockAlignment: 'start'
-      });
-      inlineLayout.appendChild(qrCode);
-      inlineLayout.appendChild(textContainer);
-      return inlineLayout;
-    }
-  }
-  
-  function createTextBlocks() {
-    const faqLink = root.createComponent(Link, {
-      to: TEXTS.FAQ_LINK,
-      external: true
-    }, TEXTS.FAQ_TEXT);
-    
-    return [
-      ...TEXTS.QR_INSTRUCTIONS.map(text => 
-        root.createComponent(TextBlock, { size: 'medium', inlineAlignment: 'start' }, text)
-      ),
-      root.createComponent(TextBlock, { size: 'medium', inlineAlignment: 'start' }, [
-        TEXTS.FAQ_PREFIX,
-        faqLink,
-        '.'
-      ])
-    ];
-  }
-
-  function renderApp() {
-    // Validate prerequisites
-    if (!root?.appendChild || !root?.createComponent) {
-      log(targetName, 'error', 'Root object invalid');
+  Object.entries(attrs || {}).forEach(([name, value]) => {
+    if (value === undefined || value === null) return;
+    // onClick -> addEventListener('click', fn); these are native DOM events on
+    // the web components (click / input / change), per the 2026-07 docs.
+    if (name.startsWith('on') && typeof value === 'function') {
+      el.addEventListener(name.slice(2).toLowerCase(), value);
       return;
     }
-    
-    // Update viewport size if no API available
-    if (!hasViewportAPI) {
-      currentViewportSize = isMobile ? 'small' : 'large';
-    }
-    
-    // Clear previous content
-    try {
-      if (root.replaceChildren) {
-        root.replaceChildren();
-      } else {
-        while (root.lastChild) root.removeChild(root.lastChild);
-      }
-    } catch (error) {
-      log(targetName, 'warn', 'Could not clear root content');
-    }
-    
-    // Render based on current state
-    if (state.isLoading) {
-      renderLoadingState();
-    } else if (state.showError) {
-      renderErrorState();
-    } else {
-      renderSuccessState();
-    }
-  }
-  
-  function renderLoadingState() {
-    const spinner = root.createComponent(Spinner);
-    const message = state.retryCount > 0 
-      ? TEXTS.LOADING_RETRY(state.retryCount, CONFIG.MAX_RETRIES)
-      : TEXTS.LOADING;
-    const text = root.createComponent(Text, null, message);
-    
-    root.appendChild(spinner);
-    root.appendChild(text);
-  }
-  
-  function renderErrorState() {
-    const error = root.createComponent(Text, { appearance: 'critical' }, TEXTS.ERROR);
-    root.appendChild(error);
-  }
-  
-  function renderSuccessState() {
-    const container = root.createComponent(BlockStack, { spacing: 'base' });
-    const isDelivery = state.arrLocation?.name === 'Delivery';
-    const isStationPickup = state.stationFlag === 'Y';
-    
-    // Render delivery/pickup info if needed
-    if (isDelivery || isStationPickup) {
-      renderDeliveryInfo(container, isDelivery);
-    }
-    
-    // Render QR code section if applicable
-    if (!isDelivery && !isStationPickup && state.orderNumber) {
-      const qrSection = createQRCodeSection(state.orderNumber, currentViewportSize === 'small');
-      if (qrSection) container.appendChild(qrSection);
-    } else if (!state.orderNumber && !isDelivery && !isStationPickup) {
-      container.appendChild(
-        root.createComponent(Text, { appearance: 'warning' }, TEXTS.NO_ORDER_NUMBER)
-      );
-    }
-    
-    // Default message if no content
-    if (container.children.length === 0) {
-      container.appendChild(
-        root.createComponent(Text, null, TEXTS.SUCCESS_FALLBACK)
-      );
-    }
-    
-    root.appendChild(container);
-  }
-  
-  function renderDeliveryInfo(container, isDelivery) {
-    const heading = root.createComponent(
-      Heading, 
-      { level: 2 }, 
-      isDelivery ? TEXTS.DELIVERY_HEADING : TEXTS.PICKUP_HEADING
-    );
-    
-    const instruction = isDelivery 
-      ? (state.arrLocation?.checkout_note || TEXTS.DELIVERY_FALLBACK)
-      : TEXTS.PICKUP_INSTRUCTION;
-    
-    const text = root.createComponent(Text, null, instruction);
-    
-    container.appendChild(heading);
-    container.appendChild(text);
-    
-    // Add delivery link if available
-    if (isDelivery && state.arrLocation?.checkout_hyperlink) {
-      const link = root.createComponent(
-        Link,
-        { to: state.arrLocation.checkout_hyperlink, external: true },
-        state.arrLocation.checkout_hyperlink_text || TEXTS.DELIVERY_LINK_DEFAULT
-      );
-      container.appendChild(link);
-    }
-  }
+    // The worker preserves attribute case, while the host reads lowercase
+    // names such as accessibilitylabel. Normalize here so layout and labels
+    // reach the native component; event handlers were attached above.
+    el.setAttribute(name.toLowerCase(), String(value));
+  });
 
-  // Initialize the extension
-  renderApp(); // Show loading state immediately
-  initializeAndFetch(); // Start data fetching
+  const kids = Array.isArray(children) ? children : [children];
+  kids.forEach((child) => {
+    if (child === undefined || child === null) return;
+    el.appendChild(child instanceof Node ? child : document.createTextNode(String(child)));
+  });
+
+  return el;
 }
 
-// Optimized Extension Exports
-export const thankYouExtension = CheckoutComponents.extension(
-  "purchase.thank-you.block.render",
-  (root, api) => {
+// ---------------------------------------------------------------------------
+// Order-id helpers.
+// ---------------------------------------------------------------------------
+
+// A first confirmation can still expose an OrderIdentity GID before Shopify
+// exposes the Order GID. Both carry the backend lookup ID. Accept only these
+// two resource names with a positive numeric suffix, including older base64
+// identifiers; an order name or confirmation string is never a lookup ID.
+function extractNumericId(orderId) {
+  if (typeof orderId !== 'string') return null;
+
+  const trimmed = orderId.trim();
+  if (!trimmed) return null;
+
+  const normalized = normalizeOrderIdentifier(trimmed);
+  const match = normalized?.match(/^gid:\/\/shopify\/(?:Order|OrderIdentity)\/([1-9]\d*)$/);
+  return match ? match[1] : null;
+}
+
+// Return a canonical gid string, decoding base64 when Shopify hands us that.
+function normalizeOrderIdentifier(value) {
+  if (value.includes('gid://shopify/')) return value;
+  const decoded = decodePotentialBase64(value);
+  if (decoded && decoded.includes('gid://shopify/')) return decoded;
+  return null;
+}
+
+// Best-effort base64 decode that never throws on non-base64 input.
+function decodePotentialBase64(value) {
+  const text = value.replace(/\s+/g, '');
+  if (!text || text.length < 8) return null;
+  if (!/^[A-Za-z0-9+/=]+$/.test(text)) return null;
+  try {
+    if (typeof atob === 'function') return atob(text);
+    if (typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function') return globalThis.atob(text);
+    if (typeof Buffer !== 'undefined') return Buffer.from(text, 'base64').toString('utf8');
+  } catch (error) {
+    return null;
+  }
+  return null;
+}
+
+// Decide whether a failed fetch is worth retrying (transient conditions only).
+function shouldRetryFetch(error) {
+  if (!error) return false;
+  if (error.name === 'AbortError') return true;
+  const status = typeof error.status === 'number' ? error.status : null;
+  if (status) return [404, 409, 423, 425, 429, 500, 502, 503, 504].includes(status);
+  const message = error.message || '';
+  return /network|fetch|timeout|load failed/i.test(message);
+}
+
+// Small promise-based sleep for the retry loops.
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Shopify signals can announce the order before the next polling gap ends.
+// Wake on a valid identity immediately, while keeping the existing two-second
+// fallback for missing/broken subscriptions. Only our listener is removed;
+// destroying the shared Shopify signal would affect other consumers.
+function waitForIdentity(getIdentity, getIdentitySignal) {
+  let signal;
+  try { signal = getIdentitySignal?.(); } catch (error) { /* Use the timer fallback. */ }
+  if (typeof signal?.subscribe !== 'function') return delay(CONFIG.RETRY_DELAY);
+
+  return new Promise((resolve) => {
+    let timer;
+    let unsubscribe;
+    let finished = false;
+    const stopSubscription = () => {
+      const stop = unsubscribe;
+      unsubscribe = undefined;
+      try { if (typeof stop === 'function') stop(); } catch (error) { /* Readiness still settles. */ }
+    };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (timer !== undefined) clearTimeout(timer);
+      stopSubscription();
+      resolve();
+    };
+    const check = () => {
+      if (extractNumericId(safeIdentity(getIdentity).gid)) finish();
+    };
+
+    // Re-read around registration so an update between the earlier identity
+    // check and subscribing cannot be missed. Some signals also notify during
+    // subscribe(), before they return their unsubscribe function.
+    check();
+    if (finished) return;
+    timer = setTimeout(finish, CONFIG.RETRY_DELAY);
     try {
-      AppLogic(root, api, "purchase.thank-you.block.render");
+      unsubscribe = signal.subscribe(check);
+      if (finished) stopSubscription();
+      else check();
     } catch (error) {
-      log("purchase.thank-you.block.render", 'error', 'Extension initialization failed:', error);
-      // Fallback UI
-      if (root?.createComponent && CheckoutComponents.Text) {
-        const fallback = root.createComponent(
-          CheckoutComponents.Text, 
-          { appearance: 'critical' }, 
-          'Extension failed to load. Please refresh the page.'
-        );
-        root.appendChild?.(fallback);
+      check();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Prefer the existing backend contract: { order_number, arrLocation }.
+// Shopify's page APIs cannot supply our location flags and delivery notes, so
+// skipping this request could show a scanner QR for a delivery-only order.
+// ---------------------------------------------------------------------------
+async function fetchOrderMeta(numericOrderId, attempt) {
+  const startedAt = Date.now();
+  let status = null;
+  let reasonCode = null;
+  try {
+    const response = await fetch(`${CONFIG.API_BASE_URL}/api/getordernumber/${numericOrderId}`, {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    if (Number.isInteger(response.status) && response.status >= 100 && response.status <= 599) {
+      status = response.status;
+    }
+    if (!response.ok) {
+      reasonCode = 'HTTP_ERROR';
+      const err = new Error('Order metadata request failed');
+      err.status = response.status;
+      err.reasonCode = 'HTTP_ERROR';
+      throw err;
+    }
+    // Include response-body reading in the request duration. This event proves
+    // transport/JSON completion; the caller still validates the actual data.
+    reasonCode = 'RESPONSE_INVALID';
+    const data = await response.json();
+    reasonCode = null;
+    return { data, status: response.status };
+  } catch (error) {
+    if (status === null) reasonCode = error?.name === 'AbortError' ? 'REQUEST_ABORTED' : 'REQUEST_FAILED';
+    throw error;
+  } finally {
+    // One private-data-free event per request separates slow responses from
+    // retry pauses. Never log the URL/ID, raw error, body, or customer details.
+    // Diagnostics must not change success/failure if a host logger throws.
+    try {
+      console.info('[checkout-ui] Order metadata request:', JSON.stringify({
+        attempt,
+        elapsedMs: Math.max(0, Date.now() - startedAt),
+        status,
+        reasonCode
+      }));
+    } catch (error) { /* Loading and recovery do not depend on diagnostics. */ }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// View builders — each returns a detached `s-*` node tree (never mounts).
+// ---------------------------------------------------------------------------
+
+// Loading state: spinner + (optional retry progress) message.
+function buildLoading(retryCount) {
+  const message = retryCount > 0 ? TEXTS.LOADING_RETRY(retryCount, CONFIG.MAX_RETRIES) : TEXTS.LOADING;
+  return createEl('s-stack', { direction: 'block', gap: 'base' }, [
+    createEl('s-spinner', { accessibilityLabel: TEXTS.LOADING }),
+    createEl('s-text', {}, message)
+  ]);
+}
+
+// Keep recovery inside the current page. Reloading a first confirmation page
+// can navigate away, so the button starts both lookups again without navigation.
+function buildError(getIdentity, getIdentitySignal) {
+  let retrying = false;
+  return createEl('s-stack', { direction: 'block', gap: 'base' }, [
+    createEl('s-banner', { tone: 'critical' }, [createEl('s-text', {}, TEXTS.ERROR)]),
+    createEl('s-button', { variant: 'secondary', onClick: () => {
+      // A second queued click must not start a competing request or rendering.
+      if (retrying) return;
+      retrying = true;
+      return runOrderExtension(getIdentity, getIdentitySignal);
+    } }, TEXTS.RETRY)
+  ]);
+}
+
+// The QR must encode the backend's plain numeric order number. Polaris supports
+// only `base` and `fill` sizes; filling its container keeps it easy to scan.
+function buildQrSection(orderNumber) {
+  const qr = createEl('s-qr-code', {
+    content: String(orderNumber),
+    size: 'fill',
+    accessibilityLabel: `QR-Code für Bestellung ${orderNumber}`
+  });
+
+  const instructions = TEXTS.QR_INSTRUCTIONS.map((text) => createEl('s-paragraph', {}, text));
+
+  // "Fragen und Antworten ... findest du hier." with `hier` as an external link.
+  const faqLine = createEl('s-paragraph', {}, [
+    TEXTS.FAQ_PREFIX,
+    createEl('s-link', { href: TEXTS.FAQ_LINK, target: '_blank' }, TEXTS.FAQ_TEXT),
+    '.'
+  ]);
+
+  // Keep the narrow stacked / wide side-by-side layout. Equal desktop columns
+  // give the QR half the available width instead of squeezing it into 40%.
+  // The instructions wrap in the other half, while mobile keeps a full-width QR.
+  // Container queries work inside Shopify's extension sandbox;
+  // window.matchMedia and the old viewport API do not. Fraction columns also
+  // leave room for the gap, unlike two percentage columns that total 100%.
+  return createEl('s-query-container', {}, [
+    createEl('s-grid', {
+      gridTemplateColumns: '@container (inline-size > 400px) 1fr 1fr, 1fr',
+      gap: 'large',
+      alignItems: 'start'
+    }, [
+      createEl('s-box', { inlineSize: '100%', minInlineSize: '0' }, [qr]),
+      createEl('s-stack', { direction: 'block', gap: 'small', minInlineSize: '0' }, [...instructions, faqLine])
+    ])
+  ]);
+}
+
+// Delivery / station-pickup info block (shown instead of the QR when the
+// backend flags the order as delivery or station pickup).
+function buildDeliveryInfo(arrLocation, isDelivery) {
+  const children = [
+    createEl('s-heading', {}, isDelivery ? TEXTS.DELIVERY_HEADING : TEXTS.PICKUP_HEADING),
+    createEl('s-paragraph', {}, isDelivery ? (arrLocation?.checkout_note || TEXTS.DELIVERY_FALLBACK) : TEXTS.PICKUP_INSTRUCTION)
+  ];
+  if (isDelivery && arrLocation?.checkout_hyperlink) {
+    children.push(
+      createEl('s-link', { href: arrLocation.checkout_hyperlink, target: '_blank' },
+        arrLocation.checkout_hyperlink_text || TEXTS.DELIVERY_LINK_DEFAULT)
+    );
+  }
+  return createEl('s-stack', { direction: 'block', gap: 'base' }, children);
+}
+
+// Success state: choose delivery/pickup info OR the QR, exactly like before.
+function buildSuccess(state) {
+  const isDelivery = state.arrLocation?.name === 'Delivery';
+  const isStationPickup = state.stationFlag === 'Y';
+
+  const children = [];
+  if (isDelivery || isStationPickup) {
+    children.push(buildDeliveryInfo(state.arrLocation, isDelivery));
+  } else if (state.orderNumber) {
+    children.push(buildQrSection(state.orderNumber));
+  } else {
+    children.push(createEl('s-text', { tone: 'critical' }, TEXTS.NO_ORDER_NUMBER));
+  }
+
+  if (children.length === 0) {
+    children.push(createEl('s-text', {}, TEXTS.SUCCESS_FALLBACK));
+  }
+  return createEl('s-stack', { direction: 'block', gap: 'base' }, children);
+}
+
+// Mount a freshly built node tree into document.body (replacing any prior UI).
+function mount(node) {
+  if (document?.body) {
+    document.body.replaceChildren(node);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The shared orchestrator. Each target passes a `getIdentity()` that reads its
+// own source of truth from the global `shopify` object and returns
+// { gid, name? }. Show loading, wait for a valid order GID, then fetch our backend's
+// order number and location metadata. Do not render a provisional QR while that
+// request is pending: its eventual result may require delivery/pickup text.
+// Both targets share the same bounded waits, recovery and error messages.
+// ---------------------------------------------------------------------------
+export async function runOrderExtension(getIdentity, getIdentitySignal) {
+  const state = { orderNumber: null, stationFlag: null, arrLocation: null };
+  let stage = 'order-identity';
+  let attempt = 0;
+  let status = null;
+  const startedAt = Date.now();
+  // These elapsed stages separate late Shopify identity from backend latency.
+  // Log only controlled stage names and durations, never order/customer data.
+  const recordTiming = (timingStage) => console.info('[checkout-ui] Order loading timing:', JSON.stringify({
+    stage: timingStage,
+    elapsedMs: Math.max(0, Date.now() - startedAt)
+  }));
+
+  // 1. Immediate loading state.
+  mount(buildLoading(0));
+  recordTiming('started');
+
+  try {
+    // 2. Wait for the order identity to become available (data can lag on busy
+    //    stores). We re-read the global each attempt because it is a signal.
+    let identity = { gid: null };
+    for (attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+      identity = safeIdentity(getIdentity);
+      if (extractNumericId(identity.gid)) break;
+      if (attempt > 1) mount(buildLoading(attempt));
+      if (attempt < CONFIG.MAX_RETRIES) await waitForIdentity(getIdentity, getIdentitySignal);
+    }
+
+    // 3. Resolve the actual order resource ID, never its confirmation number.
+    const numericId = extractNumericId(identity.gid);
+    if (!numericId || numericId === '0') {
+      throw Object.assign(new Error('Order id could not be extracted'), { reasonCode: 'ORDER_ID_UNAVAILABLE' });
+    }
+    recordTiming('identity-ready');
+
+    let lastError = null;
+    stage = 'order-metadata';
+    for (attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetchOrderMeta(numericId, attempt);
+        const data = response.data;
+        status = response.status;
+        state.orderNumber = data?.order_number != null ? String(data.order_number) : null;
+        // The endpoint returns a positive numeric order number and arrLocation
+        // (which may legitimately be null). Reject incomplete responses instead
+        // of inventing default location flags and accidentally showing a QR.
+        if (!state.orderNumber || !/^[1-9]\d*$/.test(state.orderNumber)) {
+          throw Object.assign(new Error('Order number not found'), { reasonCode: 'ORDER_NUMBER_INVALID' });
+        }
+        if (!Object.prototype.hasOwnProperty.call(data, 'arrLocation') ||
+          (data.arrLocation !== null && (typeof data.arrLocation !== 'object' || Array.isArray(data.arrLocation)))) {
+          throw Object.assign(new Error('Order location metadata not found'), { reasonCode: 'LOCATION_METADATA_INVALID' });
+        }
+        state.stationFlag = data.arrLocation?.no_station;
+        state.arrLocation = data.arrLocation;
+        recordTiming('metadata-ready');
+        mount(buildSuccess(state));
+        return;
+      } catch (error) {
+        lastError = error;
+        if (error?.status === 500) {
+          // The old Order Status extension could display Shopify's order name
+          // without this lookup. Restore that available QR after the existing
+          // server's HTTP-500 failure, while successful delivery/pickup metadata
+          // still wins above. Thank You supplies no name and keeps its retries.
+          // Re-read the signal in case the name arrived during the request, but
+          // require the same order ID so a later navigation cannot mix orders.
+          const fallbackIdentity = safeIdentity(getIdentity);
+          // Shopify lets each store remove its order-name prefix. Production
+          // returns plain digits, while development returns #digits. Accept
+          // both complete numeric forms and keep their digits as a string.
+          const numberMatch = /^#?([1-9]\d*)$/.exec(fallbackIdentity.name || '');
+          // Compare the whole match too: JavaScript's $ can match before a final
+          // newline. Accept only the complete numeric name, without truncation.
+          if (extractNumericId(fallbackIdentity.gid) === numericId &&
+            numberMatch?.[0] === fallbackIdentity.name) {
+            state.orderNumber = numberMatch[1];
+            recordTiming('shopify-number-fallback');
+            mount(buildSuccess(state));
+            return;
+          }
+        }
+        if (shouldRetryFetch(error) && attempt < CONFIG.MAX_RETRIES) {
+          mount(buildLoading(attempt));
+          // Restore fast initial recovery without repeatedly hammering a slow
+          // backend. Rate limits and all later failures retain the longer gap.
+          const retryDelay = attempt === 1 && error?.status !== 429
+            ? CONFIG.INITIAL_METADATA_RETRY_DELAY : CONFIG.RETRY_DELAY;
+          await delay(retryDelay);
+          continue;
+        }
+        throw error;
       }
     }
+    throw lastError || new Error('Order data unavailable');
+  } catch (error) {
+    // These small diagnostic fields distinguish late identity from a failed
+    // lookup without logging identifiers, confirmation text or response data.
+    const reasonCodes = ['ORDER_ID_UNAVAILABLE', 'HTTP_ERROR', 'ORDER_NUMBER_INVALID', 'LOCATION_METADATA_INVALID'];
+    // The iframe log flattens objects to "[object Object]". A JSON string keeps
+    // these safe diagnostic fields readable without adding private values.
+    console.error('[checkout-ui] Order details could not be loaded:', JSON.stringify({
+      stage,
+      attempt: Math.min(attempt, CONFIG.MAX_RETRIES),
+      status: typeof error?.status === 'number' ? error.status : status,
+      reasonCode: reasonCodes.includes(error?.reasonCode)
+        ? error.reasonCode
+        : (error?.name === 'AbortError' ? 'REQUEST_ABORTED' : 'REQUEST_FAILED')
+    }));
+    mount(buildError(getIdentity, getIdentitySignal));
   }
-);
+}
 
-export const orderStatusExtension = CustomerAccountComponents.extension(
-  "customer-account.order-status.block.render",
-  (root, api) => {
-    try {
-      AppLogic(root, api, "customer-account.order-status.block.render");
-    } catch (error) {
-      log("customer-account.order-status.block.render", 'error', 'Extension initialization failed:', error);
-      // Fallback UI
-      if (root?.createComponent && CustomerAccountComponents.Text) {
-        const fallback = root.createComponent(
-          CustomerAccountComponents.Text, 
-          { appearance: 'critical' }, 
-          'Extension failed to load. Please refresh the page.'
-        );
-        root.appendChild?.(fallback);
-      }
-    }
+// Read the target-specific identity without ever throwing (the global may not
+// be ready yet on the first attempts).
+function safeIdentity(getIdentity) {
+  try {
+    const result = getIdentity() || {};
+    return { gid: result.gid || null, name: typeof result.name === 'string' ? result.name : null };
+  } catch (error) {
+    return { gid: null };
   }
-);
-
-// Remove default export if it exists, or ensure it's not used by toml
-// export default ... (No default export needed if using named exports for targets)
-
-
-
-
-
-
+}

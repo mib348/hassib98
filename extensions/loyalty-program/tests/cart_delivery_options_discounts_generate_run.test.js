@@ -1,6 +1,6 @@
 import {describe, it, expect} from "vitest";
 
-import {cartDeliveryOptionsDiscountsGenerateRun} from "./cart_delivery_options_discounts_generate_run";
+import {cartDeliveryOptionsDiscountsGenerateRun} from "../src/cart_delivery_options_discounts_generate_run";
 import {
   DeliveryDiscountSelectionStrategy,
   DiscountClass,
@@ -84,5 +84,17 @@ describe("cartDeliveryOptionsDiscountsGenerateRun", () => {
     expect(() => cartDeliveryOptionsDiscountsGenerateRun(input)).toThrow(
       "No delivery groups found",
     );
+  });
+
+  // This helper is not configured as a deployed target. Preserve its existing
+  // first-group behavior so regenerating the shared API types cannot change it.
+  it("discounts only the first delivery group when several groups exist", () => {
+    const result = cartDeliveryOptionsDiscountsGenerateRun({
+      cart: {deliveryGroups: [{id: "first"}, {id: "second"}]},
+      discount: {discountClasses: [DiscountClass.Shipping]},
+    });
+    expect(result.operations[0].deliveryDiscountsAdd.candidates[0].targets).toEqual([
+      {deliveryGroup: {id: "first"}},
+    ]);
   });
 });
