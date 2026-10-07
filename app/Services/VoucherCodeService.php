@@ -107,7 +107,6 @@ class VoucherCodeService
             'initialValue' => (string) $record->amount,
             'code' => $code,
             'note' => 'Voucher for Shopify order #'.($orderData['order_number'] ?? $orderData['name'] ?? $orderData['id'] ?? 'unknown'),
-            'notify' => (bool) config('vouchers.notify_customer', false),
         ];
 
         if (! empty($record->shopify_customer_id)) {
