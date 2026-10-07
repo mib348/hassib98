@@ -228,7 +228,7 @@ class LocationRevenueController extends Controller
 
                     if (isset($arrLineItems)) {
                         foreach ($arrLineItems as $key => $arrLineItem) {
-                            if (isset($arrLineItem['properties'][8]['name']) && $arrLineItem['properties'][8]['name'] == 'snacks_and_drinks' && $arrLineItem['properties'][8]['value'] == 'Y') {
+                            if ($this->lineItemPropertyValue($arrLineItem, 'snacks_and_drinks') === 'Y') {
                                 $hasSnacksAndDrinks = true;
                                 break; // Found at least one snack/drink item, no need to check further
                             }
@@ -278,11 +278,21 @@ class LocationRevenueController extends Controller
                         foreach ($arrLineItems as $key => $arrLineItem) {
                             // $nTotalItemsSold += (int) $arrLineItem['quantity'];
                             if (! empty($arrLineItem['properties'])) {
-                                if ($arrLineItem['properties'][6]['name'] == 'immediate_inventory' && $arrLineItem['properties'][6]['value'] == 'Y') {
+                                // Deposits are charges, not food quantities. The parent order
+                                // already contributes to revenue and status totals above,
+                                // so skip only this item when either deposit flag is enabled.
+                                if ($this->lineItemPropertyValue($arrLineItem, '_pfand') === 'Y'
+                                    || $this->lineItemPropertyValue($arrLineItem, '_pfand_auto') === 'Y') {
+                                    continue;
+                                }
+
+                                if ($this->lineItemPropertyValue($arrLineItem, 'immediate_inventory') === 'Y') {
                                     $nTotalImmediateInventoryItemsSold += (int) $arrLineItem['quantity'];
                                     $arr_immediate_inventory_items_sold[$order->order_id] = $order->number;
                                 }
                                 else {
+                                    // Keep the existing preorder fallback for nondeposit items
+                                    // whose properties do not carry an immediate inventory flag.
                                     $nTotalPreorders += (int) $arrLineItem['quantity'];
                                     $arr_preorders[$order->order_id] = $order->number;
                                 }
@@ -364,5 +374,25 @@ class LocationRevenueController extends Controller
         // echo $html;
         // dd();
         return $html;
+    }
+
+    /**
+     * Read a Shopify item property by name instead of assuming a fixed position.
+     * Deposit items can have only two properties, and checkout extensions can
+     * reorder food-item properties. Missing flags return the supplied default.
+     */
+    private function lineItemPropertyValue(array $lineItem, string $propertyName, $default = null)
+    {
+        if (empty($lineItem['properties']) || ! is_array($lineItem['properties'])) {
+            return $default;
+        }
+
+        foreach ($lineItem['properties'] as $property) {
+            if (($property['name'] ?? null) === $propertyName) {
+                return $property['value'] ?? $default;
+            }
+        }
+
+        return $default;
     }
 }
