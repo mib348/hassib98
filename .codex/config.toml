@@ -1,0 +1,10 @@
+[mcp_servers.mcp-router]
+command = "npx"
+args = [
+    "-y",
+    "@mcp_router/cli@latest",
+    "connect",
+]
+
+[mcp_servers.mcp-router.env]
+MCPR_TOKEN = "mcpr_-rWAqK6jwbD7LwQUl4soBgJBa6oHdMSR"

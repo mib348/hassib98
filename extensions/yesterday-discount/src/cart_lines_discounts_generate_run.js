@@ -184,6 +184,16 @@ function getYesterdayEligibleCartLines(cartLines) {
       return false;
     }
 
+    // Exclude PREORDER lines from the yesterday discount.
+    // A "yesterday" item is day-old stock picked up immediately; a preorder is for a
+    // future date, so it can NEVER be a yesterday item. The storefront can stamp
+    // yesterday_item="Y" on a line while it is still a preorder (immediate_inventory="N"),
+    // which previously let preorders receive the 50% (see order 74780). This guard closes
+    // that hole at the authoritative layer: preorder lines are never eligible.
+    if (isPreorderItem(line)) {
+      return false;
+    }
+
     // Exclude delivery, service, and other non-eligible items
     // These items should not receive the yesterday item discount even if they have the attribute
     const product = line.merchandise.product;
@@ -253,6 +263,36 @@ function isYesterdayItem(line) {
   const isEligible = yesterdayItemValue.toUpperCase() === 'Y';
   console.log('DEBUG: yesterday_item eligibility result:', isEligible);
   return isEligible;
+}
+
+/**
+ * Check if a cart line is a PREORDER line (future pickup) that must be excluded
+ * from the yesterday 50% discount.
+ *
+ * The storefront stamps the line attribute immediate_inventory on every menu item:
+ *   - immediate_inventory="Y" => immediate / yesterday (day-old) item  -> eligible
+ *   - immediate_inventory="N" => preorder / future pickup              -> NOT eligible
+ * (This is the same flag the backend uses to decide preorder vs immediate inventory in
+ * OrdersCreateJob.) A genuine yesterday item is always immediate_inventory="Y", so we
+ * only exclude lines explicitly flagged "N". Missing/"Y" values are treated as eligible,
+ * which keeps legitimate yesterday items working even if the attribute is absent.
+ *
+ * @param {Object} line - Cart line with attribute fields from GraphQL query
+ * @returns {boolean} True if this is a preorder line (must be excluded)
+ */
+function isPreorderItem(line) {
+  // Extract immediate_inventory attribute value (queried as immediateInventoryAttribute)
+  const immediateInventoryValue = line.immediateInventoryAttribute?.value;
+
+  // DEBUG: Log the flag used to exclude preorders from the yesterday discount
+  console.log('  immediateInventoryAttribute:', immediateInventoryValue);
+
+  // Only an explicit "N" marks a preorder; treat everything else as immediate.
+  const isPreorder = (immediateInventoryValue || '').toUpperCase() === 'N';
+  if (isPreorder) {
+    console.log('DEBUG: preorder line (immediate_inventory=N) - excluded from yesterday discount');
+  }
+  return isPreorder;
 }
 
 /**
