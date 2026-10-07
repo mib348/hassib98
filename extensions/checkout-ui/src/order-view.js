@@ -421,9 +421,12 @@ export async function runOrderExtension(getIdentity, getIdentitySignal) {
           // Re-read the signal in case the name arrived during the request, but
           // require the same order ID so a later navigation cannot mix orders.
           const fallbackIdentity = safeIdentity(getIdentity);
-          const numberMatch = /^#([1-9]\d*)$/.exec(fallbackIdentity.name || '');
+          // Shopify lets each store remove its order-name prefix. Production
+          // returns plain digits, while development returns #digits. Accept
+          // both complete numeric forms and keep their digits as a string.
+          const numberMatch = /^#?([1-9]\d*)$/.exec(fallbackIdentity.name || '');
           // Compare the whole match too: JavaScript's $ can match before a final
-          // newline. Accept only the complete #digits name, without truncation.
+          // newline. Accept only the complete numeric name, without truncation.
           if (extractNumericId(fallbackIdentity.gid) === numericId &&
             numberMatch?.[0] === fallbackIdentity.name) {
             state.orderNumber = numberMatch[1];
