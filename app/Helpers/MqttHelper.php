@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use PhpMqtt\Client\Contracts\MqttClient;
 use PhpMqtt\Client\Facades\MQTT;
 
 /**
@@ -441,10 +442,11 @@ class MqttHelper
      * Publish one approved device command without throwing on broker failures.
      *
      * Only the three fields defined by the Pi client are sent. QoS 1 asks the
-     * broker for at-least-once delivery, while retain=false prevents commands
-     * such as restart_device from being replayed to a device after reconnect.
+     * broker for at-least-once delivery. Non-retained commands are not saved as
+     * the topic's last value, but persistent sessions can still queue them.
+     * Devices must therefore reject stale commands and handle duplicates.
      */
-    public static function publishPiCommand(string $locationName, string $command, ?string $timestamp = null): bool
+    public static function publishPiCommand(string $locationName, string $command, ?string $timestamp = null, ?MqttClient $connection = null): bool
     {
         self::guardPiCommand($command);
 
@@ -460,7 +462,7 @@ class MqttHelper
                 JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
             );
 
-            MQTT::connection('default')->publish($topic, $json, 1, false);
+            ($connection ?? MQTT::connection('default'))->publish($topic, $json, 1, false);
 
             Log::info('MQTT: Published Pi command', [
                 'topic' => $topic,
@@ -478,6 +480,42 @@ class MqttHelper
 
             return false;
         }
+    }
+
+    /**
+     * Share one publisher connection across a bulk action. Finish every publish
+     * attempt before the controller starts waiting for status updates. A failed
+     * location does not stop later locations, and we never retry an uncertain
+     * publish automatically because a device may already have received it.
+     *
+     * @return array<string, bool> Publish outcome keyed by location name.
+     */
+    public static function publishPiCommands(array $locationNames, string $command, ?string $timestamp = null): array
+    {
+        self::guardPiCommand($command);
+        $results = array_fill_keys($locationNames, false);
+
+        if ($locationNames === []) {
+            return $results;
+        }
+
+        try {
+            $connection = MQTT::connection('default');
+        } catch (\Throwable $e) {
+            Log::error('MQTT: Failed to connect for bulk Pi command', [
+                'command' => $command,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $results;
+        }
+
+        $timestamp ??= Carbon::now('Europe/Berlin')->toIso8601String();
+        foreach ($locationNames as $locationName) {
+            $results[$locationName] = self::publishPiCommand($locationName, $command, $timestamp, $connection);
+        }
+
+        return $results;
     }
 
     /**
@@ -535,7 +573,7 @@ class MqttHelper
      */
     private static function guardPiCommand(string $command): void
     {
-        if (! in_array($command, ['test_internet_connection', 'restart_device'], true)) {
+        if (! in_array($command, ['test_internet_connection', 'restart_device', 'open_door', 'close_door'], true)) {
             throw new \InvalidArgumentException("Unsupported MQTT Pi command [{$command}].");
         }
     }

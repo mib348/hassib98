@@ -24,6 +24,8 @@ class TechAdminController extends Controller
     private const DEVICE_COMMANDS = [
         'test_internet_connection',
         'restart_device',
+        'open_door',
+        'close_door',
     ];
 
     /**
@@ -109,7 +111,7 @@ class TechAdminController extends Controller
     }
 
     /**
-     * Publish one of the two device commands approved by the Pi client.
+     * Publish one of the explicitly allowed device commands.
      *
      * A successful MQTT publish only proves the broker accepted the command.
      * The endpoint separately waits for a newer stored heartbeat so the UI can
@@ -118,6 +120,104 @@ class TechAdminController extends Controller
     public function command(Request $request): JsonResponse
     {
         return $this->sendDeviceCommand($request);
+    }
+
+    /**
+     * The server chooses the same active locations as the status table, including
+     * offline/unknown devices. Browser-supplied locations cannot narrow or expand
+     * this list. Snapshot heartbeats first, dispatch all messages, then use ONE
+     * twelve-second window for the entire batch instead of one wait per device.
+     */
+    public function commandAll(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'command' => ['required', 'string', Rule::in(['open_door', 'close_door', 'restart_device'])],
+        ]);
+        $rows = $this->buildStatusRows();
+        if ($rows === []) {
+            return response()->json(['message' => 'No eligible locations found.'], 422);
+        }
+
+        $previousStatuses = PiStatus::query()
+            ->whereIn('location_slug', array_column($rows, 'location_slug'))
+            ->get()->keyBy('location_slug');
+        $published = MqttHelper::publishPiCommands(array_column($rows, 'location'), $validated['command']);
+        $pending = [];
+        foreach ($rows as $row) {
+            if ($published[$row['location']]) {
+                $pending[$row['location_slug']] = $previousStatuses->get($row['location_slug'])?->last_seen_at;
+            }
+        }
+
+        $latestStatuses = $this->waitForUpdatedPiStatuses($pending);
+        $results = [];
+        // Refresh telemetry through the existing row builder. Keep the original
+        // target list even if location configuration changes during the wait.
+        $latestRows = collect($this->buildStatusRows())->keyBy('location');
+        foreach ($rows as $row) {
+            $slug = $row['location_slug'];
+            $status = $latestStatuses[$slug] ?? null;
+            $results[] = [
+                'location' => $row['location'],
+                'location_slug' => $slug,
+                'topic' => MqttHelper::piCommandTopic($row['location']),
+                'command' => $validated['command'],
+                'published' => $published[$row['location']],
+                'pi_replied' => $published[$row['location']] && $status instanceof PiStatus
+                    && $this->isFresherPiStatus($status, $pending[$slug]),
+                'latest_row' => $latestRows->get($row['location'], $row),
+            ];
+        }
+
+        $total = count($results);
+        $sent = count(array_filter($published));
+        $responded = count(array_filter(array_column($results, 'pi_replied')));
+
+        return response()->json([
+            'message' => "Command sent to {$sent} of {$total} locations; fresh status received from {$responded}.",
+            'data' => $results,
+            'meta' => [
+                'total' => $total,
+                'sent' => $sent,
+                'failed' => $total - $sent,
+                'responded' => $responded,
+                'generated_at' => Carbon::now('Europe/Berlin')->toIso8601String(),
+                'stale_after_seconds' => self::STALE_AFTER_SECONDS,
+            ],
+        ], $sent > 0 ? 200 : 500);
+    }
+
+    /**
+     * Poll all outstanding slugs together. A newer heartbeat is only evidence
+     * of device activity, never proof that a door opened or a restart finished.
+     * Use a monotonic clock so changing the system clock cannot extend the wait.
+     * An empty batch (all publishes failed) returns immediately without polling.
+     *
+     * @param  array<string, CarbonInterface|null>  $previousLastSeenAt
+     * @return array<string, PiStatus>
+     */
+    private function waitForUpdatedPiStatuses(array $previousLastSeenAt): array
+    {
+        $pending = $previousLastSeenAt;
+        $latest = [];
+        $deadline = hrtime(true) + 12000 * 1000000;
+        while ($pending !== []) {
+            foreach (PiStatus::query()->whereIn('location_slug', array_keys($pending))->get() as $status) {
+                $slug = $status->location_slug;
+                $latest[$slug] = $status;
+                if ($this->isFresherPiStatus($status, $pending[$slug])) {
+                    unset($pending[$slug]);
+                }
+            }
+
+            $remainingMicroseconds = (int) (($deadline - hrtime(true)) / 1000);
+            if ($pending === [] || $remainingMicroseconds <= 0) {
+                break;
+            }
+            usleep(min(500000, $remainingMicroseconds));
+        }
+
+        return $latest;
     }
 
     private function sendDeviceCommand(Request $request): JsonResponse
@@ -184,9 +284,12 @@ class TechAdminController extends Controller
 
     private function deviceCommandMessage(string $command, bool $published): string
     {
-        $commandLabel = $command === 'restart_device'
-            ? 'Restart command'
-            : 'Internet test command';
+        $commandLabel = match ($command) {
+            'restart_device' => 'Restart command',
+            'open_door' => 'Open door command',
+            'close_door' => 'Close door command',
+            default => 'Internet test command',
+        };
 
         return $published
             ? $commandLabel.' sent.'

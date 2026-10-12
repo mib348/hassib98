@@ -82,6 +82,7 @@ Route::get('/tech/admin', [TechAdminController::class, 'index'])->name('tech_adm
 Route::get('/tech/admin/statuses', [TechAdminController::class, 'statuses'])->name('tech_admin.statuses');
 Route::post('/tech/admin/check-pi', [TechAdminController::class, 'checkPi'])->name('tech_admin.check_pi');
 Route::post('/tech/admin/command', [TechAdminController::class, 'command'])->name('tech_admin.command');
+Route::post('/tech/admin/command-all', [TechAdminController::class, 'commandAll'])->name('tech_admin.command_all');
 
 Route::middleware(['verify.shopify'])->group(function () {
     Route::get('/', [ShopifyController::class, 'index'])->name('home');

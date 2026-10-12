@@ -134,7 +134,14 @@ Internet strength: checked every 5 minutes'])
     </div>
     <div class="admin-help-row">
         <span class="fw-semibold">Device commands</span>
-        @include('partials.admin_help_tooltip', ['text' => 'Check PI Response sends the lightweight legacy health check. Test Internet asks the selected Pi to run one manual internet speed test. Restart Device asks it to reboot. A green toast means the broker accepted the request and a fresh Pi status was received; an amber toast means the broker accepted it but no fresh status arrived in the response window; a red toast means publishing failed.'])
+        @include('partials.admin_help_tooltip', ['text' => 'Check PI Response sends the lightweight health check. Test Internet requests one manual speed test. Open Door and Close Door request the corresponding action from the Pi. The Pi must support these commands. Restart Device requests a reboot. Only the selected location is busy during an individual request; other locations remain usable. Bulk actions wait until individual requests finish. Command sent and fresh status received describe dispatch and heartbeat activity only; they do not confirm that a door opened, closed, or locked, or that a restart completed. Individual results remain in each command cell until the next action or page reload.'])
+    </div>
+    <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-2">
+        @include('partials.admin_help_tooltip', ['text' => 'Open All Doors, Close All Doors and Restart All Devices target all active locations in this table, including offline or unknown devices. Additional Inventory, Default Menu and Delivery are excluded. One confirmation shows the action and current location count; the server resolves the targets when the request arrives. All commands are sent before one shared status wait of up to 12 seconds. Requests are never retried automatically.'])
+        <span class="tech-admin-meta" id="tech-admin-target-count">Waiting for locations</span>
+        <button type="button" class="btn btn-sm btn-primary js-tech-bulk-command" data-command="open_door" data-label="Open All Doors" disabled>Open All Doors</button>
+        <button type="button" class="btn btn-sm btn-primary js-tech-bulk-command" data-command="close_door" data-label="Close All Doors" disabled>Close All Doors</button>
+        <button type="button" class="btn btn-sm btn-danger js-tech-bulk-command" data-command="restart_device" data-label="Restart All Devices" disabled>Restart All Devices</button>
     </div>
     {{-- Command feedback belongs in temporary top-right toasts rather than a
          permanent alert that pushes the large status table down. Each action
@@ -184,11 +191,25 @@ Internet strength: checked every 5 minutes'])
             const statusesUrl = @json(route('tech_admin.statuses'));
             const checkUrl = @json(route('tech_admin.check_pi'));
             const commandUrl = @json(route('tech_admin.command'));
+            const commandAllUrl = @json(route('tech_admin.command_all'));
             const pollingIntervalMs = 15000;
             let isLoadingStatuses = false;
+            let statusRows = [];
+            let statusesReady = false;
+            let isDispatching = false;
+            // Polling rebuilds the table, so pending/result state must live outside
+            // the DOM. Individual requests only lock their own location, allowing
+            // other rows to work while a slow or offline Pi uses its response window.
+            // The bulk flag still locks every row because it targets every device.
+            const pendingLocations = new Set();
+            const commandStates = new Map();
 
             function escapeHtml(value) {
                 return $('<div>').text(value ?? '').html();
+            }
+
+            function escapeHtmlAttribute(value) {
+                return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
             }
 
             function renderStatusBadge(value) {
@@ -215,18 +236,22 @@ Internet strength: checked every 5 minutes'])
             }
 
             function renderRow(row, indexLabel) {
+                const locationAttribute = escapeHtmlAttribute(row.location);
                 const commandButtons = [
                     '<div class="tech-admin-actions">',
-                        '<button type="button" class="btn btn-sm btn-outline-secondary js-tech-device-action js-tech-check-pi" data-label="Check PI Response" data-location="' + escapeHtml(row.location) + '" title="Request a lightweight status response from this device">',
+                        '<button type="button" class="btn btn-sm btn-outline-secondary js-tech-device-action js-tech-check-pi" data-label="Check PI Response" data-location="' + locationAttribute + '" title="Request a lightweight status response from this device">',
                             'Check PI Response',
                         '</button>',
-                        '<button type="button" class="btn btn-sm btn-outline-primary js-tech-device-action js-tech-device-command" data-label="Test Internet" data-command="test_internet_connection" data-location="' + escapeHtml(row.location) + '" title="Run one manual internet speed test on this device">',
+                        '<button type="button" class="btn btn-sm btn-outline-primary js-tech-device-action js-tech-device-command" data-label="Test Internet" data-command="test_internet_connection" data-location="' + locationAttribute + '" title="Run one manual internet speed test on this device">',
                             'Test Internet',
                         '</button>',
-                        '<button type="button" class="btn btn-sm btn-outline-danger js-tech-device-action js-tech-device-command" data-label="Restart Device" data-command="restart_device" data-location="' + escapeHtml(row.location) + '" title="Restart this device">',
+                        '<button type="button" class="btn btn-sm btn-outline-danger js-tech-device-action js-tech-device-command" data-label="Restart Device" data-command="restart_device" data-location="' + locationAttribute + '" title="Restart this device">',
                             'Restart Device',
                         '</button>',
-                    '</div>'
+                        '<button type="button" class="btn btn-sm btn-outline-primary js-tech-device-action js-tech-device-command" data-label="Open Door" data-command="open_door" data-location="' + locationAttribute + '" title="Request this device to open the door">Open Door</button>',
+                        '<button type="button" class="btn btn-sm btn-outline-primary js-tech-device-action js-tech-device-command" data-label="Close Door" data-command="close_door" data-location="' + locationAttribute + '" title="Request this device to close the door">Close Door</button>',
+                    '</div>',
+                    '<div class="tech-admin-command-result small mt-1" role="status">' + escapeHtml(commandStates.get(row.location) || '') + '</div>'
                 ].join('');
 
                 return [
@@ -259,32 +284,28 @@ Internet strength: checked every 5 minutes'])
                 }).join('');
             }
 
+            function renderCurrentRows() {
+                $('#techAdminTable tbody').html(renderRows(statusRows));
+                // Newly rendered buttons must inherit the in-flight request lock.
+                $('.js-tech-device-action').each(function () {
+                    $(this).prop('disabled', isDispatching || pendingLocations.has($(this).data('location')));
+                });
+                $('.js-tech-bulk-command').prop('disabled', isDispatching || pendingLocations.size > 0 || !statusesReady || !statusRows.length);
+                $('#tech-admin-target-count').text(statusRows.length + ' locations');
+            }
+
             function replaceOrAppendRow(row) {
                 if (!row || !row.location_slug) {
                     return false;
                 }
-
-                const $tbody = $('#techAdminTable tbody');
-                const $existingRow = $tbody.find('tr[data-location-slug="' + row.location_slug + '"]');
-                const existingIndexLabel = $existingRow.length
-                    ? $existingRow.children().first().text().trim()
-                    : (($tbody.children('tr').length + 1) + '.');
-                const rowHtml = renderRow(row, existingIndexLabel || '-');
-
-                if ($existingRow.length) {
-                    $existingRow.replaceWith(rowHtml);
-                    return true;
+                const index = statusRows.findIndex(function (existing) {
+                    return existing.location_slug === row.location_slug;
+                });
+                if (index >= 0) {
+                    statusRows[index] = row;
+                } else {
+                    statusRows.push(row);
                 }
-
-                const hasPlaceholderRow = $tbody.find('tr td[colspan="14"]').length > 0;
-
-                if (hasPlaceholderRow) {
-                    $tbody.html(rowHtml);
-                    return true;
-                }
-
-                $tbody.append(rowHtml);
-
                 return true;
             }
 
@@ -352,16 +373,19 @@ Internet strength: checked every 5 minutes'])
                     type: 'GET',
                     dataType: 'json',
                     success: function (response) {
-                        const rows = Array.isArray(response.data) ? response.data : [];
-                        $('#techAdminTable tbody').html(renderRows(rows));
+                        statusRows = Array.isArray(response.data) ? response.data : [];
+                        statusesReady = true;
+                        renderCurrentRows();
                         updateLastUpdatedLabel(response.meta ? response.meta.generated_at : null);
                         initializeAdminHelpTooltips();
                     },
                     error: function (xhr) {
                         const errorMessage = window.getAjaxErrorMessage(xhr, 'Unable to load Pi status rows.');
-                        $('#techAdminTable tbody').html(
-                            '<tr><td colspan="14" class="text-center text-danger">' + escapeHtml(errorMessage) + '</td></tr>'
-                        );
+                        // Keep command feedback and pending controls visible if a poll
+                        // fails. A failed refresh must never unlock a running request.
+                        statusesReady = false;
+                        renderCurrentRows();
+                        $('#tech-admin-last-updated').text(errorMessage);
                     },
                     complete: function () {
                         isLoadingStatuses = false;
@@ -369,58 +393,98 @@ Internet strength: checked every 5 minutes'])
                 });
             }
 
-            function sendDeviceAction($button, url, requestData, actionLabel, pendingLabel) {
-                const location = requestData.location;
-                const $row = $button.closest('tr');
-                const $actionButtons = $row.find('.js-tech-device-action');
+            function recordCommandResult(data, actionLabel) {
+                const detail = data.published
+                    ? (data.pi_replied ? 'Command sent; fresh status received.' : 'Command sent; no fresh status received within ~12s.')
+                    : 'Publish failed; delivery not confirmed.';
+                commandStates.set(data.location, actionLabel + ': ' + detail);
+                replaceOrAppendRow(data.latest_row || null);
+            }
 
-                $actionButtons.prop('disabled', true);
-                $button.text(pendingLabel);
-                showToast('Sending ' + actionLabel + ' to ' + location + '...', 'info');
+            function sendDeviceAction($button, url, requestData, actionLabel, pendingLabel) {
+                const isBulk = url === commandAllUrl;
+                if (isDispatching || (isBulk ? pendingLocations.size > 0 : pendingLocations.has(requestData.location))) {
+                    return;
+                }
+                const targets = isBulk ? statusRows.map(row => row.location) : [requestData.location];
+                if (isBulk) {
+                    isDispatching = true;
+                } else {
+                    pendingLocations.add(requestData.location);
+                }
+                targets.forEach(location => commandStates.set(location, actionLabel + ': ' + pendingLabel));
+                renderCurrentRows();
+                showToast('Sending ' + actionLabel + (isBulk ? ' to ' + targets.length + ' locations...' : ' to ' + requestData.location + '...'), 'info');
+
+                function handleResponse(response) {
+                    const results = isBulk ? response.data : [response.data];
+                    results.forEach(data => recordCommandResult(data, actionLabel));
+                    updateLastUpdatedLabel(response.meta ? response.meta.generated_at : null);
+                    if (isBulk) {
+                        const meta = response.meta;
+                        showToast(actionLabel + ': ' + meta.sent + '/' + meta.total + ' commands sent; ' + meta.failed + ' failed; fresh status received from ' + meta.responded + '.',
+                            meta.sent === 0 ? 'danger' : (meta.failed || meta.responded < meta.sent ? 'warning' : 'success'));
+                    } else {
+                        const data = response.data;
+                        showToast(requestData.location + ' — ' + commandStates.get(requestData.location),
+                            !data.published ? 'danger' : (data.pi_replied ? 'success' : 'warning'));
+                    }
+                }
 
                 $.ajax({
                     url: url,
                     type: 'POST',
                     dataType: 'json',
                     data: requestData,
-                    success: function (response) {
-                        const data = response && response.data ? response.data : {};
-                        const latestRow = data.latest_row || null;
-                        const rowWasUpdated = replaceOrAppendRow(latestRow);
-
-                        updateLastUpdatedLabel(response && response.meta ? response.meta.generated_at : null);
-
-                        if (!rowWasUpdated) {
-                            loadStatuses();
-                        }
-
-                        // "published" means the broker accepted the command. "pi_replied"
-                        // means a fresh heartbeat was stored by Laravel in the response
-                        // window; it does not claim that a reboot has fully completed.
-                        if (data.published && data.pi_replied) {
-                            showToast('MQTT broker received the ' + actionLabel + ' and ' + location + ' sent a fresh status response.', 'success');
-                        } else if (data.published) {
-                            showToast('MQTT broker accepted the ' + actionLabel + ', but ' + location + ' did not send a fresh status within ~12s. The device may be offline or still processing the request.', 'warning');
-                        }
-                    },
+                    success: handleResponse,
                     error: function (xhr) {
-                        showToast(window.getAjaxErrorMessage(xhr, 'MQTT broker did not accept the ' + actionLabel + '.'), 'danger');
+                        const response = xhr.responseJSON;
+                        // HTTP 500 can contain a complete set of failed publishes.
+                        // Transport failures are uncertain: never claim nothing was
+                        // sent, and never retry a door/restart command automatically.
+                        if (response && (isBulk ? Array.isArray(response.data) : response.data && response.data.location)) {
+                            handleResponse(response);
+                            return;
+                        }
+                        const message = xhr.status === 422
+                            ? window.getAjaxErrorMessage(xhr, 'Request rejected.')
+                            : 'Delivery unknown. Check device status before sending again; this request was not retried.';
+                        targets.forEach(location => commandStates.set(location, actionLabel + ': ' + message));
+                        showToast(message, 'danger');
                     },
                     complete: function () {
-                        $actionButtons.each(function () {
-                            $(this)
-                                .prop('disabled', false)
-                                .text($(this).data('label'));
-                        });
+                        // Finishing one row must not release another row's lock.
+                        // Requests for different locations may complete in any order.
+                        if (isBulk) {
+                            isDispatching = false;
+                        } else {
+                            pendingLocations.delete(requestData.location);
+                        }
+                        renderCurrentRows();
                     }
                 });
             }
+
+            $(document).on('click', '.js-tech-bulk-command', function () {
+                if (isDispatching || pendingLocations.size > 0 || !statusesReady || !statusRows.length) {
+                    return;
+                }
+                const $button = $(this);
+                const actionLabel = $button.data('label');
+                if (!window.confirm(actionLabel + ' for ' + statusRows.length + ' locations, including offline or unknown devices?')) {
+                    return;
+                }
+                sendDeviceAction($button, commandAllUrl, {
+                    _token: @json(csrf_token()),
+                    command: $button.data('command')
+                }, actionLabel, 'Sending command...');
+            });
 
             $(document).on('click', '.js-tech-check-pi', function () {
                 const $button = $(this);
                 const location = $button.data('location');
 
-                if (!location) {
+                if (isDispatching || pendingLocations.has(location) || !location) {
                     return;
                 }
 
@@ -440,13 +504,27 @@ Internet strength: checked every 5 minutes'])
                 const $button = $(this);
                 const location = $button.data('location');
                 const command = $button.data('command');
-                const commandLabel = command === 'restart_device' ? 'restart command' : 'internet test command';
+                const commandLabel = {
+                    restart_device: 'Restart command',
+                    open_door: 'Open door command',
+                    close_door: 'Close door command'
+                }[command] || 'Internet test command';
 
-                if (!location || !command) {
+                if (isDispatching || pendingLocations.has(location) || !location || !command) {
                     return;
                 }
 
                 if (command === 'restart_device' && !window.confirm('Restart the device at ' + location + '?')) {
+                    return;
+                }
+
+                if (command === 'open_door' && !window.confirm('Open the door at ' + location + '?')) {
+                    return;
+                }
+
+                // Closing uses the same confirmation and per-location lock as
+                // opening; the Pi handler decides how the hardware responds.
+                if (command === 'close_door' && !window.confirm('Close the door at ' + location + '?')) {
                     return;
                 }
 
@@ -459,7 +537,7 @@ Internet strength: checked every 5 minutes'])
                         command: command
                     },
                     commandLabel,
-                    command === 'restart_device' ? 'Restarting...' : 'Testing...'
+                    'Sending command...'
                 );
             });
 
