@@ -1,10 +1,10 @@
 @php
     // Shopify adds one or more of these query values when the page is opened
     // inside Admin. A direct URL has none of them and must avoid App Bridge.
-    $techAdminEmbedded = (int) request('menu') === 1
+    $techAdminEmbedded = ! request()->attributes->get('master_frame') && ((int) request('menu') === 1
         || request()->filled('shop')
         || request()->filled('host')
-        || request()->boolean('embedded');
+        || request()->boolean('embedded'));
 @endphp
 @extends($techAdminEmbedded ? 'shopify-app::layouts.default' : 'layouts.app')
 
@@ -93,21 +93,21 @@
 @endsection
 
 @section('content')
-{{-- Decide standalone vs embedded as early as possible — BEFORE the App Bridge
-     nav/title-bar elements below are parsed — so the hide CSS applies with no
-     visible flash. window.self === window.top is only true when the page is NOT
-     embedded in the Shopify admin iframe (i.e. opened by direct URL). --}}
+{{-- Apply standalone styling before parsing the content. Master Admin also
+     uses an iframe, so window.top alone cannot identify the Shopify layout. --}}
 <script>
-    if (window.self === window.top) {
+    if (@json(! $techAdminEmbedded) || window.self === window.top) {
         document.documentElement.classList.add('tech-admin-standalone');
     }
 </script>
 
+@if(! request()->attributes->get('master_frame'))
 @include('partials.app_nav')
 
 <s-page heading="Tech Admin">
     @include('partials.app_page_actions', ['primaryAction' => ['label' => 'Location Order Overview', 'path' => '/orders']])
 </s-page>
+@endif
 
 {{-- Plain heading shown only in standalone mode (see the styles block); embedded
      mode uses the native <s-page heading="Tech Admin"> above. --}}

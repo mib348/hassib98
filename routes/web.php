@@ -21,6 +21,13 @@ use App\Livewire\Stores\StoresList;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+Route::prefix('master/admin')->name('master_admin.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\MasterAdminController::class, 'index'])->name('index');
+    Route::post('/login', [\App\Http\Controllers\MasterAdminController::class, 'login'])->name('login');
+    Route::post('/logout', [\App\Http\Controllers\MasterAdminController::class, 'logout'])->name('logout');
+    Route::get('/session', [\App\Http\Controllers\MasterAdminController::class, 'session'])->name('session');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes

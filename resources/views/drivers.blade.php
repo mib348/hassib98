@@ -1,4 +1,4 @@
-@extends((int) request('menu') === 1 ? 'shopify-app::layouts.default' : 'layouts.app')
+@extends(! request()->attributes->get('master_frame') && (int) request('menu') === 1 ? 'shopify-app::layouts.default' : 'layouts.app')
 
 @section('styles')
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/fontawesome.min.css" integrity="sha512-v8QQ0YQ3H4K6Ic3PJkym91KoeNT5S3PnDKvqnwqFD1oiqIl653crGZplPdU5KKtHjO0QKcQ2aUlQZYjHczkmGw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -246,7 +246,7 @@
 
 @section('content')
 {{-- AppBridge v4 Title Bar for Shopify admin (menu=1) --}}
-@if((int) request('menu') === 1)
+@if(! request()->attributes->get('master_frame') && (int) request('menu') === 1)
 {{-- AppBridge v4 App Nav - Global Navigation Menu --}}
 @include('partials.app_nav')
 
@@ -255,7 +255,7 @@
 </s-page>
 @endif
 
-@if((int) request('menu') !== 1)
+@if(! request()->attributes->get('master_frame') && (int) request('menu') !== 1)
 <nav class="navbar row navbar-dark bg-dark" style="margin-top: -25px;">
     <div class="container-fluid">
         <!-- Logo on the left -->
@@ -277,14 +277,14 @@
 <div class="container-full p-2">
     <div class="row">
         <div class="col-12">
-            <h5 @if((int) request('menu') === 1) class="admin-help-label" @endif>PreOrders & Immediate Inventory
-                @if((int) request('menu') === 1)
+            <h5 @if(request()->attributes->get('master_frame') || (int) request('menu') === 1) class="admin-help-label" @endif>PreOrders & Immediate Inventory
+                @if(request()->attributes->get('master_frame') || (int) request('menu') === 1)
                 @include('partials.admin_help_tooltip', ['text' => 'Drivers use this view to see each location\'s active orders, open maps directions, mark fulfillment, and confirm cleaning when a location is finished.'])
                 @endif
             </h5>
         </div>
     </div>
-    @if((int) request('menu') === 1)
+    @if(request()->attributes->get('master_frame') || (int) request('menu') === 1)
     <div class="admin-help-row">
         <span class="fw-semibold">Page help</span>
         @include('partials.admin_help_tooltip', ['text' => 'Accordion cards group locations by store in admin mode. Open a location to access the operational buttons and order details for that stop.'])
