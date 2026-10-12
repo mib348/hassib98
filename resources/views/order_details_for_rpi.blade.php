@@ -45,6 +45,14 @@
         .rpi-order-details .rpi-value-list li + li { margin-top: .35rem; }
         .rpi-order-details .admin-help-row { flex-wrap: wrap; }
         .rpi-order-details .admin-help-tooltip:focus-visible { outline: 2px solid #0d6efd; outline-offset: 3px; }
+        .rpi-order-details .rpi-image-reference { min-height: 44px; max-width: 100%; padding: .25rem 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+        .rpi-order-details .rpi-image-dialog { width: min(56rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); padding: 1rem; border: 1px solid #6c757d; border-radius: .5rem; overflow: auto; }
+        .rpi-order-details .rpi-image-dialog::backdrop { background: rgba(0, 0, 0, .65); }
+        .rpi-order-details .rpi-image-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
+        .rpi-order-details .rpi-image-dialog-header h2 { font-size: 1.25rem; margin: 0; }
+        .rpi-order-details .rpi-image-dialog-close { min-width: 44px; min-height: 44px; }
+        .rpi-order-details .rpi-image-dialog img { max-width: 100%; max-height: 65vh; object-fit: contain; }
+        .rpi-order-details .rpi-image-caption { overflow-wrap: anywhere; }
     </style>
 @endsection
 
@@ -92,7 +100,7 @@
     </div>
     <div class="admin-help-row">
         <span class="fw-semibold">RPI details table</span>
-        @include('partials.admin_help_tooltip', ['text' => 'Search and pagination read existing fulfillment records for the permitted locations. Scroll the table horizontally to see all columns. The table starts with the most recently updated records and refreshes every 60 seconds while preserving your search and page. Image references are reported filenames or URLs; their availability is not verified.'])
+        @include('partials.admin_help_tooltip', ['text' => 'Search and pagination read existing fulfillment records for the permitted locations. Scroll the table horizontally to see all columns. The table starts with the latest scheduled pickup date, then the highest order number, and refreshes every 60 seconds while preserving your search and page. Linked order numbers open Shopify in a new tab. Click an image reference to preview it here. Supported public Laravel storage paths and HTTP or HTTPS URLs load only when clicked; the original reference stays visible. Unsupported references cannot be previewed, and image availability is not verified.'])
     </div>
     <p id="rpi-data-notes" class="small text-muted mb-2">Reported pickup timestamps are shown unchanged; their source timezone is unverified. Door-open units are unverified. Missing details are left empty.</p>
     <div id="rpi-load-error" class="alert alert-warning" role="alert" hidden>
@@ -122,6 +130,19 @@
             <tbody></tbody>
         </table>
     </div>
+    {{-- Native dialog supplies modal focus handling and Escape-to-close. There
+         is deliberately no image src until the admin clicks a reference. --}}
+    <dialog id="rpi-image-dialog" class="rpi-image-dialog" aria-labelledby="rpi-image-title" aria-describedby="rpi-image-caption">
+        <div class="rpi-image-dialog-header">
+            <h2 id="rpi-image-title">Image preview</h2>
+            <button id="rpi-image-close" type="button" class="btn btn-outline-secondary rpi-image-dialog-close" autofocus>Close</button>
+        </div>
+        <p id="rpi-image-status" role="status" aria-live="polite"></p>
+        <div class="text-center">
+            <img id="rpi-image-preview" alt="Reported image preview" referrerpolicy="no-referrer" hidden>
+        </div>
+        <p id="rpi-image-caption" class="rpi-image-caption small mt-3 mb-0"></p>
+    </dialog>
 </div>
 
 @endsection
@@ -141,10 +162,18 @@
         $(function () {
             const errorNotice = document.getElementById('rpi-load-error');
             const tableRegion = document.getElementById('rpi-table-region');
+            const imageDialog = document.getElementById('rpi-image-dialog');
+            const imageTitle = document.getElementById('rpi-image-title');
+            const imageCaption = document.getElementById('rpi-image-caption');
+            const imageStatus = document.getElementById('rpi-image-status');
+            const imagePreview = document.getElementById('rpi-image-preview');
+            const imageClose = document.getElementById('rpi-image-close');
             let activeRequest = null;
             let requestSequence = 0;
+            let imageSequence = 0;
+            let imageTrigger = null;
 
-            // Insert device values as text, never as markup or image URLs.
+            // Insert device values as text, never as markup.
             // Explicit empty checks preserve valid values such as numeric zero.
             function renderScalar(value, type) {
                 const text = value === null || value === undefined || value === '' ? '' : String(value);
@@ -156,7 +185,53 @@
                 return element.outerHTML;
             }
 
-            function renderList(values, type) {
+            // Accept an explicit web URL only. A filename is not enough to know
+            // its storage location; never guess a URL or accept executable schemes.
+            function webUrl(value) {
+                if (typeof value !== 'string' || !/^https?:\/\//i.test(value) || /[\\\u0000-\u0020]/.test(value)) {
+                    return null;
+                }
+                try {
+                    const url = new URL(value);
+                    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null;
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            // The server resolves storage references using Laravel's public disk.
+            // Only resolve its single-slash paths against this origin; do not
+            // invent a storage directory or turn raw filenames into requests.
+            function previewUrl(value) {
+                if (typeof value !== 'string' || /[\\\u0000-\u0020]/.test(value)) {
+                    return null;
+                }
+                if (value.startsWith('/') && !value.startsWith('//')) {
+                    try {
+                        const url = new URL(value, window.location.origin);
+                        return url.origin === window.location.origin ? url.href : null;
+                    } catch (error) {
+                        return null;
+                    }
+                }
+                return webUrl(value);
+            }
+
+            function renderOrder(value, type, row) {
+                const url = webUrl(row.shopify_order_url);
+                if (type !== 'display' || !url || value === null || value === undefined || value === '') {
+                    return renderScalar(value, type);
+                }
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = String(value);
+                link.setAttribute('aria-label', 'Order ' + String(value) + ' (opens Shopify in a new tab)');
+                return link.outerHTML;
+            }
+
+            function renderList(values, type, imageLabel, imageUrls) {
                 if (!Array.isArray(values) || values.length === 0) {
                     return renderScalar(null, type);
                 }
@@ -165,13 +240,103 @@
                 }
                 const list = document.createElement('ul');
                 list.className = 'rpi-value-list';
-                values.forEach(function (value) {
+                values.forEach(function (value, index) {
                     const item = document.createElement('li');
-                    item.textContent = String(value);
+                    if (typeof imageLabel === 'string') {
+                        // Keep references as button text and data, not image src.
+                        // This preserves each independent list without prefetching.
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'btn btn-link rpi-image-reference';
+                        button.textContent = String(value);
+                        button.dataset.imageReference = String(value);
+                        // URL positions map to references within this one field.
+                        // Before/after lists remain independent, not paired events.
+                        button.dataset.imageUrl = Array.isArray(imageUrls) ? (previewUrl(imageUrls[index]) || '') : '';
+                        button.dataset.imageLabel = imageLabel;
+                        button.setAttribute('aria-haspopup', 'dialog');
+                        item.appendChild(button);
+                    } else {
+                        item.textContent = String(value);
+                    }
                     list.appendChild(item);
                 });
                 return list.outerHTML;
             }
+
+            function resetImagePreview() {
+                // Invalidate an earlier load before removing its source. A slow
+                // response must not update a closed dialog or a newer preview.
+                imageSequence++;
+                imagePreview.onload = null;
+                imagePreview.onerror = null;
+                imagePreview.removeAttribute('src');
+                imagePreview.hidden = true;
+                imageStatus.hidden = false;
+                imageStatus.textContent = '';
+                imageDialog.setAttribute('aria-busy', 'false');
+            }
+
+            tableRegion.addEventListener('click', function (event) {
+                const button = event.target.closest('.rpi-image-reference');
+                if (!button) {
+                    return;
+                }
+                resetImagePreview();
+                imageTrigger = button;
+                const reference = button.dataset.imageReference;
+                imageTitle.textContent = button.dataset.imageLabel + ' image preview';
+                imageCaption.textContent = reference;
+                imageDialog.showModal();
+                imageClose.focus();
+
+                const url = previewUrl(button.dataset.imageUrl);
+                if (!url) {
+                    imageStatus.textContent = 'Preview unavailable: this reference is not a supported public image path or URL.';
+                    return;
+                }
+
+                const sequence = imageSequence;
+                imageStatus.textContent = 'Loading image…';
+                imageDialog.setAttribute('aria-busy', 'true');
+                imagePreview.onload = function () {
+                    if (sequence === imageSequence && imageDialog.open) {
+                        imagePreview.hidden = false;
+                        imageStatus.hidden = true;
+                        imageDialog.setAttribute('aria-busy', 'false');
+                    }
+                };
+                imagePreview.onerror = function () {
+                    if (sequence === imageSequence && imageDialog.open) {
+                        imageStatus.textContent = 'Unable to load this image. The reference may be unavailable.';
+                        imageDialog.setAttribute('aria-busy', 'false');
+                    }
+                };
+                // Loading starts only after the click and validation. Do not
+                // disclose the admin page URL to the image host as a referrer.
+                imagePreview.referrerPolicy = 'no-referrer';
+                imagePreview.src = url;
+            });
+
+            imageClose.addEventListener('click', function () {
+                imageDialog.close();
+            });
+            imageDialog.addEventListener('click', function (event) {
+                const bounds = imageDialog.getBoundingClientRect();
+                if (event.target === imageDialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) {
+                    imageDialog.close();
+                }
+            });
+            imageDialog.addEventListener('close', function () {
+                resetImagePreview();
+                // A refresh already in flight may have replaced the original row.
+                // In that case, return focus to the table search instead.
+                const focusTarget = imageTrigger && imageTrigger.isConnected ? imageTrigger : document.querySelector('#rpi-fulfillments_filter input');
+                if (focusTarget) {
+                    focusTarget.focus();
+                }
+                imageTrigger = null;
+            });
 
             const table = jQuery('#rpi-fulfillments').DataTable({
                 serverSide: true,
@@ -180,7 +345,7 @@
                 searchDelay: 350,
                 pageLength: 10,
                 lengthMenu: [[5, 10, 20, 50], [5, 10, 20, 50]],
-                order: [[11, 'desc']],
+                order: [[2, 'desc'], [1, 'desc']],
                 orderMulti: false,
                 dom: '<"rpi-table-controls"lf>r<"table-responsive rpi-table-scroll"t><"rpi-table-controls"ip>',
                 language: {
@@ -190,14 +355,14 @@
                 },
                 columns: [
                     { data: 'location', render: renderScalar },
-                    { data: 'order_number', render: renderScalar },
-                    { data: 'scheduled_pickup_date', render: renderScalar, orderable: false },
+                    { data: 'order_number', render: renderOrder },
+                    { data: 'scheduled_pickup_date', render: renderScalar },
                     { data: 'status', render: renderList, orderable: false },
                     { data: 'ordered_units', render: renderScalar, orderable: false },
                     { data: 'pickup_times', render: renderList, orderable: false },
                     { data: 'door_open_values', render: renderList, orderable: false },
-                    { data: 'before_images', render: renderList, orderable: false },
-                    { data: 'after_images', render: renderList, orderable: false },
+                    { data: 'before_images', render: function (values, type, row) { return renderList(values, type, 'Before', row.before_image_urls); }, orderable: false },
+                    { data: 'after_images', render: function (values, type, row) { return renderList(values, type, 'After', row.after_image_urls); }, orderable: false },
                     { data: 'reported_items', render: renderList, orderable: false },
                     { data: 'recorded_at', render: renderScalar },
                     { data: 'updated_at', render: renderScalar }
@@ -245,7 +410,7 @@
 
             // Refresh rows only: false preserves the current page and search.
             const refreshTimer = window.setInterval(function () {
-                if (!activeRequest) {
+                if (!activeRequest && !imageDialog.open) {
                     table.ajax.reload(null, false);
                 }
             }, 60000);
